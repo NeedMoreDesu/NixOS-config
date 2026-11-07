@@ -8,9 +8,10 @@
   services.desktopManager.plasma6.enable = true;
 
   services.xserver.xkb = {
-    # gb/mac with the §/± key (left of 1) replaced by ` / ~ — keyd fired its
-    # grave remap on that key's keycode, and Toshy's Cmd+` -> Alt+grave chain
-    # only reaches KWin once the keysym actually is grave.
+    # gb/mac with the §/± key (left of 1) replaced by ` / ~. KWin matches the
+    # in-app window switcher ("Walk Through Windows of Current Application") by
+    # keysym, so keyd's Cmd+` -> Alt+grave only lands once this key's symbols
+    # are actually grave/asciitilde instead of section/plusminus.
     layout = "gb-mac-grave";
     options = "caps:ctrl_modifier";
 

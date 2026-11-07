@@ -38,7 +38,11 @@ modules/               one topic per file:
   boot.nix             systemd-boot + EFI, configurationLimit 20
   networking.nix       hostname, NetworkManager
   locale.nix           Europe/Dublin, en_IE, console keymap ie
-  desktop.nix          Plasma 6, SDDM (HiDPI on), xkb gb/mac, caps->ctrl
+  desktop.nix          Plasma 6, SDDM (HiDPI on), xkb custom layout gb-mac-grave,
+                       caps->ctrl. gb-mac-grave = gb(mac) with the §/± key (left
+                       of 1) overridden to grave/asciitilde (modules/xkb-gb-mac-grave),
+                       so keyd's `grave = A-grave` (Cmd+`) reaches KWin as a real
+                       grave keysym instead of typing §.
   mac-keys.nix         keyd: Cmd(⌘) acts as Ctrl for app shortcuts; Cmd+Tab,
                        Cmd+Space (dashboard), Cmd+` (app windows); macOS-style
                        muscle memory on the Magic Keyboard without touching
@@ -58,7 +62,8 @@ modules/               one topic per file:
 ## Things that took debugging
 
 - **4K scaling at 200%**: `kdeglobals ScaleFactor` does nothing on Wayland; kscreen owns per-output scale. `home.nix` re-asserts via on-login unit `kscreen-doctor output.HDMI-A-1.scale.2` + `kwinrc Xwayland.Scale=2`. If Display KCM shows a different %, kscreen profile is winning — adjust in GUI or the service.
-- **Bluetooth peripherals dead at boot**: BlueZ doesn't page paired devices after adapter start. `bluetooth-reconnect` service pages *every* paired device (retries ~30 rounds; single shot races with adapter power-on and misses) until all show `Connected: yes`. Devices themselves are fine — they accept paging while asleep. Caveat: in-range headphones get pulled in too.
+- **Bluetooth peripherals dead at boot**: BlueZ doesn't page paired devices after adapter start. `bluetooth-reconnect` service pages *every* paired device until all show `Connected: yes`. Paging is async per device — one background `bluetoothctl connect` job each (BlueZ queues the pages itself), max 8 attempts per device so a powered-off one doesn't drag the loop; a serial connect would stall everything behind the first unresponsive device. Runs `Type=simple`: activation waits for oneshot start jobs, which used to block `nyx` for minutes. Devices themselves are fine — they accept paging while asleep. Caveat: in-range headphones get pulled in too.
+- **Cmd+` dead + stray § key**: gb/mac types §/± on the key left of 1 (keycode 41). keyd fired `grave = A-grave` on that *keycode*, so it sort-of worked, but only because KWin matches the combo by keysym. Fixed at the layout level: extraLayouts.gb-mac-grave includes gb(mac) and overrides <TLDE> to grave/asciitilde. Note gb/mac also has ` / ~ on the key left of Z (<LSGT>) — left alone, so ` exists twice. Verify with `xkbcli compile-keymap --layout gb-mac-grave --test` after pointing XKB_CONFIG_ROOT at xkb.dir.
 - **llm-agents input**: do NOT add `follows = "nixpkgs"` — their binaries in `cache.numtide.com` are built against their own pinned nixpkgs; following yours = cache misses + rebuilds.
 - `/etc/nixos/` is obsolete; the repo is the source of truth.
 
@@ -66,3 +71,7 @@ modules/               one topic per file:
 
 - Rollback/GC: weekly nix-gc timer prunes profile generations >14d; boot menu capped at 20 entries. No `system.copySystemConfiguration` needed with a git repo
 - No home.file/packages in HM yet — Plasma scaling + panel declared
+- **Toshy rolled back** (too heavyweight, and it can't solve the Emacs copy/paste case
+  cleanly — Cmd→Ctrl is a blanket GUI modmap, so Cmd+C lands as literal keyboard-quit in
+  Emacs). keyd is back for Cmd-shortcuts. The copy/paste idea is being rebuilt around the
+  **Wayland primary-selection** buffer instead — design + rationale in `pasteboard/DESIGN.md`.
