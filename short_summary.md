@@ -38,9 +38,10 @@ modules/               one topic per file:
   locale.nix           Europe/Dublin, en_IE, console keymap ie
   desktop.nix          Plasma 6, SDDM (HiDPI on), xkb gb/mac, caps->ctrl
   mac-keys.nix         keyd: Cmd(⌘) acts as Ctrl for app shortcuts; Cmd+Tab,
-                       Cmd+Space (launcher), Cmd+` (app windows); macOS-style
+                       Cmd+Space (dashboard), Cmd+` (app windows); macOS-style
                        muscle memory on the Magic Keyboard without touching
-                       physical Ctrl (terminal ^C/^R etc. unaffected)
+                       physical Ctrl (terminal ^C/^R etc. unaffected).
+                       Also fnmode=2: top row = F keys, brightness/sound on Fn.
   audio.nix            PipeWire (pulse compat), rtkit
   bluetooth.nix        BT stack + bluetooth-reconnect service (see below)
   printing.nix         CUPS
