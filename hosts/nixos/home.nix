@@ -9,6 +9,18 @@
   programs.plasma = {
     enable = true;
 
+    # Direct keyboard-layout selection (KWin's global shortcut actions, named
+    # after the xkb layout descriptions: extraLayouts.description / evdev.xml).
+    # Meta+Alt+N is free; Cmd is the real Meta (keyd), so this is the Mac
+    # "Option+Cmd+N" muscle-memory version. Alt+Space cycles (xkb option), and
+    # Meta+Alt+K / Meta+Alt+L (next / last-used) are KWin defaults.
+    shortcuts = {
+      "KDE Keyboard Layout Switcher" = {
+        "Switch keyboard layout to English (UK, Macintosh) with grave" = "Meta+Alt+1";
+        "Switch keyboard layout to Ukrainian" = "Meta+Alt+2";
+      };
+    };
+
     configFile = {
       "kwinrc"."Xwayland"."Scale" = 2.0;
       # Klipper clipboard auto-mirror was tested and rejected (2026-11-07,

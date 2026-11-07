@@ -38,11 +38,20 @@ modules/               one topic per file:
   boot.nix             systemd-boot + EFI, configurationLimit 20
   networking.nix       hostname, NetworkManager
   locale.nix           Europe/Dublin, en_IE, console keymap ie
-  desktop.nix          Plasma 6, SDDM (HiDPI on), xkb custom layout gb-mac-grave,
-                       caps->ctrl. gb-mac-grave = gb(mac) with the §/± key (left
+  desktop.nix          Plasma 6, SDDM (HiDPI on), xkb layouts: gb-mac-grave +
+                       ua(unicode) with Alt+Space cycling (grp:alt_space_toggle;
+                       xkb-native so it works in SDDM too). KWin's per-layout
+                       actions get Meta+Alt+1/2 via home.nix `shortcuts`.
+                       gb-mac-grave = gb(mac) with the §/± key (left
                        of 1) overridden to grave/asciitilde (modules/xkb-gb-mac-grave),
                        so keyd's maccycle `grave = A-grave` (Cmd+`) reaches KWin as a
-                       real grave keysym instead of typing §.
+                       real grave keysym instead of typing §. ua(unicode) IS the r2u
+                       "Ukrainian Unicode" layout, upstream since forever (RAlt =
+                       level3: U+02BC apostrophe, onglos, ²/³, ₴, °, —/–, other
+                       Slavic Cyrillics; key left of 1 types ' directly).
+                       KWin names its per-layout switch actions from the symbols
+                       name[Group1], not the evdev.xml description — keep the
+                       home.nix shortcut keys in sync with those strings.
   mac-keys.nix         keyd: NO blanket Cmd->Ctrl (removed deliberately). Cmd is a
                         real Meta except for three explicit bindings on the built-in
                         [meta] layer: Cmd+Tab / Cmd+` cycle KWin switchers with Alt

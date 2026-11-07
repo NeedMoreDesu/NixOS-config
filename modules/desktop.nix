@@ -12,8 +12,14 @@
     # in-app window switcher ("Walk Through Windows of Current Application") by
     # keysym, so keyd's Cmd+` -> Alt+grave only lands once this key's symbols
     # are actually grave/asciitilde instead of section/plusminus.
-    layout = "gb-mac-grave";
-    options = "caps:ctrl_modifier";
+    # Secondary layout: the r2u "Ukrainian Unicode" layout ships upstream in
+    # xkeyboard-config as ua(unicode) — it IS the r2u layout (third level via
+    # RAlt: apostrophe, ², ₴, °, —, other Cyrillics...). Pinned explicitly so
+    # an upstream default change couldn't silently swap us to winkeys.
+    # Alt+Space cycles layouts (xkb-native, so it already works in SDDM).
+    layout = "gb-mac-grave,ua";
+    variant = ",unicode";
+    options = "grp:alt_space_toggle";
 
     extraLayouts.gb-mac-grave = {
       description = "English (UK, Macintosh) with grave instead of section";
