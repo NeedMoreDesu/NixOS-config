@@ -18,7 +18,10 @@ nyx    # alias -> sudo bash ~/nixos_config/rebuild.sh
 nyxx   # same, but first: nix flake update --commit-lock-file
        # (runs as you, not root; commits the lockfile itself)
        # flags: -u/--update does the flake update, -r/--reboot reboots
-       # after a successful switch (combine: nyx -u -r)
+       # after a successful switch, -l/--logout ends the KDE session
+       # instead (clean ksmserver logout; covers KWin-side changes like
+       # global shortcuts; -r wins if both are given). Flags combine,
+       # e.g. nyx -u -r
 ```
 
 Update pins: `nix flake update <input>` (git needed; `sudo`-free shell may lack git until systemPackages rebuild lands — `nix-shell -p git` works).
