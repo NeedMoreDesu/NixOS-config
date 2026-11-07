@@ -3,6 +3,9 @@
   # work as copy/paste/cut/select-all/save/open/find/undo in any app, on
   # Wayland, X and the console alike — keyd remaps at the evdev layer).
   # Physical Ctrl keeps sending Ctrl, so terminal Ctrl+C/^R/^W are unaffected.
+  # In terminals: Ctrl/⌘+C interrupts (PTY protocol, as always); copy/paste
+  # there = ⌘+Shift+C/V (Shift passes through the layer -> Ctrl+Shift+key,
+  # the universal emulator convention).
   # A "macmeta" layer stands in for the Cmd key: it behaves as Ctrl for
   # everything except the handful of combos overridden below.
 
