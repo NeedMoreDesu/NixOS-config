@@ -8,6 +8,7 @@
     ../../modules/home-manager.nix
     ../../modules/llm-agents.nix
     ../../modules/locale.nix
+    ../../modules/mac-keys.nix
     ../../modules/networking.nix
     ../../modules/nix.nix
     ../../modules/packages.nix
