@@ -17,9 +17,10 @@
     # RAlt: apostrophe, ², ₴, °, —, other Cyrillics...). Pinned explicitly so
     # an upstream default change couldn't silently swap us to winkeys.
     # Alt+Space cycles layouts (xkb-native, so it already works in SDDM).
+    # caps:ctrl_modifier re-added 2026-11-07 (480ac86 had dropped it).
     layout = "gb-mac-grave,ua";
     variant = ",unicode";
-    options = "grp:alt_space_toggle";
+    options = "caps:ctrl_modifier,grp:alt_space_toggle";
 
     extraLayouts.gb-mac-grave = {
       description = "English (UK, Macintosh) with grave instead of section";
