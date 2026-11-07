@@ -8,9 +8,41 @@
 
   programs.plasma = {
     enable = true;
+
     configFile = {
       "kwinrc"."Xwayland"."Scale" = 2.0;
     };
+
+    # Mirrors ~/.config/plasma-org.kde.plasma.desktop-appletsrc:
+    # left-edge panel with stock widget order.
+    panels = [
+      {
+        location = "left";
+        widgets = [
+          {
+            kickoff = { };
+          }
+          {
+            pager = {
+              general.displayedText = "desktopNumber";
+            };
+          }
+          {
+            iconTasks = { };
+          }
+          "org.kde.plasma.marginsseparator"
+          {
+            systemTray = {
+              items.shown = [ "org.kde.plasma.keyboardlayout" ];
+            };
+          }
+          {
+            digitalClock = { };
+          }
+          "org.kde.plasma.showdesktop"
+        ];
+      }
+    ];
   };
 
   # KScreen owns per-output scaling (plasma-manager has no kscreen module),
