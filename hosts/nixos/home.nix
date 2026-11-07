@@ -9,12 +9,22 @@
   programs.plasma = {
     enable = true;
     configFile = {
-      "kdeglobals"."KScreen"."ScaleFactor" = 2.0;
       "kwinrc"."Xwayland"."Scale" = 2.0;
     };
   };
 
-  home.sessionVariables = {
-    QT_AUTO_SCREEN_SCALE_FACTOR = "1";
+  # KScreen owns per-output scaling (plasma-manager has no kscreen module),
+  # so re-assert our scale on every login.
+  systemd.user.services.kscreen-scale = {
+    Unit = {
+      Description = "Force 200% scale on HDMI-A-1";
+      PartOf = [ "graphical-session.target" ];
+      After = [ "graphical-session.target" ];
+    };
+    Service = {
+      Type = "oneshot";
+      ExecStart = "/run/current-system/sw/bin/kscreen-doctor output.HDMI-A-1.scale.2";
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
   };
 }
