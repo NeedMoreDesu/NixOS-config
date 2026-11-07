@@ -13,15 +13,29 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.home-manager.follows = "home-manager";
     };
+    # Scrolling GTK4/libadwaita terminal multiplexer that tracks AI coding
+    # agents (MIT, Zig, Linux/Wayland). Built against OUR nixpkgs (shared
+    # glib/GL/store closure — the right thing for a GUI app on NixOS), but
+    # ghostty is a git submodule it compiles against, hence submodules = true.
+    seance = {
+      url = "git+https://github.com/no1msd/seance?submodules=1";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs =
-    inputs@{ nixpkgs, llm-agents, home-manager, ... }:
+    outputs =
+      inputs@{
+        nixpkgs,
+        llm-agents,
+        home-manager,
+        seance,
+        ...
+      }:
     {
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         specialArgs = {
-          inherit llm-agents home-manager;
+          inherit llm-agents home-manager seance;
           plasma-manager = inputs.plasma-manager;
         };
         modules = [

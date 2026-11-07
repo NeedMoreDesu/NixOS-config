@@ -34,7 +34,10 @@ Update pins: `nix flake update <input>` (git needed; `sudo`-free shell may lack 
 ## Layout
 
 ```
-flake.nix              inputs: nixpkgs, llm-agents, home-manager, plasma-manager
+flake.nix              inputs: nixpkgs, llm-agents, home-manager, plasma-manager,
+                       seance (git+https + ?submodules=1 for vendored ghostty;
+                       inputs.nixpkgs.follows = "nixpkgs" so it builds against
+                       our closure). Passed to modules via specialArgs.
                        nixosSystem passes inputs to modules via specialArgs
 rebuild.sh             one-liner flake rebuild
 hosts/nixos/
@@ -76,6 +79,10 @@ modules/               one topic per file:
                        steam via programs.steam (FHS sandbox, steam-hardware,
                        32-bit PipeWire). allowUnfreePredicate scoped to the
                        "steam" name prefix (steam pulls steam-run etc.).
+                       seance (scrolling GTK4/libadwaita terminal multiplexer
+                       that tracks AI coding agents; MIT, Zig 0.16) comes from
+                       the seance flake input, NOT nixpkgs:
+                       seance.packages.${pkgs.system}.seance.
   nix.nix              nix-command + flakes; weekly GC (--delete-older-than 14d)
                        + weekly store optimise via nix-gc/nix-optimise timers
   llm-agents.nix       numtide cache (binary substituter) + opencode + dsh

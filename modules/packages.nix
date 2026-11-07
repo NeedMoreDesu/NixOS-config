@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, seance, ... }:
 {
   # Steam ships unfree deps; scoped by name prefix so nothing else silently
   # turns unfree on (matches steam, steam-run, steam-friends, steam-runtime...).
@@ -16,5 +16,8 @@
     godot
     krita
     librewolf
+    # Seance comes from its own flake input (github:no1msd/seance), not
+    # nixpkgs — built against our pkgs via the follows = "nixpkgs" redirect.
+    seance.packages.${pkgs.system}.seance
   ];
 }
