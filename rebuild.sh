@@ -5,7 +5,22 @@ REPO="/home/mika/nixos_config"
 
 # -u: bump all flake inputs and commit flake.lock before rebuilding.
 # Runs as the invoking user (git identity + flake lockfile ownership).
-if [[ "${1:-}" == "-u" || "${1:-}" == "--update" ]]; then
+# -r: reboot once the switch succeeds (use after changes that only apply
+# on a fresh boot/session, e.g. xkb layout swaps).
+update=false
+reboot_after=false
+for arg in "$@"; do
+  case "$arg" in
+    -u | --update) update=true ;;
+    -r | --reboot) reboot_after=true ;;
+    *)
+      echo "usage: rebuild.sh [-u|--update] [-r|--reboot]" >&2
+      exit 2
+      ;;
+  esac
+done
+
+if $update; then
   if [[ -n "${SUDO_USER:-}" ]]; then
     runuser -l "$SUDO_USER" -c "cd $REPO && nix flake update --commit-lock-file"
   else
@@ -13,4 +28,8 @@ if [[ "${1:-}" == "-u" || "${1:-}" == "--update" ]]; then
   fi
 fi
 
-exec nixos-rebuild switch --flake "$REPO#nixos"
+nixos-rebuild switch --flake "$REPO#nixos"
+
+if $reboot_after; then
+  reboot
+fi
