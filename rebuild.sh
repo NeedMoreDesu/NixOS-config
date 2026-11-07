@@ -8,9 +8,11 @@ REPO="/home/mika/nixos_config"
 # -r: reboot once the switch succeeds (use after changes that only apply
 # on a fresh boot/session, e.g. xkb layout swaps).
 # -l: end the graphical session after a successful switch instead of
-# rebooting (KWin re-reads kglobalshortcutsrc/xkb at session start). Ask
-# ksmserver itself so the session is closed cleanly; only if that call
-# cannot be made, hard-kill the user's sessions via loginctl.
+# rebooting (KWin re-reads kglobalshortcutsrc/xkb at session start).
+# Plasma 6.8's ksmserver no longer exposes a logout slot on
+# org.kde.KSMServerInterface, so use loginctl: it SIGTERMs all of the
+# *user's* processes (the sudo'd root script survives and SDDM comes back
+# at the greeter).
 update=false
 reboot_after=false
 logout_after=false
@@ -38,10 +40,7 @@ nixos-rebuild switch --flake "$REPO#nixos"
 
 # -r wins over -l (a reboot logs the session out anyway)
 if $logout_after && ! $reboot_after; then
-  user="${SUDO_USER:-mika}"
-  uid=$(id -u "$user")
-  runuser -l "$user" -c "XDG_RUNTIME_DIR=/run/user/$uid DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus qdbus org.kde.ksmserver /KSMServer org.kde.KSMServerInterface.logout 0 2 2" \
-    || loginctl terminate-user "$user"
+  loginctl terminate-user "${SUDO_USER:-mika}"
 fi
 
 if $reboot_after; then
