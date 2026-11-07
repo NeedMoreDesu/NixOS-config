@@ -11,6 +11,10 @@
 
     configFile = {
       "kwinrc"."Xwayland"."Scale" = 2.0;
+      # Klipper clipboard auto-mirror was tested and rejected (2026-11-07,
+      # see the pasteboard branch's DESIGN.md §12); pinned false so
+      # re-enabling it via the KCM doesn't silently become policy.
+      "klipperrc"."General"."SyncClipboards" = false;
     };
 
     # Mirrors ~/.config/plasma-org.kde.plasma.desktop-appletsrc:
