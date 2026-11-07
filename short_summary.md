@@ -13,6 +13,8 @@ Entry point for this machine's NixOS config. Repo: `~/nixos_config` (git-tracked
 ```
 nyx    # alias -> sudo bash ~/nixos_config/rebuild.sh
        # runs: nixos-rebuild switch --flake ~/nixos_config#nixos
+nyxx   # same, but first: nix flake update --commit-lock-file
+       # (runs as you, not root; commits the lockfile itself)
 ```
 
 Update pins: `nix flake update <input>` (git needed; `sudo`-free shell may lack git until systemPackages rebuild lands — `nix-shell -p git` works).
