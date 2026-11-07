@@ -1,0 +1,13 @@
+xkb_symbols "gb-mac-grave" {
+
+    include "gb(mac)"
+
+    name[Group1] = "English (UK, Macintosh) with grave";
+
+    // gb(mac) puts section/plusminus (§/±) on the key left of 1 (keycode 41,
+    // TLDE) — same physical position where keyd used to fire the Cmd+grave
+    // remap, and where Toshy's RC-Grave binding lives. Make it type ` / ~
+    // instead: plain typing and Toshy's Cmd+` -> Alt+grave -> KWin "next
+    // window of current app" chain then agree on one keysym.
+    key <TLDE> {        [ grave,       asciitilde ]    };
+};
