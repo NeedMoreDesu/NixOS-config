@@ -22,8 +22,10 @@
         [macmeta:C]
         # Cmd+Tab / Cmd+Shift+Tab: cycle applications (Alt+Tab in KDE)
         tab = A-tab
-        # Cmd+Space: Spotlight-ish -> KDE launcher/KRunner search
-        space = C-escape
+        # Cmd+Space: Spotlight-ish -> application dashboard (KDE's built-in
+        # search). Alt+F1 is plasmashell's default "activate application
+        # launcher"; the Meta binding is unreachable since keyd swallows Meta.
+        space = A-f1
         # Cmd+`: next window of the focused app (KWin's in-app switcher)
         grave = A-grave
         '';
