@@ -51,7 +51,7 @@ modules/               one topic per file:
 ## Things that took debugging
 
 - **4K scaling at 200%**: `kdeglobals ScaleFactor` does nothing on Wayland; kscreen owns per-output scale. `home.nix` re-asserts via on-login unit `kscreen-doctor output.HDMI-A-1.scale.2` + `kwinrc Xwayland.Scale=2`. If Display KCM shows a different %, kscreen profile is winning — adjust in GUI or the service.
-- **Bluetooth keyboard dead at boot**: BlueZ doesn't page BR/EDR HID devices after adapter start. `magic-kbd-connect` service retries `bluetoothctl connect` for 30s once the adapter is actually registered (single shot races with adapter power-on and misses). Keyboard itself is fine — it accepts paging while asleep.
+- **Bluetooth peripherals dead at boot**: BlueZ doesn't page paired devices after adapter start. `bluetooth-reconnect` service pages *every* paired device (retries ~30 rounds; single shot races with adapter power-on and misses) until all show `Connected: yes`. Devices themselves are fine — they accept paging while asleep. Caveat: in-range headphones get pulled in too.
 - **llm-agents input**: do NOT add `follows = "nixpkgs"` — their binaries in `cache.numtide.com` are built against their own pinned nixpkgs; following yours = cache misses + rebuilds.
 - `/etc/nixos/` is obsolete; the repo is the source of truth.
 
