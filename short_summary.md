@@ -17,12 +17,16 @@ nyx    # alias -> sudo bash ~/nixos_config/rebuild.sh
        # runs: nixos-rebuild switch --flake ~/nixos_config#nixos
 nyxx   # same, but first: nix flake update --commit-lock-file
        # (runs as you, not root; commits the lockfile itself)
-       # flags: -u/--update does the flake update, -r/--reboot reboots
-       # after a successful switch, -l/--logout ends the KDE session
-       # instead (loginctl terminate-user — ksmserver lost its logout
-       # DBus slot in Plasma 6.8; KWin re-reads session bits on login;
-       # -r wins if both are given). Flags combine,
-       # e.g. nyx -u -r
+        # flags: -u/--update does the flake update, -r/--reboot reboots
+        # after a successful switch, -l/--logout ends the KDE session
+        # instead (qdbus org.kde.Shutdown /Shutdown logout as the user —
+        # plasma-shutdown replaced the ksmserver logout slot Plasma 6.8
+        # dropped; session ends from inside so SDDM returns to the
+        # greeter. loginctl terminate-user is broken with SDDM 0.21:
+        # HUP-killed sddm-helper reads as exit 1 = HELPER_AUTH_ERROR and
+        # the greeter never restarts — black VT. KWin re-reads session
+        # bits on login; -r wins if both are given). Flags combine,
+        # e.g. nyx -u -r
 ```
 
 Update pins: `nix flake update <input>` (git needed; `sudo`-free shell may lack git until systemPackages rebuild lands — `nix-shell -p git` works).

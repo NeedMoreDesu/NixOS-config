@@ -10,9 +10,16 @@ REPO="/home/mika/nixos_config"
 # -l: end the graphical session after a successful switch instead of
 # rebooting (KWin re-reads kglobalshortcutsrc/xkb at session start).
 # Plasma 6.8's ksmserver no longer exposes a logout slot on
-# org.kde.KSMServerInterface, so use loginctl: it SIGTERMs all of the
-# *user's* processes (the sudo'd root script survives and SDDM comes back
-# at the greeter).
+# org.kde.KSMServerInterface; the replacement is the activatable
+# org.kde.Shutdown service (plasma-shutdown) on the user's session bus:
+# `logout` ends the session from the inside, so sddm-helper exits 0 and
+# SDDM brings the greeter back. No confirmation — apps that block
+# logout (unsaved changes) still get their usual say.
+# NEVER `loginctl terminate-user`: systemd hits sddm-helper with TERM
+# then HUP, Qt reports a SIGHUP death as exit status 1 =
+# Auth::HELPER_AUTH_ERROR, and Display.cpp treats that as an auth error
+# and skips the greeter restart — dead black console on the session VT
+# (sddm#1908, unfixed in 0.21).
 update=false
 reboot_after=false
 logout_after=false
@@ -40,7 +47,10 @@ nixos-rebuild switch --flake "$REPO#nixos"
 
 # -r wins over -l (a reboot logs the session out anyway)
 if $logout_after && ! $reboot_after; then
-  loginctl terminate-user "${SUDO_USER:-mika}"
+  logout_user="${SUDO_USER:-mika}"
+  runuser -u "$logout_user" -- \
+    env XDG_RUNTIME_DIR="/run/user/$(id -u "$logout_user")" \
+    qdbus org.kde.Shutdown /Shutdown logout
 fi
 
 if $reboot_after; then
