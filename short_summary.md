@@ -32,7 +32,10 @@ modules/               one topic per file:
   boot.nix             systemd-boot + EFI, configurationLimit 20
   networking.nix       hostname, NetworkManager
   locale.nix           Europe/Dublin, en_IE, console keymap ie
-  desktop.nix          Plasma 6, SDDM (HiDPI on), xkb gb/mac, caps->ctrl
+  desktop.nix          Plasma 6, SDDM (HiDPI on), xkb gb/mac, caps->ctrl;
+                       overlay patches qqc2-desktop/breeze-style so scrolling
+                       over combos/spinboxes/sliders never changes their value
+                       (upstream hardcodes it on; no user setting exists)
   audio.nix            PipeWire (pulse compat), rtkit
   bluetooth.nix        BT stack + magic-kbd-connect service (see below)
   printing.nix         CUPS
