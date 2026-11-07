@@ -5,6 +5,7 @@
     ../../modules/bluetooth.nix
     ../../modules/boot.nix
     ../../modules/desktop.nix
+    ../../modules/llm-agents.nix
     ../../modules/locale.nix
     ../../modules/networking.nix
     ../../modules/nix.nix
