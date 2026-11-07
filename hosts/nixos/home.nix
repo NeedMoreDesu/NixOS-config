@@ -18,6 +18,11 @@
     panels = [
       {
         location = "left";
+        floating = true;
+        opacity = "translucent";
+        # plasma-manager has no option for this one yet; stored as
+        # floatingApplets in the containment's [General] group.
+        extraSettings = "panel.floatingApplets = true;";
         widgets = [
           {
             kickoff = { };
