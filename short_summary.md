@@ -29,7 +29,7 @@ hosts/nixos/
   hardware-configuration.nix   generated at install; machine-specific mounts
   home.nix             home-manager user config for mika (plasma-manager)
 modules/               one topic per file:
-  boot.nix             systemd-boot + EFI, configurationLimit 8
+  boot.nix             systemd-boot + EFI, configurationLimit 20
   networking.nix       hostname, NetworkManager
   locale.nix           Europe/Dublin, en_IE, console keymap ie
   desktop.nix          Plasma 6, SDDM (HiDPI on), xkb gb/mac, caps->ctrl
@@ -53,5 +53,5 @@ modules/               one topic per file:
 
 ## Next steps (not done yet)
 
-- Rollback/GC: weekly nix-gc timer prunes profile generations >14d; boot menu capped at 8 entries. No `system.copySystemConfiguration` needed with a git repo
+- Rollback/GC: weekly nix-gc timer prunes profile generations >14d; boot menu capped at 20 entries. No `system.copySystemConfiguration` needed with a git repo
 - No home.file/packages in HM yet — Plasma scaling + panel declared
