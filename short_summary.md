@@ -29,7 +29,7 @@ hosts/nixos/
   hardware-configuration.nix   generated at install; machine-specific mounts
   home.nix             home-manager user config for mika (plasma-manager)
 modules/               one topic per file:
-  boot.nix             systemd-boot + EFI
+  boot.nix             systemd-boot + EFI, configurationLimit 8
   networking.nix       hostname, NetworkManager
   locale.nix           Europe/Dublin, en_IE, console keymap ie
   desktop.nix          Plasma 6, SDDM (HiDPI on), xkb gb/mac, caps->ctrl
@@ -38,7 +38,8 @@ modules/               one topic per file:
   printing.nix         CUPS
   users.nix            mika: wheel+NM, kate/emacs
   packages.nix         firefox, git
-  nix.nix              nix-command + flakes experimental features
+  nix.nix              nix-command + flakes; weekly GC (--delete-older-than 14d)
+                       + weekly store optimise via nix-gc/nix-optimise timers
   llm-agents.nix       numtide cache (binary substituter) + opencode + dsh
   home-manager.nix     HM wiring: useGlobalPkgs, users.mika -> hosts/nixos/home.nix
 ```
@@ -52,5 +53,5 @@ modules/               one topic per file:
 
 ## Next steps (not done yet)
 
-- Consider `sudo nixos-rebuild boot`-style rollback hygiene / boot entries; no `system.copySystemConfiguration` needed with a git repo
-- No home.file/packages in HM yet — only Plasma scaling declared
+- Rollback/GC: weekly nix-gc timer prunes profile generations >14d; boot menu capped at 8 entries. No `system.copySystemConfiguration` needed with a git repo
+- No home.file/packages in HM yet — Plasma scaling + panel declared
