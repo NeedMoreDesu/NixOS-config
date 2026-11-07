@@ -44,11 +44,6 @@
             kickoff = { };
           }
           {
-            pager = {
-              general.displayedText = "desktopNumber";
-            };
-          }
-          {
             iconTasks = { };
           }
           "org.kde.plasma.marginsseparator"
@@ -61,6 +56,11 @@
             digitalClock = { };
           }
           "org.kde.plasma.showdesktop"
+          {
+            pager = {
+              general.displayedText = "desktopNumber";
+            };
+          }
         ];
       }
     ];
