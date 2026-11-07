@@ -16,6 +16,7 @@
     godot
     krita
     librewolf
+    tmux
     # Seance comes from its own flake input (github:no1msd/seance), not
     # nixpkgs — built against our pkgs via the follows = "nixpkgs" redirect.
     seance.packages.${pkgs.system}.seance
