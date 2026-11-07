@@ -2,6 +2,8 @@
 
 Entry point for this machine's NixOS config. Repo: `~/nixos_config` (git-tracked; the flake only sees committed/staged files, so `git add` before rebuilding after adding new files).
 
+Mode of operations for AI assistants: commit incrementally — each finished change gets its own commit right away, don't batch up edits and don't wait to be asked.
+
 ## What this system is
 
 - NixOS unstable (`nixpkgs#nixos-unstable`), host `nixos`, single machine
