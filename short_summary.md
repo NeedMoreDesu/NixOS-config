@@ -41,13 +41,16 @@ modules/               one topic per file:
   desktop.nix          Plasma 6, SDDM (HiDPI on), xkb custom layout gb-mac-grave,
                        caps->ctrl. gb-mac-grave = gb(mac) with the §/± key (left
                        of 1) overridden to grave/asciitilde (modules/xkb-gb-mac-grave),
-                       so keyd's `grave = A-grave` (Cmd+`) reaches KWin as a real
-                       grave keysym instead of typing §.
-  mac-keys.nix         keyd: Cmd(⌘) acts as Ctrl for app shortcuts; Cmd+Tab,
-                       Cmd+Space (dashboard), Cmd+` (app windows); macOS-style
-                       muscle memory on the Magic Keyboard without touching
-                       physical Ctrl (terminal ^C/^R etc. unaffected).
-                       Also fnmode=2: top row = F keys, brightness/sound on Fn.
+                       so keyd's maccycle `grave = A-grave` (Cmd+`) reaches KWin as a
+                       real grave keysym instead of typing §.
+  mac-keys.nix         keyd: NO blanket Cmd->Ctrl (removed deliberately). Cmd is a
+                        real Meta except for three explicit bindings on the built-in
+                        [meta] layer: Cmd+Tab / Cmd+` cycle KWin switchers with Alt
+                        held via swapm into [maccycle:A] (the hold-layer lives as
+                        long as Cmd is down); Cmd+Space -> dashboard (A-f1).
+                        Everything else is plain Super+key — inert in most apps;
+                        Ctrl+C/^R keep terminal semantics physically.
+                        Also fnmode=2: top row = F keys, brightness/sound on Fn.
   audio.nix            PipeWire (pulse compat), rtkit
   bluetooth.nix        BT stack + bluetooth-reconnect service (see below)
   printing.nix         CUPS
@@ -73,5 +76,12 @@ modules/               one topic per file:
 - No home.file/packages in HM yet — Plasma scaling + panel declared
 - **Toshy rolled back** (too heavyweight, and it can't solve the Emacs copy/paste case
   cleanly — Cmd→Ctrl is a blanket GUI modmap, so Cmd+C lands as literal keyboard-quit in
-  Emacs). keyd is back for Cmd-shortcuts. The copy/paste idea is being rebuilt around the
-  **Wayland primary-selection** buffer instead — design + rationale in `pasteboard/DESIGN.md`.
+  Emacs). keyd is back, now WITHOUT the blanket Cmd->Ctrl map (the swapm/maccycle
+  hold-layer rework + clipboard policy pin were picked from the `pasteboard` branch;
+  Cmd+C/V/X are plain Super+key since then — inert by design).
+- **pasteboard experiment — closed.** The Cmd+C live-copy daemon and the Cmd+V
+  paste verb (KWin fake_input keysym typing) both live on the `pasteboard` branch
+  with the full design history in its DESIGN.md (§13–15). v4 was closed 2026-11-07:
+  typing real keysyms while Cmd is down has unforeseeable consequences in
+  consumers (Enter/Tab semantics differ per app), and Cmd+C alone isn't useful.
+  Don't resurrect on master — everything keyboard-relevant was picked from it.
