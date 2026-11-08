@@ -23,7 +23,12 @@
     # (xremap is a session user service).
     layout = "gb-mac-grave,ua";
     variant = ",unicode";
-    options = "grp:alt_space_toggle";
+    # caps:hyper: CapsLock keycode -> Hyper_L keysym + Hyper_L in Mod3's
+    # keysym set (hyper(mod3)) — the Emacs-side half of the right-cmd
+    # Hyper; xremap's emacs block routes right cmd to CapsLock. Replaces
+    # the key outright: no caps-lock toggle survives. Side effect: in the
+    # SDDM greeter (no xremap) the physical caps key is Hyper, not lock.
+    options = [ "grp:alt_space_toggle" "caps:hyper" ];
 
     extraLayouts.gb-mac-grave = {
       description = "English (UK, Macintosh) with grave instead of section";

@@ -39,14 +39,19 @@ modmap:
       Control_L: Super_L
       Control_R: Super_L
       Super_L: Super_L # identity: left cmd -> XKB -> real Super, the s- space
-      # xremap cannot emit "Hyper" (not an evdev key; the config then refuses
-      # to load and the unit dies). Right cmd -> KEY_MACRO (evdev 112, name
-      # "Macro": no physical key produces it and XKB leaves it unbound);
-      # gb-mac-grave binds that keycode to Hyper_L + modifier_map Mod3, so
-      # XWayland Emacs sees a real H-. KEY_MENU is NOT usable: symbols/inet
-      # (last section of the keymap chain) already binds it to XF86MenuKB.
+      # Right cmd -> Hyper via the XKB option caps:hyper (desktop.nix):
+      # xremap emits CapsLock (evdev 58), the option rewrites that keycode
+      # to the Hyper_L keysym and hyper(mod3) puts Hyper_L in Mod3's keysym
+      # set, so X11 depresses Mod3 for ANY Hyper_L press -> Emacs (XWayland)
+      # reads real H-. Nothing else ever emits keycode 58: the physical
+      # caps key is consumed by the cycle above (-> Control_L), so
+      # caps:hyper is Emacs-only in practice. No caps-lock side effects:
+      # the option replaces the key, it does not add a lock.
+      # (Macro/I120 route dropped: KDE/Qt has no Hyper modifier — it maps
+      # the Hyper keysym to a broken Meta either way; combos still reach
+      # Emacs as H-, only a bare tap can pop the Plasma search launcher.)
       # Outside this block the base cycle still maps Super_R -> F13.
-      Super_R: Macro
+      Super_R: CapsLock
 
   - name: base cycle (caps->ctrl, ctrl->super, cmd->F13)
     remap:
