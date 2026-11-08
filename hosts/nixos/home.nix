@@ -11,8 +11,9 @@
 
     # Direct keyboard-layout selection (KWin's global shortcut actions, named
     # after the xkb layout descriptions: extraLayouts.description / evdev.xml).
-    # Meta+Alt+N is free; Cmd is the real Meta (keyd), so this is the Mac
-    # "Option+Cmd+N" muscle-memory version. Alt+Space cycles (xkb option), and
+    # Meta+Alt+N is free; Super rides the physical Ctrl key (xremap
+    # Control_L->Super_L), so this is the Mac "Option+Cmd+N" muscle-memory
+    # version. Alt+Space cycles (xkb option), and
     # Meta+Alt+K / Meta+Alt+L (next / last-used) are KWin defaults.
     shortcuts = {
       "KDE Keyboard Layout Switcher" = {

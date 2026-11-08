@@ -5,7 +5,8 @@ xkb_symbols "gb-mac-grave" {
     name[Group1] = "English (UK, Macintosh) with grave";
 
     // gb(mac) puts section/plusminus (§/±) on the key left of 1 (keycode 41,
-    // TLDE) — the physical position keyd's Cmd+grave -> Alt+grave remap targets.
+    // TLDE) — the physical position xremap's F13+grave -> Alt+grave remap
+    // targets.
     // Make it type ` / ~ instead: plain typing and the Cmd+` -> Alt+grave ->
     // KWin "next window of current app" chain then agree on one keysym (KWin
     // matches its Alt+grave default by keysym, never by keycode).
