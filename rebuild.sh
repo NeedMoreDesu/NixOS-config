@@ -45,6 +45,16 @@ fi
 
 nixos-rebuild switch --flake "$REPO#nixos"
 
+# xremap cannot live-reload its config: the new yamlConfig only lands on
+# disk with the switch, so bounce the user unit here (same runuser trick
+# as the logout block: nyx runs as root, systemctl --user must reach
+# MIKA's user manager, not root's). A bad config now surfaces loudly:
+# the restart fails and the unit shows as failed.
+restart_user="${SUDO_USER:-mika}"
+runuser -u "$restart_user" -- \
+  env XDG_RUNTIME_DIR="/run/user/$(id -u "$restart_user")" \
+  systemctl --user restart xremap
+
 # -r wins over -l (a reboot logs the session out anyway)
 if $logout_after && ! $reboot_after; then
   logout_user="${SUDO_USER:-mika}"
