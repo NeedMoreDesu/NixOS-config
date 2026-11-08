@@ -45,20 +45,47 @@ keymap:
     application:
       only: [/konsole/, /ghostty/, /seance/]
     remap:
-      # copy/paste dialect in terminals is Ctrl+Shift+...
-      F13-c: Ctrl-Shift-c
-      F13-v: Ctrl-Shift-v
-      F13-x: Ctrl-Shift-x
+      # KEPT — things that are actual terminal features or readline ops:
+      # emulator dialect (Ctrl+Shift+*) ...
+      F13-c: Ctrl-Shift-c # copy
+      F13-v: Ctrl-Shift-v # paste
+      F13-x: Ctrl-Shift-x # cut
       F13-f: Ctrl-Shift-f # find
       F13-t: Ctrl-Shift-t # new tab
       F13-w: Ctrl-Shift-w # close tab
-      # a/z make no sense here (Cmd+A select-all is a GUI idiom; Cmd+Z would
-      # land on C-z = SIGTSTP job-suspend): swallow the combos, plain keys
-      # untouched.
+      F13-n: Ctrl-Shift-n # new window (konsole/ghostty)
+      # ... and bash/readline ones worth thumbing ...
+      F13-l: Ctrl-l # clear screen
+      F13-r: Ctrl-r # reverse history search
+      F13-u: Ctrl-u # kill line backwards
+      F13-k: Ctrl-k # kill line forwards
+      F13-y: Ctrl-y # yank
+      F13-backspace: Ctrl-Delete # kill word forward (Mac Cmd+Delete)
+      F13-left: Ctrl-left # word left
+      F13-right: Ctrl-right # word right
+      F13-home: Ctrl-home # konsole scrollback top
+      F13-end: Ctrl-end # scrollback bottom
+      # SWALLOWED — plain duplicates of the caps-key Ctrl (a b e g i j o p,
+      # all already reachable physically) or outright dangerous:
+      # C-s = XOFF tty freeze, C-d = EOF/logout, C-z = SIGTSTP.
+      # Special note: C-i IS Tab and C-j IS a newline — never let an
+      # unmapped Ctrl+letter leak into a terminal.
       F13-a: []
+      F13-b: []
+      F13-e: []
+      F13-g: []
+      F13-i: []
+      F13-j: []
+      F13-o: []
+      F13-p: []
+      F13-s: []
+      F13-d: []
       F13-z: []
-      F13-s: [] # Ctrl+S = XOFF: freezes the tty
-      F13-d: [] # Ctrl+D = EOF: would log the shell out
+      F13-slash: []
+      F13-enter: []
+      # q (Alt-F4), space (run dialog), 1/2 (layout switch) are NOT
+      # overridden here on purpose: they fall through to the generic
+      # block and do the same thing they do everywhere else.
 
   - name: default everywhere else (GUI apps)
     remap:
