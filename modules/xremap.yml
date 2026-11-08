@@ -29,6 +29,24 @@ virtual_modifiers:
   - F13
 
 modmap:
+  # Emacs gets its own cycle variant: blocks are matched top-down per input
+  # key, so this MUST come first and MUST spell out Super_L — the identity
+  # mapping wins first-match and stops the generic Super_L->F13 rule below
+  # from firing inside Emacs. cmd keeps its own keycode there, which stock
+  # XKB already turns into Super_L/Mod4 -> the whole s- space opens up in
+  # Emacs (aliased with the ctrl-position key, as decided 2026-11-08;
+  # no XKB layout changes). Revert = delete this block.
+  # F13-* keymap rules never fire here: cmd is not F13 in this window.
+  - name: emacs (cmd = real Super, no F13)
+    application:
+      only: [/emacs/]
+    remap:
+      CapsLock: Control_L
+      Control_L: Super_L
+      Control_R: Super_L
+      Super_L: Super_L
+      Super_R: Super_R # right cmd stays true Super here, per spec
+
   - name: base cycle (caps->ctrl, ctrl->super, cmd->F13)
     remap:
       CapsLock: Control_L
