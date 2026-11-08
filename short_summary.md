@@ -111,6 +111,14 @@ modules/               one topic per file:
 - **4K scaling at 200%**: `kdeglobals ScaleFactor` does nothing on Wayland; kscreen owns per-output scale. `home.nix` re-asserts via on-login unit `kscreen-doctor output.HDMI-A-1.scale.2` + `kwinrc Xwayland.Scale=2`. If Display KCM shows a different %, kscreen profile is winning — adjust in GUI or the service.
 - **Bluetooth peripherals dead at boot**: BlueZ doesn't page paired devices after adapter start. `bluetooth-reconnect` service pages *every* paired device until all show `Connected: yes`. Paging is async per device — one background `bluetoothctl connect` job each (BlueZ queues the pages itself), max 8 attempts per device so a powered-off one doesn't drag the loop; a serial connect would stall everything behind the first unresponsive device. Runs `Type=simple`: activation waits for oneshot start jobs, which used to block `nyx` for minutes. Devices themselves are fine — they accept paging while asleep. Caveat: in-range headphones get pulled in too.
 - **Cmd+` dead + stray § key**: gb/mac types §/± on the key left of 1 (keycode 41). keyd fired `grave = A-grave` on that *keycode*, so it sort-of worked, but only because KWin matches the combo by keysym. Fixed at the layout level: extraLayouts.gb-mac-grave includes gb(mac) and overrides <TLDE> to grave/asciitilde. Note gb/mac also has ` / ~ on the key left of Z (<LSGT>) — left alone, so ` exists twice. Verify with `xkbcli compile-keymap --layout gb-mac-grave --test` after pointing XKB_CONFIG_ROOT at xkb.dir.
+- **New group membership + the user manager**: adding mika to input/uinput groups doesn't
+  take effect on logout/login alone — the `systemd --user` instance (check `loginctl
+  user-status`: slice "Since:" predates the logout) survives if ANY process holds the slice
+  (tmux/opencode shells do), and keeps its launch-time credentials. `systemctl --user
+  daemon-reexec` won't re-read groups either. Symptom: xremap EPERMs on /dev/input +
+  /dev/uinput even though `getent group` and the node perms are right — compare `id` (stale
+  session creds) vs `getent` (DB truth). Fix: REBOOT. Don't `loginctl terminate-user`:
+  SDDM 0.21 black-VT trap (see bluetooth note's helper-exit caveat).
 - **xremap layering (the big one)**: xremap reads and emits evdev *keycodes*, below XKB. Consequences: (1) XKB layout/options are invisible to its combo matching — it sees the physical CapsLock/LeftMeta regardless of what xkb maps them to; (2) everything xremap emits is then remapped by XKB, so doing the caps/ctrl/cmd cycle in BOTH layers corrupts xremap's emitted Ctrl (XKB would re-map it to Super). Hence the whole cycle lives in xremap's modmap and XKB only carries layout symbols. (3) modmap never chains its own output (single pass, first matching rule per input keycode) — CapsLock->Control_L won't fall through the Control_L->Super_L rule; (4) keymap is first-match across blocks — app blocks before the generic one; (5) there are NO `Meta_*` aliases in xremap — KEY_LEFTMETA is `Super_L`/`WIN_L` (a bad name fails --validate-config, reported at the *map start* line, not the bad entry); (6) KDE Wayland: `--list-windows` unsupported — app classes show up as `active window: caption..., class...` in `journalctl --user -u xremap` once any application-filtered rule has fired once (use a dummy-name filter to fish).
 - **llm-agents input**: do NOT add `follows = "nixpkgs"` — their binaries in `cache.numtide.com` are built against their own pinned nixpkgs; following yours = cache misses + rebuilds.
 - `/etc/nixos/` is obsolete; the repo is the source of truth.
@@ -126,6 +134,8 @@ modules/               one topic per file:
   seance class strings via the journalctl dummy-filter trick and tighten the
   regexes; then attack the single-shot switcher gap (Alt-hold cycling, the
   one thing keyd's swapm did better).
+  2026-11-08 status: first `nyx` OK, unit enabled, but EPERM on devices —
+  stale user-manager groups (see gotcha). Reboot pending, then continue.
 
 - Rollback/GC: weekly nix-gc timer prunes profile generations >14d; boot menu capped at 20 entries. No `system.copySystemConfiguration` needed with a git repo
 - No home.file/packages in HM yet — Plasma scaling + panel declared
