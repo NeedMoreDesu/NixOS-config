@@ -21,6 +21,12 @@
       url = "git+https://github.com/no1msd/seance?submodules=1";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # tmux + git-worktree orchestrator for parallel AI coding agents (MIT,
+    # Rust). Own flake with a `packages.default`; follows our nixpkgs.
+    workmux = {
+      url = "github:raine/workmux";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
     outputs =
@@ -29,13 +35,14 @@
         llm-agents,
         home-manager,
         seance,
+        workmux,
         ...
       }:
     {
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         specialArgs = {
-          inherit llm-agents home-manager seance;
+          inherit llm-agents home-manager seance workmux;
           plasma-manager = inputs.plasma-manager;
         };
         modules = [

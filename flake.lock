@@ -174,7 +174,8 @@
         "llm-agents": "llm-agents",
         "nixpkgs": "nixpkgs_2",
         "plasma-manager": "plasma-manager",
-        "seance": "seance"
+        "seance": "seance",
+        "workmux": "workmux"
       }
     },
     "seance": {
@@ -249,6 +250,26 @@
       "original": {
         "owner": "numtide",
         "repo": "treefmt-nix",
+        "type": "github"
+      }
+    },
+    "workmux": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1794085825,
+        "narHash": "sha256-agwSg00KQ5WxTQBKNprgHuMC7s90tP+xk+ON9IY6lDQ=",
+        "owner": "raine",
+        "repo": "workmux",
+        "rev": "355ff467b3ca93731e4d74b2b793891bf3dcc47a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "raine",
+        "repo": "workmux",
         "type": "github"
       }
     },
