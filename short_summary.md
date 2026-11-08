@@ -80,8 +80,16 @@ modules/               one topic per file:
                        swapm/maccycle hold-layer (Cmd+Tab / Cmd+grave emit
                        Alt held for as long as Cmd is down — the one thing
                        xremap cannot express; KWin switcher popups need a
-                       physically-held modifier). Cmd+Space moved to xremap.
-                       chain: hardware -> keyd -> xremap -> KWin.
+                        physically-held modifier). Cmd+Space moved to xremap.
+                        rightmeta = menu rebind (2026-11-08): keyd normalizes
+                        BOTH cmd keys through the meta descriptor (src/keys.c:
+                        MOD_SUPER -> canonical KEYD_LEFTMETA), so KEY_RIGHTMETA
+                        never reaches xremap and any Super_R rule behind keyd is
+                        dead code; Menu is the only right-cmd output that stays
+                        distinguishable downstream. xremap maps Menu -> CapsLock
+                        (emacs block) / F13 (base). COST: right cmd no longer
+                        triggers [meta], swapm cycling = left cmd only.
+                        chain: hardware -> keyd -> xremap -> KWin.
   xremap.nix           services.xremap (from xremap-flake): serviceMode = "user"
                        (the upstream KDE-Wayland client refuses to run as root),
                        withKDE for app-aware rules, deviceNames = [ "keyd" ]
@@ -101,9 +109,11 @@ modules/               one topic per file:
                         xremap regexes are case-sensitive: mismatch = cmd
                         silently goes F13 through the generic cycle);
                         left cmd identity -> real Super (s- space), right
-                        cmd -> CapsLock -> Hyper via the caps:hyper XKB
-                        option (desktop.nix) -> H- in Emacs/XWayland;
-                        rollback = delete the block + the option), then the
+                        cmd (arrives as Menu — keyd normalization, see
+                        mac-keys.nix) -> CapsLock -> Hyper via the
+                        caps:hyper XKB option (desktop.nix) ->
+                        H- in Emacs/XWayland; rollback = delete the block
+                        + the option + the keyd rebind), then the
                        generic cycle caps->ctrl, ctrl->super, cmd->F13 (F13 =
                        virtual_modifiers, inert everywhere). keymap (first match
                        wins, app blocks first): terminals (konsole/ghostty/
@@ -167,7 +177,8 @@ modules/               one topic per file:
   producing that keysym, so right-cmd combos arrive as H- in Emacs. The
   earlier custom attempt (KEY_MACRO/I120 bound in gb-mac-grave) compiled and
   XTEST-verified fine (v arrives with state 0x20) yet Emacs still behaved as
-  Super — superseded; the layout binding is removed. KEY_MENU (I147) was the
+  Super — root cause: keyd's cmd normalization (next bullet), the Macro rule
+  never actually fired. Superseded; the layout binding is removed. KEY_MENU (I147) was the
   first pick but loses to symbols/inet (last section of the compiled chain;
   layout sections can't override later includes). XKB sections can't span
   groups (name[Group2] corrupts gb(mac)'s include — no upstream file does
@@ -182,6 +193,33 @@ modules/               one topic per file:
   Wayland apps: no hyper bit in the protocol, they only ever see a tap.
   Greeter side effect: without xremap the physical caps key is Hyper at
   SDDM (caps-lock toggle gone there).
+- **KDE Keyboard KCM hijacks xkb options (2026-11-08)**: System Settings →
+  Keyboard → "Configure keyboard options" persists to `~/.config/kxkbrc` and
+  kxkb then applies ITS option list over the system's `XKB_DEFAULT_OPTIONS`
+  — toggling the box even briefly left `ResetOldOptions=true` with an empty
+  list, which WIPED every option (Alt+Space layout switching died,
+  caps:hyper never reached KWin). KWin reads kxkbrc at session start only —
+  no hot reload. Fix: delete kxkbrc, log out/in; env options return. Rule:
+  xkb options are NixOS-managed (desktop.nix) — hands off that KCM; if it
+  must be used, re-check everything there, it overrides wholesale.
+  Related gotcha: right-cmd showing as `S-v` in Emacs while the option was
+  dead was NOT super — that's plain Caps_Lock rendering: lock shifts the
+  keysym (v -> V) and Emacs prints it `S-`.
+- **keyd eats the left/right cmd distinction (2026-11-08, the real villain)**:
+  every "right cmd behaves like left cmd" symptom traced back to keyd, not
+  XKB/xremap/KWin: keyd binds both cmd keys to the *meta descriptor alias*
+  and re-emits modifiers from a canonical table (src/keys.c:
+  `{MOD_SUPER, KEYD_LEFTMETA}`) — KEY_RIGHTMETA never leaves keyd's virtual
+  device, so xremap's Super_R rules were dead code in BOTH hyper eras (the
+  Macro/I120 "mystery failure" included: Macro never fired; the launcher
+  taps were plain Super). Fix: `rightmeta = menu` in keyd [global] — a
+  plain key keeps its identity through the chain; xremap then maps Menu
+  (CapsLock in emacs / F13 elsewhere). General rule: any per-side modifier
+  rule behind keyd must go through a keyd rebind, never through xremap's
+  Super_R/Alt_R/etc. matching. Also: evdev grab is EXCLUSIVE — evtest on
+  event17/event22 (keyd/xremap devices) just prints "device is grabbed by
+  another process"; passive chain snooping while the stack runs is
+  impossible, go through the X side (xev) or reason from source.
 - **llm-agents input**: do NOT add `follows = "nixpkgs"` — their binaries in `cache.numtide.com` are built against their own pinned nixpkgs; following yours = cache misses + rebuilds.
 - `/etc/nixos/` is obsolete; the repo is the source of truth.
 
@@ -194,13 +232,18 @@ modules/               one topic per file:
   miss that leaked F13 into Emacs) and now maps left cmd = Super (s-),
   right cmd = CapsLock -> Hyper via the caps:hyper XKB option (options are
   group-agnostic, so this also survives the ua layout toggle — the dead
-  Macro/I120 layout binding it replaced did not). PENDING: `nyx` (it
-  restarts the xremap unit itself now), log out/in (KWin compiles the xkb
-  keymap at session start — the new option needs a fresh session), then
-  verify: xremap's journal grabbed ONLY the keyd device (no hardware),
+  Macro/I120 layout binding it replaced did not) — after the keyd
+  rightmeta=menu rebind, since keyd normalization was why the earlier
+  Super_R routes never fired. PENDING: `nyx -l` (rebuild for the keyd +
+  xremap changes; kxkbrc already deleted — KWin picks options up only at
+  session start), then verify: Alt+Space layout
+  cycling WORKS AGAIN (it was collateral damage of the kxkbrc wipe, see the
+  KCM gotcha note), xremap's journal grabbed ONLY the keyd device (no hardware),
   Cmd+Tab/grave cycle with the popup held, Cmd+c/v/... still xremap-driven,
   and in Emacs `C-h k`: left cmd+v -> s-v, right cmd+v -> H-v (also with
-  ua active). Known KDE wart: a bare right-cmd tap can pop the Plasma
+  ua active); right-cmd TAP in Emacs should pop the Plasma search launcher
+  (Hyper tap = Qt broken-Meta wart) and must NOT toggle caps-lock state.
+  Known KDE wart: a bare right-cmd tap can pop the Plasma
   search launcher (Qt's Hyper=broken-Meta, see debugging note) — if that
   annoys, rebind/blank the single-"Meta" Search shortcut in System
   Settings → Keyboard Shortcuts. Later: fish real konsole/ghostty/seance
