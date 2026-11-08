@@ -54,13 +54,13 @@ keymap:
       F13-t: Ctrl-Shift-t # new tab
       F13-w: Ctrl-Shift-w # close tab
       F13-n: Ctrl-Shift-n # new window (konsole/ghostty)
-      # text editing that survives the dialect: word motions + forward delete
+      # next/prev tab
       F13-backspace: Ctrl-Delete # kill word forward (Mac Cmd+Delete)
-      F13-left: Ctrl-left # word left
-      F13-right: Ctrl-right # word right
-      # no Home/End keys on this board: Cmd+Up/Down = scrollback bounds
-      F13-up: Ctrl-home
-      F13-down: Ctrl-end
+      F13-left: Ctrl-Shift-Tab # word left
+      F13-right: Ctrl-Tab # word right
+      # next/prev workspace
+      F13-up: Ctrl-PageUp
+      F13-down: Ctrl-PageDown
       # SWALLOWED — plain duplicates of the caps-key Ctrl (the readline ops
       # live there on purpose; Cmd+K/Cmd+R on Mac do NOT mean kill/reverse
       # search, so no emulation to preserve) or outright dangerous:
