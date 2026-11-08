@@ -28,7 +28,7 @@
       # NOTE: the closing '' sits at the same indent as the body so that every
       # line loses its leading whitespace (keyd needs [sections] at col 0)
       extraConfig = ''
-        [global]
+        [main]
         # keyd normalizes BOTH cmd keys through the meta descriptor
         # (src/keys.c: MOD_SUPER -> canonical KEYD_LEFTMETA), so
         # KEY_RIGHTMETA never reaches xremap and Super_R rules are dead
@@ -38,7 +38,9 @@
         # caps:hyper xkb option) or F13 (base block -> behaves like cmd
         # everywhere else). COST: right cmd no longer triggers the [meta]
         # layer, so the Cmd+Tab/grave swapm hold-cycle works on LEFT cmd
-        # only.
+        # only. NOTE: bindings live in [main] — [global] is the
+        # config-options section; rightmeta=menu there parses as a bogus
+        # option, warns, and does nothing (keyd check shows it).
         rightmeta = menu
 
         [meta]

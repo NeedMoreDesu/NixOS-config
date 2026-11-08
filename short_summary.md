@@ -219,7 +219,14 @@ modules/               one topic per file:
   Super_R/Alt_R/etc. matching. Also: evdev grab is EXCLUSIVE — evtest on
   event17/event22 (keyd/xremap devices) just prints "device is grabbed by
   another process"; passive chain snooping while the stack runs is
-  impossible, go through the X side (xev) or reason from source.
+  impossible, go through the X side (xev) or reason from source. keyd
+  section trap found the same day: BINDINGS belong in `[main]`; `[global]`
+  is config-options only — `rightmeta = menu` under [global] parsed as a
+  bogus option, WARNED (`keyd check /etc/keyd/default.conf`), and did
+  nothing — which is how the user's "Super_L rebind moves both cmd keys
+  together" test reproduced the normalization despite the fix being
+  committed. `keyd monitor` prints per-device raw+processed events and is
+  the way to see what the Magic Keyboard actually sends.
 - **llm-agents input**: do NOT add `follows = "nixpkgs"` — their binaries in `cache.numtide.com` are built against their own pinned nixpkgs; following yours = cache misses + rebuilds.
 - `/etc/nixos/` is obsolete; the repo is the source of truth.
 
