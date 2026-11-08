@@ -87,18 +87,24 @@ modules/               one topic per file:
                        only. No live config reload: nyx, then
                        `systemctl --user restart xremap`.
   xremap.yml           the keyboard policy, at the evdev layer BELOW XKB (see the
-                       layering note under debugging). modmap: the cycle
-                       caps->ctrl, ctrl->super, cmd->F13 (F13 = virtual_modifiers,
-                       the "new Cmd" modifier, inert everywhere). keymap (first
-                       match wins, app blocks first): terminals (konsole/ghostty/
-                       seance) c/v/x/f/t/w -> Ctrl+Shift+*, a/z/s/d swallowed
-                       (readline/XOFF/EOF traps); default = nearly the whole
-                       alphabet -> Ctrl+* (only h/m unmapped on purpose; q ->
-                       Alt+F4, space -> Alt+F2 run dialog, 1/2 -> Alt+Super+1/2
-                       = KWin layout switch), plus slash/enter/backspace->
-                       Ctrl-Delete/left/right/home/end word-nav. Shift variants
-                       (redo, reopen tab, force reload...) come free via
-                       inexact matching.
+                       layering note under debugging). modmap blocks are
+                       first-match per key: EMACS block first (cmd identity ->
+                       arrives as real Super, s- space in Emacs, no keymap rule
+                       can fire there; rollback = delete the block), then the
+                       generic cycle caps->ctrl, ctrl->super, cmd->F13 (F13 =
+                       virtual_modifiers, inert everywhere). keymap (first match
+                       wins, app blocks first): terminals (konsole/ghostty/
+                       seance) = explicit whitelist: c/v/x/f/t/w/n ->
+                       Ctrl+Shift+*, left/right word-nav, backspace ->
+                       Ctrl-Delete, up/down -> Ctrl-Home/End (no Home/End keys
+                       on this board), everything else swallowed (dupes of the
+                       caps-Ctrl + XOFF/EOF/SIGTSTP traps; C-i IS Tab, C-j IS
+                       Enter — zero leaks); default = nearly the whole alphabet
+                       -> Ctrl+* (h/m unmapped on purpose; q -> Alt+F4, space
+                       -> Alt+F2 run dialog, 1/2 -> Alt+Super+1/2 = KWin layout
+                       switch, up/down -> Ctrl-Home/End, slash/enter/
+                       backspace/arrows). Shift variants (redo, reopen tab,
+                       force reload...) come free via inexact matching.
                        NO F13-tab/F13-grave rules: keyd consumes those before
                        xremap, and an extra rule would stack a second synthetic
                        Alt on keyd's held Alt_L (inexact matching).
