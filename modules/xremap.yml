@@ -6,15 +6,19 @@
 # (one layer, coherent for both apps AND xremap's own combo matching) and
 # nothing is added to the xkb layouts. modmap rewrites each *input* keycode
 # once (first matching rule wins) and never re-looks-up its own output, so
-# CapsLock->Control_L is NOT chained through the Control_L->Meta_L rule.
+# CapsLock->Control_L is NOT chained through the Control_L->Super_L rule.
+#
+# Chain: hardware -> keyd (virtual device "keyd", vendor 0x0fac-ignored
+# output) -> xremap (grabs ONLY the keyd device) -> KWin/XKB. keyd exists
+# solely for the Cmd+Tab/grave Alt-HOLD hold-layer (swapm) that xremap
+# cannot express: the KWin switcher popups need a modifier physically held
+# across repeated presses. Those combos are fully consumed by keyd and
+# arrive here as plain Alt-events — never add F13-tab/F13-grave rules.
 #
 # Consequences to know:
 # - SDDM greeter: xremap is a user service (KDE client cannot run as root),
-#   so it is not running before login. Login screen keys are raw/vanilla.
-# - Cmd+Tab / Cmd+grave below are single-shot: xremap emits Alt press+release
-#   around the key, so the KWin switcher opens and closes per press instead of
-#   staying open while Cmd is held (keyd's swapm hold-layer trick has no
-#   xremap equivalent yet). Known risk, revisit later.
+#   so it is not running before login. Login screen keys are raw/vanilla
+#   except keyd's switcher hold-layer (keyd is a system service).
 
 # The physical Cmd key becomes F13: a non-modifier key declared as a virtual
 # modifier. It is inert in every app (nothing binds F13), and keymap rules
@@ -65,6 +69,9 @@ keymap:
       F13-z: Ctrl-z
       F13-q: Alt-F4 # quit -> KWin close
       F13-space: Alt-F1 # dashboard (was keyd's Cmd+Space)
-      F13-tab: Alt-Tab # window switch (single-shot, see header)
-      F13-grave: Alt-grave # per-app switch; gb-mac-grave TLDE fix makes
-      # the keysym real grave so KWin matches it
+      # Cmd+Tab / Cmd+grave intentionally NOT here: keyd emits real
+      # Alt-hold + Tab/grave before xremap sees them (swapm hold-layer),
+      # and the popup needs that physical hold. If a rule matched here,
+      # xremap would stack a second synthetic Alt on top of keyd's held
+      # Alt_L (inexact matching lets combos through with extra modifiers) —
+      # leave them unclaimed.

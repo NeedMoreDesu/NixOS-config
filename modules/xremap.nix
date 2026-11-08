@@ -11,8 +11,14 @@
     withKDE = true;
     userName = "mika";
 
-    # Start with the graphical session; --watch picks up hotplugged
-    # keyboards (the BT one reconnects later than boot).
+    # Chain: hardware -> keyd (switcher hold-layer only) -> xremap -> KWin.
+    # Grab ONLY keyd's virtual device; keyd owns the hardware (evdev grab is
+    # exclusive). watch stays on so a keyd restart/reconnect re-attaches.
+    deviceNames = [ "keyd" ];
+    # Mark xremap's own output device as "virtual" (keyd skips vendor 0x0fac,
+    # the same way it skips its own device) — without this keyd would grab it
+    # and the two remappers would loop on each other's output.
+    extraArgs = [ "--vendor" "0x0fac" ];
     watch = true;
 
     # One file in the repo, not an attrset — easier to iterate by hand and
