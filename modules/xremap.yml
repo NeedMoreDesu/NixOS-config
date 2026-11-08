@@ -57,6 +57,8 @@ keymap:
       # untouched.
       F13-a: []
       F13-z: []
+      F13-s: [] # Ctrl+S = XOFF: freezes the tty
+      F13-d: [] # Ctrl+D = EOF: would log the shell out
 
   - name: default everywhere else (GUI apps)
     remap:
@@ -67,8 +69,35 @@ keymap:
       F13-o: Ctrl-o
       F13-p: Ctrl-p
       F13-z: Ctrl-z
+      F13-t: Ctrl-t
+      F13-w: Ctrl-w
+      F13-f: Ctrl-f # find
+      F13-g: Ctrl-g # find next (Cmd+Shift+G = previous, via shifted match)
+      F13-b: Ctrl-b # bold / Firefox bookmark sidebar
+      F13-d: Ctrl-d # bookmark
+      F13-e: Ctrl-e # Chrome address/search pick; readline end-of-line in shells
+      F13-i: Ctrl-i # page info / italic
+      F13-j: Ctrl-j # downloads
+      F13-k: Ctrl-k # search bar (Firefox); readline kill-forward in shells
+      F13-l: Ctrl-l # URL bar; readline end-of-line; Ctrl+L clears shells
+      F13-n: Ctrl-n # new window/message
+      F13-r: Ctrl-r # reload; Ctrl+R reverse history search in shells
+      F13-s: Ctrl-s # save (swallowed in terminals, see above)
+      F13-u: Ctrl-u # view source; readline kill-backward in shells
+      F13-y: Ctrl-y # redo; readline yank in shells
+      F13-slash: Ctrl-slash # comment toggle in editors
+      F13-enter: Ctrl-Enter # send message / run cell
+      F13-backspace: Ctrl-Delete # Mac Cmd+Delete = forward delete
+      F13-left: Ctrl-left # word left
+      F13-right: Ctrl-right # word right
+      F13-home: Ctrl-home # top of page/scrollback
+      F13-end: Ctrl-end
+      # Cmd+1/2 = KWin's Meta+Alt+1/2 layout-switch shortcuts (home.nix).
+      # Other digits stay unmapped on purpose (0-9/equal/minus excluded).
+      F13-1: Alt-Super-1
+      F13-2: Alt-Super-2
       F13-q: Alt-F4 # quit -> KWin close
-      F13-space: Alt-F1 # dashboard (was keyd's Cmd+Space)
+      F13-space: Alt-F2 # run app dialogue
       # Cmd+Tab / Cmd+grave intentionally NOT here: keyd emits real
       # Alt-hold + Tab/grave before xremap sees them (swapm hold-layer),
       # and the popup needs that physical hold. If a rule matched here,

@@ -91,8 +91,14 @@ modules/               one topic per file:
                        caps->ctrl, ctrl->super, cmd->F13 (F13 = virtual_modifiers,
                        the "new Cmd" modifier, inert everywhere). keymap (first
                        match wins, app blocks first): terminals (konsole/ghostty/
-                       seance) c/v/x/f/t/w -> Ctrl+Shift+*, a/z swallowed; default
-                       x/c/v/a/o/p/z -> Ctrl+*, q -> Alt+F4, space -> Alt+F1.
+                       seance) c/v/x/f/t/w -> Ctrl+Shift+*, a/z/s/d swallowed
+                       (readline/XOFF/EOF traps); default = nearly the whole
+                       alphabet -> Ctrl+* (only h/m unmapped on purpose; q ->
+                       Alt+F4, space -> Alt+F2 run dialog, 1/2 -> Alt+Super+1/2
+                       = KWin layout switch), plus slash/enter/backspace->
+                       Ctrl-Delete/left/right/home/end word-nav. Shift variants
+                       (redo, reopen tab, force reload...) come free via
+                       inexact matching.
                        NO F13-tab/F13-grave rules: keyd consumes those before
                        xremap, and an extra rule would stack a second synthetic
                        Alt on keyd's held Alt_L (inexact matching).
