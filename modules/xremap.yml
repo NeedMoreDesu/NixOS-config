@@ -39,18 +39,19 @@ modmap:
       Control_L: Super_L
       Control_R: Super_L
       Super_L: Super_L # identity: left cmd -> XKB -> real Super, the s- space
-      # Right cmd -> Hyper via the XKB option caps:hyper (desktop.nix):
-      # xremap emits CapsLock (evdev 58), the option rewrites that keycode
-      # to the Hyper_L keysym and hyper(mod3) puts Hyper_L in Mod3's keysym
-      # set, so X11 depresses Mod3 for ANY Hyper_L press -> Emacs (XWayland)
-      # reads real H-. Nothing else ever emits keycode 58: the physical
-      # caps key is consumed by the cycle above (-> Control_L), so
-      # caps:hyper is Emacs-only in practice. No caps-lock side effects:
-      # the option replaces the key, it does not add a lock.
-      # (Macro/I120 route dropped: KDE/Qt has no Hyper modifier — it maps
-      # the Hyper keysym to a broken Meta either way; combos still reach
-      # Emacs as H-, only a bare tap can pop the Plasma search launcher.)
-      # Outside this block the base cycle still maps Super_R -> F13.
+      # Right cmd = Hyper: keyd normalizes both cmd keys to KEY_LEFTMETA
+      # (mac-keys.nix), so right cmd arrives here as KEY_MENU ("Menu",
+      # the only distinguishable output). Menu -> CapsLock (keycode 58,
+      # nothing else ever emits it: the physical caps key is consumed by
+      # the cycle above) -> the caps:hyper XKB option (desktop.nix)
+      # rewrites that keycode to Hyper_L and hyper(mod3) puts Hyper_L in
+      # Mod3's keysym set -> X11 depresses Mod3 for ANY Hyper_L press ->
+      # Emacs (XWayland) reads real H-. No caps-lock side effect: the
+      # option replaces the key outright. KDE wart: a bare tap shows the
+      # Hyper keysym to Qt as a broken Meta -> Plasma search launcher.
+      # Super_R lines kept defensively (unreachable while keyd fronts
+      # the chain, harmless if that ever changes).
+      Menu: CapsLock
       Super_R: CapsLock
 
   - name: base cycle (caps->ctrl, ctrl->super, cmd->F13)
@@ -60,6 +61,9 @@ modmap:
       Control_R: Super_R
       Super_L: F13
       Super_R: F13
+      # right cmd arrives as Menu (keyd normalization, see mac-keys.nix):
+      # make it F13 here so it behaves exactly like cmd everywhere else.
+      Menu: F13
 
 keymap:
   # Application-specific blocks MUST come before the generic block:
