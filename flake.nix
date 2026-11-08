@@ -27,6 +27,12 @@
       url = "github:raine/workmux";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # Key remapper for X11/Wayland with app-specific rules (evdev level —
+    # sits BELOW XKB). No follows: its module ships its own pinned nixpkgs +
+    # crane and builds the static xremap-kde binary against them; following
+    # ours would only change the (Rust-only) build deps. Same policy as
+    # llm-agents: don't follow, don't share closure for pure static binaries.
+    xremap-flake.url = "github:xremap/nix-flake";
   };
 
     outputs =
@@ -36,6 +42,7 @@
         home-manager,
         seance,
         workmux,
+        xremap-flake,
         ...
       }:
     {
@@ -48,6 +55,7 @@
         modules = [
           ./hosts/nixos/default.nix
           home-manager.nixosModules.home-manager
+          xremap-flake.nixosModules.default
         ];
       };
     };
