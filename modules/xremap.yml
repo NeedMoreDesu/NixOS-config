@@ -1,0 +1,70 @@
+# xremap: the keyboard policy that used to live in keyd + XKB options.
+#
+# Layering (important): xremap sits BELOW XKB, on raw evdev keycodes.
+# It never sees layout/option remaps, and everything it emits is then
+# re-mapped by XKB. That is why the whole caps/ctrl/cmd cycle lives here
+# (one layer, coherent for both apps AND xremap's own combo matching) and
+# nothing is added to the xkb layouts. modmap rewrites each *input* keycode
+# once (first matching rule wins) and never re-looks-up its own output, so
+# CapsLock->Control_L is NOT chained through the Control_L->Meta_L rule.
+#
+# Consequences to know:
+# - SDDM greeter: xremap is a user service (KDE client cannot run as root),
+#   so it is not running before login. Login screen keys are raw/vanilla.
+# - Cmd+Tab / Cmd+grave below are single-shot: xremap emits Alt press+release
+#   around the key, so the KWin switcher opens and closes per press instead of
+#   staying open while Cmd is held (keyd's swapm hold-layer trick has no
+#   xremap equivalent yet). Known risk, revisit later.
+
+# The physical Cmd key becomes F13: a non-modifier key declared as a virtual
+# modifier. It is inert in every app (nothing binds F13), and keymap rules
+# below match "F13-<key>" as the new Cmd. Left/right super keys both feed it;
+# the Super role is the physical Ctrl key's job now (Control_L->Super_L).
+# (xremap has no Meta_* aliases: KEY_LEFTMETA is Super_L/WIN_L there.)
+virtual_modifiers:
+  - F13
+
+modmap:
+  - name: base cycle (caps->ctrl, ctrl->super, cmd->F13)
+    remap:
+      CapsLock: Control_L
+      Control_L: Super_L
+      Control_R: Super_R
+      Super_L: F13
+      Super_R: F13
+
+keymap:
+  # Application-specific blocks MUST come before the generic block:
+  # xremap uses the first matching keymap entry.
+
+  - name: terminals (emulators only; tmux/vim inside inherit this)
+    application:
+      only: [/konsole/, /ghostty/, /seance/]
+    remap:
+      # copy/paste dialect in terminals is Ctrl+Shift+...
+      F13-c: Ctrl-Shift-c
+      F13-v: Ctrl-Shift-v
+      F13-x: Ctrl-Shift-x
+      F13-f: Ctrl-Shift-f # find
+      F13-t: Ctrl-Shift-t # new tab
+      F13-w: Ctrl-Shift-w # close tab
+      # a/z make no sense here (Cmd+A select-all is a GUI idiom; Cmd+Z would
+      # land on C-z = SIGTSTP job-suspend): swallow the combos, plain keys
+      # untouched.
+      F13-a: []
+      F13-z: []
+
+  - name: default everywhere else (GUI apps)
+    remap:
+      F13-x: Ctrl-x
+      F13-c: Ctrl-c
+      F13-v: Ctrl-v
+      F13-a: Ctrl-a
+      F13-o: Ctrl-o
+      F13-p: Ctrl-p
+      F13-z: Ctrl-z
+      F13-q: Alt-F4 # quit -> KWin close
+      F13-space: Alt-F1 # dashboard (was keyd's Cmd+Space)
+      F13-tab: Alt-Tab # window switch (single-shot, see header)
+      F13-grave: Alt-grave # per-app switch; gb-mac-grave TLDE fix makes
+      # the keysym real grave so KWin matches it

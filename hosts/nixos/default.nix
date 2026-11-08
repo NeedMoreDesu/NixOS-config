@@ -14,6 +14,7 @@
     ../../modules/packages.nix
     ../../modules/printing.nix
     ../../modules/users.nix
+    ../../modules/xremap.nix
   ];
 
   # This option defines the first version of NixOS you have installed on this particular machine,
