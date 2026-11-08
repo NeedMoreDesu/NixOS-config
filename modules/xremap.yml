@@ -45,8 +45,8 @@ keymap:
     application:
       only: [/konsole/, /ghostty/, /seance/]
     remap:
-      # KEPT — things that are actual terminal features or readline ops:
-      # emulator dialect (Ctrl+Shift+*) ...
+      # KEPT — terminal FEATURES only (emulator Ctrl+Shift+* dialect);
+      # all text-editing shortcuts belong to the caps-key Ctrl, not Cmd:
       F13-c: Ctrl-Shift-c # copy
       F13-v: Ctrl-Shift-v # paste
       F13-x: Ctrl-Shift-x # cut
@@ -54,19 +54,16 @@ keymap:
       F13-t: Ctrl-Shift-t # new tab
       F13-w: Ctrl-Shift-w # close tab
       F13-n: Ctrl-Shift-n # new window (konsole/ghostty)
-      # ... and bash/readline ones worth thumbing ...
-      F13-l: Ctrl-l # clear screen
-      F13-r: Ctrl-r # reverse history search
-      F13-u: Ctrl-u # kill line backwards
-      F13-k: Ctrl-k # kill line forwards
-      F13-y: Ctrl-y # yank
+      # text editing that survives the dialect: word motions + forward delete
       F13-backspace: Ctrl-Delete # kill word forward (Mac Cmd+Delete)
       F13-left: Ctrl-left # word left
       F13-right: Ctrl-right # word right
-      F13-home: Ctrl-home # konsole scrollback top
-      F13-end: Ctrl-end # scrollback bottom
-      # SWALLOWED — plain duplicates of the caps-key Ctrl (a b e g i j o p,
-      # all already reachable physically) or outright dangerous:
+      # no Home/End keys on this board: Cmd+Up/Down = scrollback bounds
+      F13-up: Ctrl-home
+      F13-down: Ctrl-end
+      # SWALLOWED — plain duplicates of the caps-key Ctrl (the readline ops
+      # live there on purpose; Cmd+K/Cmd+R on Mac do NOT mean kill/reverse
+      # search, so no emulation to preserve) or outright dangerous:
       # C-s = XOFF tty freeze, C-d = EOF/logout, C-z = SIGTSTP.
       # Special note: C-i IS Tab and C-j IS a newline — never let an
       # unmapped Ctrl+letter leak into a terminal.
@@ -76,9 +73,14 @@ keymap:
       F13-g: []
       F13-i: []
       F13-j: []
+      F13-k: []
+      F13-l: []
       F13-o: []
       F13-p: []
+      F13-r: []
       F13-s: []
+      F13-u: []
+      F13-y: []
       F13-d: []
       F13-z: []
       F13-slash: []
@@ -117,8 +119,10 @@ keymap:
       F13-backspace: Ctrl-Delete # Mac Cmd+Delete = forward delete
       F13-left: Ctrl-left # word left
       F13-right: Ctrl-right # word right
-      F13-home: Ctrl-home # top of page/scrollback
-      F13-end: Ctrl-end
+      # no Home/End keys on this board; Mac Cmd+Up/Down = start/end of doc
+      # (Ctrl+Home/End in Qt/GTK), so those combos drive the arrow keys.
+      F13-up: Ctrl-home
+      F13-down: Ctrl-end
       # Cmd+1/2 = KWin's Meta+Alt+1/2 layout-switch shortcuts (home.nix).
       # Other digits stay unmapped on purpose (0-9/equal/minus excluded).
       F13-1: Alt-Super-1
