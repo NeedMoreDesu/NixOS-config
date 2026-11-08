@@ -11,4 +11,26 @@ xkb_symbols "gb-mac-grave" {
     // KWin "next window of current app" chain then agree on one keysym (KWin
     // matches its Alt+grave default by keysym, never by keycode).
     key <TLDE> {        [ grave,       asciitilde ]    };
+
+    // Right-cmd Hyper, consumed from modules/xremap.yml's emacs block:
+    // xremap emits KEY_MACRO there (evdev 112; no physical key on this
+    // board produces it, and symbols/inet — the LAST section of the
+    // compiled chain pc+layouts+options+inet(evdev) — has its I120 binding
+    // commented out, so this key is unbound everywhere: the only code that
+    // a layout-section binding can actually win; KEY_MENU/I147 loses to
+    // inet's XF86MenuKB). XKB keycode = evdev+8 = 120 -> <I120>, a name
+    // keycodes/evdev already defines. Give it the Hyper_L keysym and put
+    // it in the Mod3 group: Emacs (XWayland here) derives its hyper
+    // modifier from X's core modifier map — a mod whose keysyms contain
+    // Hyper_L/Hyper_R becomes H-. Bound in Group1 only (layout sections
+    // cannot span groups: no upstream file declares name[Group2], and the
+    // compiler corrupts gb(mac)'s contents when you try). Emacs' hyper
+    // detection reads the modifier map per keycode, not per active layout
+    // group — verify once on the live system; if H- ever dies with ua
+    // active, the fallback is a second extraLayouts section that includes
+    // "ua(unicode)" and re-declares this binding.
+    // Invisible elsewhere: native apps never see this key, KWin has no
+    // mod3 bindings.
+    key <I120> { [ Hyper_L ] };
+    modifier_map Mod3 { <I120> };
 };

@@ -29,7 +29,7 @@ virtual_modifiers:
   - F13
 
 modmap:
-  - name: emacs
+  - name: emacs (left cmd = Super, right cmd = Hyper)
     application:
       # class arrives as 'Emacs' (capital E, see journalctl "active window")
       # and xremap regexes are case-sensitive -> (?i)
@@ -38,8 +38,15 @@ modmap:
       CapsLock: Control_L
       Control_L: Super_L
       Control_R: Super_L
-      Super_L: Control_R # Map to right ctrl
-      Super_R: Super_R # right cmd stays true Super here, per spec
+      Super_L: Super_L # identity: left cmd -> XKB -> real Super, the s- space
+      # xremap cannot emit "Hyper" (not an evdev key; the config then refuses
+      # to load and the unit dies). Right cmd -> KEY_MACRO (evdev 112, name
+      # "Macro": no physical key produces it and XKB leaves it unbound);
+      # gb-mac-grave binds that keycode to Hyper_L + modifier_map Mod3, so
+      # XWayland Emacs sees a real H-. KEY_MENU is NOT usable: symbols/inet
+      # (last section of the keymap chain) already binds it to XF86MenuKB.
+      # Outside this block the base cycle still maps Super_R -> F13.
+      Super_R: Macro
 
   - name: base cycle (caps->ctrl, ctrl->super, cmd->F13)
     remap:
