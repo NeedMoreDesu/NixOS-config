@@ -66,17 +66,25 @@ modules/               one topic per file:
                        KWin names its per-layout switch actions from the symbols
                        name[Group1], not the evdev.xml description — keep the
                        home.nix shortcut keys in sync with those strings.
-  mac-keys.nix         just the hid_apple.fnmode=2 kernel param (top row = F keys,
-                       brightness/sound on Fn). keyd retired 2026-11-08: evdev grab
-                       is exclusive per device, so keyd and xremap cannot share the
-                       keyboard; xremap's own config replaced all [meta]/maccycle
-                       bindings.
+  mac-keys.nix         keyd as a MINIMAL sidecar under xremap + the
+                       hid_apple.fnmode=2 kernel param (top row = F keys,
+                       brightness/sound on Fn). keyd keeps exactly its
+                       swapm/maccycle hold-layer (Cmd+Tab / Cmd+grave emit
+                       Alt held for as long as Cmd is down — the one thing
+                       xremap cannot express; KWin switcher popups need a
+                       physically-held modifier). Cmd+Space moved to xremap.
+                       chain: hardware -> keyd -> xremap -> KWin.
   xremap.nix           services.xremap (from xremap-flake): serviceMode = "user"
                        (the upstream KDE-Wayland client refuses to run as root),
-                       withKDE for app-aware rules, watch for hotplugged keyboards.
-                       Session-scoped user unit on graphical-session.target — the
-                       SDDM greeter keyboard is vanilla (no ctrl-on-caps there).
-                       No live config reload upstream: nyx, then
+                       withKDE for app-aware rules, deviceNames = [ "keyd" ]
+                       (grab ONLY keyd's virtual device — keyd owns the hardware;
+                       evdev grab is exclusive), extraArgs = [ "--vendor"
+                       "0x0fac" ] (keyd's is_virtual skip: without it keyd would
+                       grab xremap's output and the two would feed each other),
+                       watch (re-attach after keyd restarts).
+                       Session-scoped user unit on graphical-session.target —
+                       the SDDM greeter gets vanilla keys + keyd's hold-layer
+                       only. No live config reload: nyx, then
                        `systemctl --user restart xremap`.
   xremap.yml           the keyboard policy, at the evdev layer BELOW XKB (see the
                        layering note under debugging). modmap: the cycle
@@ -84,10 +92,10 @@ modules/               one topic per file:
                        the "new Cmd" modifier, inert everywhere). keymap (first
                        match wins, app blocks first): terminals (konsole/ghostty/
                        seance) c/v/x/f/t/w -> Ctrl+Shift+*, a/z swallowed; default
-                       x/c/v/a/o/p/z -> Ctrl+*, q -> Alt+F4, space -> Alt+F1,
-                       tab/grave -> Alt+Tab/Alt+grave but SINGLE-SHOT (xremap can't
-                       hold Alt across presses like keyd's swapm did, so the KWin
-                       switchers open+close per tap instead of cycling — to fix).
+                       x/c/v/a/o/p/z -> Ctrl+*, q -> Alt+F4, space -> Alt+F1.
+                       NO F13-tab/F13-grave rules: keyd consumes those before
+                       xremap, and an extra rule would stack a second synthetic
+                       Alt on keyd's held Alt_L (inexact matching).
   audio.nix            PipeWire (pulse compat), rtkit
   bluetooth.nix        BT stack + bluetooth-reconnect service (see below)
   printing.nix         CUPS
@@ -125,17 +133,15 @@ modules/               one topic per file:
 
 ## Next steps (not done yet)
 
-- **xremap experiment (this branch, 2026-11-08)**: wired + validated
-  (`xremap --validate-config`, toplevel eval) but NOT rebuilt/live yet.
-  Checklist after `nyx`: first build compiles xremap 0.15.17 via crane from
-  source (no binary cache — slow once); user unit should start with the
-  session (`systemctl --user status xremap`); feel the cycle (caps→ctrl,
-  ctrl→super, cmd→F13-inert); Cmd+q/Cmd+space; fish real konsole/ghostty/
-  seance class strings via the journalctl dummy-filter trick and tighten the
-  regexes; then attack the single-shot switcher gap (Alt-hold cycling, the
-  one thing keyd's swapm did better).
-  2026-11-08 status: first `nyx` OK, unit enabled, but EPERM on devices —
-  stale user-manager groups (see gotcha). Reboot pending, then continue.
+- **xremap experiment (this branch, 2026-11-08)**: the cycle + Cmd combos
+  work post-reboot (see group gotcha). Cmd+Tab/grave gap solved by keeping
+  keyd as a hold-layer sidecar under xremap (mac-keys.nix / xremap.nix
+  chain notes). PENDING after the sidecar commits: `nyx` + `systemctl
+  --user restart xremap`, then verify the chain: xremap's journal shows it
+  grabbed ONLY the keyd device (no hardware), Cmd+Tab/grave cycle with the
+  popup held, Cmd+c/v/... still xremap-driven. Later: fish real
+  konsole/ghostty/seance class strings via the journalctl dummy-filter
+  trick and tighten the regexes.
 
 - Rollback/GC: weekly nix-gc timer prunes profile generations >14d; boot menu capped at 20 entries. No `system.copySystemConfiguration` needed with a git repo
 - No home.file/packages in HM yet — Plasma scaling + panel declared
