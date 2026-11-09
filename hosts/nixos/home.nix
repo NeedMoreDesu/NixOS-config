@@ -22,12 +22,24 @@
       };
     };
 
+    # Idle policy: lock at 20m, panel power-off at 25m (kwinrc/kcfg defaults
+    # were 5m/10m). Journal proof that powerdevil auto-suspended on its own
+    # three times (Nov 8 16:40, Nov 9 01:47, 16:14) — a desktop never sleeps
+    # by itself here.
+    powerdevil.AC = {
+      turnOffDisplay.idleTimeout = 25 * 60;
+      autoSuspend.action = "nothing";
+    };
+
     configFile = {
       "kwinrc"."Xwayland"."Scale" = 2.0;
       # Klipper clipboard auto-mirror was tested and rejected (2026-11-07,
       # see the pasteboard branch's DESIGN.md §12); pinned false so
       # re-enabling it via the KCM doesn't silently become policy.
       "klipperrc"."General"."SyncClipboards" = false;
+      # kscreenlocker Daemon.Timeout is in MINUTES (kcfg Double), Autolock
+      # default true; LockGrace default 5s.
+      "kscreenlockerrc"."Daemon"."Timeout" = 20;
     };
 
     # Mirrors ~/.config/plasma-org.kde.plasma.desktop-appletsrc:
