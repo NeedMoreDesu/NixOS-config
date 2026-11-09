@@ -9,6 +9,8 @@ Mode of operations for AI assistants: commit incrementally — each finished cha
 - NixOS unstable (`nixpkgs#nixos-unstable`), host `nixos`, single machine
 - KDE Plasma 6 + SDDM (Wayland), PipeWire, CUPS, NetworkManager, Bluetooth
 - User `mika`; AI CLIs (`opencode`, DeepSeek `dsh`) from numtide's llm-agents.nix
+- Emacs config = its own repo: a Prelude fork in `~/.emacs.d` (GitHub,
+  auto-cloned by home.nix on first activation)
 
 ## How to rebuild
 
@@ -51,7 +53,11 @@ hosts/nixos/
   default.nix          host entry: imports modules + hardware-configuration.nix,
                        system.stateVersion = "26.05" (NEVER bump, see comment)
   hardware-configuration.nix   generated at install; machine-specific mounts
-  home.nix             home-manager user config for mika (plasma-manager)
+  home.nix             home-manager user config for mika (plasma-manager;
+                       also clones ~/.emacs.d from the GitHub prelude fork
+                       on first activation — one-time setup, never touches
+                       the tree afterwards; upstream remote added for pulls.
+                       The emacs keyboard elisp lives in THAT repo)
 modules/               one topic per file:
   boot.nix             systemd-boot + EFI, configurationLimit 20
   networking.nix       hostname, NetworkManager
@@ -105,13 +111,17 @@ modules/               one topic per file:
   xremap.yml           the keyboard policy, at the evdev layer BELOW XKB (see the
                        layering note under debugging). modmap blocks are
                         first-match per key: EMACS block first (app regex
-                        MUST be (?i) — KWin reports class 'Emacs' and
-                        xremap regexes are case-sensitive: mismatch = cmd
-                        silently goes F13 through the generic cycle);
-                        left cmd identity -> real Super (s- space), right
-                        cmd (arrives as Menu — keyd normalization, see
-                        mac-keys.nix) -> CapsLock -> Hyper via the
-                        caps:hyper XKB option (desktop.nix) ->
+                         MUST be (?i) — KWin reports class 'Emacs' and
+                         xremap regexes are case-sensitive: mismatch = cmd
+                         silently goes F13 through the generic cycle);
+                         left cmd -> F13 + the emacs keymap block re-emits
+                         every F13+<key> as [F14, <key>] (F14 = XF86Launch5
+                         in Emacs; the s- prefix binding is ELISP in the
+                         ~/.emacs.d prelude fork, not this repo — Emacs-side
+                         keyboard work happens there); right
+                         cmd (arrives as Menu — keyd normalization, see
+                         mac-keys.nix) -> CapsLock -> Hyper via the
+                         caps:hyper XKB option (desktop.nix) ->
                         H- in Emacs/XWayland; rollback = delete the block
                         + the option + the keyd rebind), then the
                        generic cycle caps->ctrl, ctrl->super, cmd->F13 (F13 =
@@ -230,37 +240,7 @@ modules/               one topic per file:
 - **llm-agents input**: do NOT add `follows = "nixpkgs"` — their binaries in `cache.numtide.com` are built against their own pinned nixpkgs; following yours = cache misses + rebuilds.
 - `/etc/nixos/` is obsolete; the repo is the source of truth.
 
-## Next steps (not done yet)
-
-- **F14/XF86Launch5 super-chord (2026-11-09)**: xremap side landed
-  (emacs_plans.md): Cmd+<key> in Emacs emits [F14, key]; F14 arrives as
-  <XF86Launch5> (verified). PENDING: run `nyx`, then write the elisp
-  binding (target: event-apply-super-modifier, the thing C-x @ s is).
-
-- **xremap experiment (this branch, 2026-11-08)**: the cycle + Cmd combos
-  work post-reboot (see group gotcha). Cmd+Tab/grave gap solved by keeping
-  keyd as a hold-layer sidecar under xremap (mac-keys.nix / xremap.nix
-  chain notes). EMACS block fixed ((?i)emacs — the silent case-sensitivity
-  miss that leaked F13 into Emacs) and now maps left cmd = Super (s-),
-  right cmd = CapsLock -> Hyper via the caps:hyper XKB option (options are
-  group-agnostic, so this also survives the ua layout toggle — the dead
-  Macro/I120 layout binding it replaced did not) — after the keyd
-  rightmeta=menu rebind, since keyd normalization was why the earlier
-  Super_R routes never fired. PENDING: `nyx -l` (rebuild for the keyd +
-  xremap changes; kxkbrc already deleted — KWin picks options up only at
-  session start), then verify: Alt+Space layout
-  cycling WORKS AGAIN (it was collateral damage of the kxkbrc wipe, see the
-  KCM gotcha note), xremap's journal grabbed ONLY the keyd device (no hardware),
-  Cmd+Tab/grave cycle with the popup held, Cmd+c/v/... still xremap-driven,
-  and in Emacs `C-h k`: left cmd+v -> s-v, right cmd+v -> H-v (also with
-  ua active); right-cmd TAP in Emacs should pop the Plasma search launcher
-  (Hyper tap = Qt broken-Meta wart) and must NOT toggle caps-lock state.
-  Known KDE wart: a bare right-cmd tap can pop the Plasma
-  search launcher (Qt's Hyper=broken-Meta, see debugging note) — if that
-  annoys, rebind/blank the single-"Meta" Search shortcut in System
-  Settings → Keyboard Shortcuts. Later: fish real konsole/ghostty/seance
-  class strings via the journalctl dummy-filter trick and tighten the
-  regexes (same case-sensitivity trap may lurk there too).
+## Notes (closed threads)
 
 - Rollback/GC: weekly nix-gc timer prunes profile generations >14d; boot menu capped at 20 entries. No `system.copySystemConfiguration` needed with a git repo
 - No home.file/packages in HM yet — Plasma scaling + panel declared
