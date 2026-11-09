@@ -90,6 +90,13 @@
     ];
   };
 
+  # Seance keyboard policy + appearance, declarative. NOTE: seance's Settings
+  # window writes ~/.config/seance/config.toml via temp-file+rename, which
+  # replaces this symlink with a plain file — GUI changes are NOT persistent
+  # policy; make them in seance-config.toml and nyx (seance also has
+  # Ctrl+Shift+comma to live-reload its config).
+  xdg.configFile."seance/config.toml".source = ./seance-config.toml;
+
   # Emacs config is a git repo of its own: the Prelude fork on GitHub
   # (upstream bbatsov/prelude kept as a remote for pulling updates).
   # Clone on first activation so a fresh machine is usable right after

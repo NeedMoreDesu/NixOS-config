@@ -1,0 +1,132 @@
+# Managed by home-manager (hosts/nixos/seance-config.toml) — edit there,
+# not with seance's Settings window (this file is a symlink into the store).
+
+[font]
+
+[colors]
+background-opacity = 1.00
+dim-unfocused-panes = true
+
+[window]
+decoration-mode = "auto"
+
+[sidebar]
+position = "left"
+width = 240
+visible = true
+show-button-bar = true
+show-notification-text = true
+show-status = true
+show-logs = true
+show-progress = true
+show-branch = true
+show-ports = true
+
+[terminal]
+scrollback-lines = 10000
+cursor-shape = "block"
+cursor-blink = true
+
+[behavior]
+bell-notification = true
+desktop-notifications = true
+focus-follows-mouse = false
+confirm-close-window = false
+claude-code-hooks = true
+codex-hooks = true
+pi-hooks = true
+opencode-hooks = true
+antigravity-hooks = true
+
+[notifications]
+sound = "default"
+
+[socket]
+port-base = 9100
+port-range = 10
+
+[keybinds]
+prev_workspace = "Ctrl+Page_Up"
+next_workspace = "Ctrl+Page_Down"
+workspace_1 = "Alt+1"
+workspace_2 = "Alt+2"
+workspace_3 = "Alt+3"
+workspace_4 = "Alt+4"
+workspace_5 = "Alt+5"
+workspace_6 = "Alt+6"
+workspace_7 = "Alt+7"
+workspace_8 = "Alt+8"
+workspace_9 = "Alt+9"
+new_tab = "unset"
+close_tab = "Ctrl+Shift+W"
+next_tab = "Ctrl+Tab"
+prev_tab = "Ctrl+Shift+Tab"
+tab_1 = "Ctrl+1"
+tab_2 = "Ctrl+2"
+tab_3 = "Ctrl+3"
+tab_4 = "Ctrl+4"
+tab_5 = "Ctrl+5"
+tab_6 = "Ctrl+6"
+tab_7 = "Ctrl+7"
+tab_8 = "Ctrl+8"
+tab_9 = "Ctrl+9"
+new_column = "Ctrl+Shift+T"
+close_pane = "Ctrl+Shift+X"
+focus_left = "Ctrl+Shift+Left"
+focus_right = "Ctrl+Shift+Right"
+focus_up = "Ctrl+Shift+Up"
+focus_down = "Ctrl+Shift+Down"
+copy = "Ctrl+Shift+C"
+paste = "Ctrl+Shift+V"
+clear_scrollback = "Ctrl+Shift+K"
+find = "Ctrl+Shift+F"
+use_selection_for_find = "Ctrl+Shift+E"
+find_next = "F3"
+find_previous = "Shift+F3"
+zoom_in = "Ctrl+equal"
+zoom_out = "Ctrl+minus"
+zoom_reset = "Ctrl+0"
+toggle_sidebar = "Ctrl+Shift+B"
+toggle_notifications = "Ctrl+Shift+I"
+jump_to_unread = "Ctrl+Shift+U"
+flash_focused = "Ctrl+Shift+H"
+rename_workspace = "Ctrl+Shift+R"
+toggle_pin = "Ctrl+Shift+J"
+new_workspace = "Ctrl+Shift+N"
+close_workspace = "Ctrl+Alt+w"
+workspace_switcher = "Ctrl+Shift+G"
+new_window = "Ctrl+Alt+n"
+toggle_fullscreen = "F11"
+quit_app = "Ctrl+Shift+Q"
+open_command_palette = "Ctrl+Shift+P"
+close_other_tabs = "Ctrl+Alt+t"
+rename_tab = "Ctrl+Alt+r"
+open_folder = "Ctrl+Shift+O"
+reload_config = "Ctrl+Shift+comma"
+open_settings = "Ctrl+comma"
+toggle_layout_mode = "Ctrl+Shift+L"
+move_column_left = "Ctrl+Shift+A"
+move_column_right = "Ctrl+Shift+D"
+expel_left = "Ctrl+Alt+Left"
+expel_right = "Ctrl+Alt+Right"
+resize_wider = "Ctrl+Shift+equal"
+resize_narrower = "Ctrl+Shift+minus"
+maximize_column = "Ctrl+Shift+M"
+switch_preset_column_width = "Ctrl+Shift+S"
+resize_taller = "Ctrl+Alt+equal"
+resize_shorter = "Ctrl+Alt+minus"
+last_workspace = "Ctrl+Shift+BackSpace"
+last_pane = "Ctrl+Alt+BackSpace"
+show_shortcuts = "F1"
+move_workspace_up = "unset"
+move_workspace_down = "unset"
+move_workspace_to_top = "unset"
+close_other_workspaces = "unset"
+close_workspaces_above = "unset"
+close_workspaces_below = "unset"
+mark_workspace_read = "unset"
+mark_workspace_unread = "unset"
+equalize_splits = "unset"
+clear_workspace_name = "unset"
+clear_tab_name = "unset"
+close_tabs_to_right = "unset"
