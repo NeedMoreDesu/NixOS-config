@@ -53,8 +53,12 @@ hosts/nixos/
   default.nix          host entry: imports modules + hardware-configuration.nix,
                        system.stateVersion = "26.05" (NEVER bump, see comment)
   hardware-configuration.nix   generated at install; machine-specific mounts
-  home.nix             home-manager user config for mika (plasma-manager;
-                       also clones ~/.emacs.d from the GitHub prelude fork
+   home.nix             home-manager user config for mika (plasma-manager;
+                        left panel: keyboardlayout is a STANDALONE panel
+                        widget with displayStyle=flag — tray-nested widgets
+                        cannot be configured, plasma-manager items.configs
+                        is dead code upstream, issue #504;
+                        also clones ~/.emacs.d from the GitHub prelude fork
                        on first activation — one-time setup, never touches
                        the tree afterwards; upstream remote added for pulls.
                        The emacs keyboard elisp lives in THAT repo)

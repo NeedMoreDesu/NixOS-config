@@ -48,9 +48,17 @@
             iconTasks = { };
           }
           "org.kde.plasma.marginsseparator"
+          # Keyboard layout indicator: standalone widget, NOT a tray item —
+          # plasma-manager cannot configure widgets nested in the tray
+          # (items.configs is upstream dead code, nix-community/plasma-manager#504),
+          # and as its own widget it can pin displayStyle=flag (country-flag
+          # emoji, rendered via KCountryFlagEmojiIconEngine + Noto Color Emoji).
+          {
+            keyboardLayout.displayStyle = "flag";
+          }
           {
             systemTray = {
-              items.shown = [ "org.kde.plasma.keyboardlayout" ];
+              items.shown = [ ];
             };
           }
           {
