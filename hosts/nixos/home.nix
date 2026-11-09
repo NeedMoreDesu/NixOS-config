@@ -65,7 +65,7 @@
               # wiped by the next nyx (the declared section is rewritten).
               launchers = [
                 "applications:com.seance.app.desktop"
-                "applications:preferred://browser"
+                "applications:librewolf.desktop"
                 "applications:SourceGit.desktop"
               ];
             };
