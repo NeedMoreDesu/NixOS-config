@@ -271,6 +271,15 @@ modules/               one topic per file:
   under kwin_wayland. Use a UNIQUE plugin name per probe (same name twice =
   loadScript -1). Properties: resourceClass/desktopFileName work, appId reads
   `undefined` even though docs advertise it.
+- **pkgs.system eval warning (2026-11-09)**: "evaluation warning: 'system' has been
+  renamed to/replaced by 'stdenv.hostPlatform.system'" fires on the attribute
+  ACCESS `pkgs.system` (the warning carries no position; bisect with
+  `nix eval --impure --expr 'f.inputs.nixpkgs.legacyPackages.x86_64-linux.system'`).
+  Merely reading it warns — `seance.packages.${pkgs.system}` in a module did it.
+  Use `pkgs.stdenv.hostPlatform.system` (fixed in packages.nix for the
+  seance/workmux flake outputs). The `system =` arg on nixosSystem was ALSO
+  legacy (same rename) — dropped; the platform comes from nixpkgs.hostPlatform
+  in hardware-configuration.nix, which stays correct.
 - **llm-agents input**: do NOT add `follows = "nixpkgs"` — their binaries in `cache.numtide.com` are built against their own pinned nixpkgs; following yours = cache misses + rebuilds.
 - `/etc/nixos/` is obsolete; the repo is the source of truth.
 
