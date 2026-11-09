@@ -251,19 +251,19 @@
         "zig": "zig"
       },
       "locked": {
-        "lastModified": 1789133249,
-        "narHash": "sha256-ZC5EtrViJ4RmkIe4CY8mngtVWWlc3DI7eHGPbjdKLpg=",
+        "lastModified": 1794260842,
+        "narHash": "sha256-5iIPvz0JVKy4cYfgn3vjilpVCFWZSAb4Kbi9EvwDMqU=",
         "ref": "refs/heads/main",
-        "rev": "f3b74415085d6ef8627ec3f3faba5152f06569b4",
-        "revCount": 64,
+        "rev": "61464f3c562192bac6f5c91102606ab7798af14c",
+        "revCount": 66,
         "submodules": true,
         "type": "git",
-        "url": "https://github.com/no1msd/seance"
+        "url": "file:///home/mika/seance"
       },
       "original": {
         "submodules": true,
         "type": "git",
-        "url": "https://github.com/no1msd/seance"
+        "url": "file:///home/mika/seance"
       }
     },
     "systems": {
