@@ -91,8 +91,15 @@ modules/               one topic per file:
   locale.nix           Europe/Dublin, en_IE, console keymap ie
   desktop.nix          Plasma 6, SDDM (HiDPI on), xkb layouts: gb-mac-grave +
                        ua(unicode) with Alt+Space cycling (grp:alt_space_toggle;
-                       xkb-native so it works in SDDM too). KWin's per-layout
-                       actions get Meta+Alt+1/2 via home.nix `shortcuts`.
+                        xkb-native so it works in SDDM too). KWin's per-layout
+                        actions get Meta+Alt+1/2 via home.nix `shortcuts`.
+                        home.nix `shortcuts` also owns a kwin block (2026-11-09):
+                        Meta+Left/Right = switch desktop, Meta+Up/Down =
+                        maximize/restore, Meta+Tab = Overview (the switcher's
+                        default secondary Meta+Tab/Meta+Shift+Tab bindings are
+                        stripped by re-asserting Alt+Tab[+Shift]); all 8 kwinrc
+                        [ElectricBorders] entries pinned None — hot corners off,
+                        the Overview corner lives on the keyboard now.
                        gb-mac-grave = gb(mac) with the §/± key (left
                        of 1) overridden to grave/asciitilde (modules/xkb-gb-mac-grave),
                         so xremap's `F13-grave -> Alt-grave` (Cmd+`) reaches KWin as

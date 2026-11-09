@@ -20,6 +20,19 @@
         "Switch keyboard layout to English (UK, Macintosh) with grave" = "Meta+Alt+1";
         "Switch keyboard layout to Ukrainian" = "Meta+Alt+2";
       };
+      # kwin section keys = kglobalshortcutsrc action names.
+      "kwin" = {
+        "Switch One Desktop to the Left" = "Meta+Left";
+        "Switch One Desktop to the Right" = "Meta+Right";
+        "Window Maximize" = "Meta+Up";
+        "Window Restore" = "Meta+Down";
+        "Overview" = "Meta+Tab";
+        # Meta+Tab is a DEFAULT secondary binding of the window switcher;
+        # re-assert single bindings here so Overview owns Meta+Tab /
+        # Meta+Shift+Tab exclusively.
+        "Walk Through Windows" = "Alt+Tab";
+        "Walk Through Windows (Reverse)" = "Alt+Shift+Tab";
+      };
     };
 
     # Idle policy: lock at 20m, panel power-off at 25m, suspend at 40m
@@ -43,6 +56,18 @@
       # kscreenlocker Daemon.Timeout is in MINUTES (kcfg Double), Autolock
       # default true; LockGrace default 5s.
       "kscreenlockerrc"."Daemon"."Timeout" = 20;
+      # All 8 screen edges/corners pinned to None (Overview moved to
+      # Meta+Tab); GUI-configured corners would otherwise drift.
+      "kwinrc"."ElectricBorders" = {
+        Top = "None";
+        TopRight = "None";
+        Right = "None";
+        BottomRight = "None";
+        Bottom = "None";
+        BottomLeft = "None";
+        Left = "None";
+        TopLeft = "None";
+      };
     };
 
     # Mirrors ~/.config/plasma-org.kde.plasma.desktop-appletsrc:
