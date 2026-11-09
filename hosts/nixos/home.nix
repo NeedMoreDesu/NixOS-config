@@ -60,7 +60,15 @@
             kickoff = { };
           }
           {
-            iconTasks = { };
+            iconTasks = {
+              # Dock pins; list order = dock order. GUI pin/drag edits are
+              # wiped by the next nyx (the declared section is rewritten).
+              launchers = [
+                "applications:com.seance.app.desktop"
+                "applications:preferred://browser"
+                "applications:SourceGit.desktop"
+              ];
+            };
           }
           "org.kde.plasma.marginsseparator"
           # Keyboard layout indicator: standalone widget, NOT a tray item —

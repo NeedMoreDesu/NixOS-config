@@ -77,7 +77,12 @@ hosts/nixos/
                         the tab-bar + button/palette only; Ctrl+Shift+N =
                         new workspace, Ctrl+Alt+N = new window. Seance's
                         Settings window REPLACES the symlink when it saves
-                        (temp+rename) — GUI edits are not persistent policy.)
+                        (temp+rename) — GUI edits are not persistent policy.
+                        Dock pins (iconTasks `launchers`) are declared in the
+                        panel: seance -> preferred://browser -> sourcegit;
+                        plasma-manager applies them via a desktop script
+                        (xdg.dataFile plasma-manager/data/*.js, run on
+                        activation + login), GUI pin/drag lost on next nyx.)
 modules/               one topic per file:
   boot.nix             systemd-boot + EFI, configurationLimit 20
   networking.nix       hostname, NetworkManager
