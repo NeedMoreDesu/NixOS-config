@@ -53,7 +53,15 @@ hosts/nixos/
   default.nix          host entry: imports modules + hardware-configuration.nix,
                        system.stateVersion = "26.05" (NEVER bump, see comment)
   hardware-configuration.nix   generated at install; machine-specific mounts
-   home.nix             home-manager user config for mika (plasma-manager;
+   kwin-remax.js        login sweep loaded via KWin Scripting D-Bus by the
+                        kwin-remax user unit (home.nix): re-applies the
+                        maximize state of restored-maximized windows so
+                        geometry is computed after struts/kscreen settle, AND
+                        force-maximizes POLICY_MAXIMIZE app-ids (seance) that
+                        arrive unmaximized. Matches on resourceClass (this
+                        KWin build has NO appId property - reads undefined);
+                        self-unloads after ~20s. See debugging note below.
+    home.nix             home-manager user config for mika (plasma-manager;
                         left panel: keyboardlayout is a STANDALONE panel
                         widget with displayStyle=flag — tray-nested widgets
                         cannot be configured, plasma-manager items.configs
@@ -241,6 +249,18 @@ modules/               one topic per file:
   together" test reproduced the normalization despite the fix being
   committed. `keyd monitor` prints per-device raw+processed events and is
   the way to see what the Magic Keyboard actually sends.
+- **Wayland session restore drops maximize state (2026-11-09)**: login restores
+  windows (positions, X11-SM apps like emacs even with max=3) but Wayland
+  clients come back UNMAXIMIZED — seance arrived max=0 out of place every
+  login, invisible to the original remax sweep (it only toggles windows that
+  are already maximized; nothing "remembers" seance's state between logouts).
+  Fix = positive policy in kwin-remax.js: POLICY_MAXIMIZE app-ids get
+  force-maximized by the sweep. To inspect window state live: load a dump
+  script via `qdbus org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript
+  <file> <unique-name>` + run it; `print()` lands in `journalctl --user`
+  under kwin_wayland. Use a UNIQUE plugin name per probe (same name twice =
+  loadScript -1). Properties: resourceClass/desktopFileName work, appId reads
+  `undefined` even though docs advertise it.
 - **llm-agents input**: do NOT add `follows = "nixpkgs"` — their binaries in `cache.numtide.com` are built against their own pinned nixpkgs; following yours = cache misses + rebuilds.
 - `/etc/nixos/` is obsolete; the repo is the source of truth.
 
