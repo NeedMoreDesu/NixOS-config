@@ -1,4 +1,4 @@
-{ lib, plasma-manager, ... }:
+{ lib, pkgs, plasma-manager, ... }:
 {
   imports = [ plasma-manager.homeModules.plasma-manager ];
 
@@ -103,6 +103,40 @@
     Service = {
       Type = "oneshot";
       ExecStart = "/run/current-system/sw/bin/kscreen-doctor output.HDMI-A-1.scale.2";
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
+
+  # KWin computes maximize geometry when it restores/autostarts windows at
+  # login — BEFORE the panel struts (and our on-login kscreen scale change)
+  # exist, so those windows end up extending under the left dock. Upstream
+  # this is an open bug family (515323, 523995, 514225; the 6.6 "sinking"
+  # variant 515529 is fixed). One-shot workaround: load kwin-remax.js via
+  # KWin's Scripting D-Bus API and run it; the script sweeps immediately and
+  # then every 2s for ~20s, re-maximizes each victim window exactly once, and
+  # unloads itself — the unit itself is instant (no sleeps here, measured:
+  # plain-JS timers need the interval PROPERTY + start(); setInterval slot is
+  # not exposed to QJSEngine).
+  systemd.user.services.kwin-remax = let
+    script = ./kwin-remax.js;
+    runner = pkgs.writeShellScript "kwin-remax-run" ''
+      set -e
+      q=${pkgs.kdePackages.qttools}/bin/qdbus
+      id=$($q org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript ${script} kwin-remax)
+      if [ "$id" = "-1" ]; then
+        # a previous trigger is still sweeping: let it finish
+        exit 0
+      fi
+      $q org.kde.KWin "/Scripting/Script''${id}" org.kde.kwin.Script.run
+    '';
+  in {
+    Unit = {
+      Description = "Re-apply maximize state after login (KWin strut race workaround)";
+      After = [ "graphical-session.target" "kscreen-scale.service" ];
+    };
+    Service = {
+      Type = "oneshot";
+      ExecStart = "${runner}";
     };
     Install.WantedBy = [ "graphical-session.target" ];
   };
