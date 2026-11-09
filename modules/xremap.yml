@@ -160,7 +160,6 @@ keymap:
       F13-t: Ctrl-Shift-t # new tab
       F13-w: Ctrl-Shift-w # close tab
       F13-n: Ctrl-Shift-n # new window (konsole/ghostty)
-      F13-l: Ctrl-Shift-l # seance tab layout
       F13-backspace: Ctrl-Delete # kill word forward (Mac Cmd+Delete)
       # next/prev tab
       F13-left: Ctrl-Shift-left # split tab left
@@ -232,8 +231,17 @@ keymap:
       F13-down: Ctrl-end
       # Cmd+1/2 = KWin's Meta+Alt+1/2 layout-switch shortcuts (home.nix).
       # Other digits stay unmapped on purpose (0-9/equal/minus excluded).
-      F13-1: Alt-Super-1
-      F13-2: Alt-Super-2
+      F13-1: Alt-1
+      F13-2: Alt-2
+      F13-3: Alt-3
+      F13-4: Alt-4
+      F13-5: Alt-5
+      F13-6: Alt-6
+      F13-7: Alt-7
+      F13-8: Alt-8
+      F13-9: Alt-9
+      F13-F1: Alt-Super-1
+      F13-F2: Alt-Super-2
       F13-q: Alt-F4 # quit -> KWin close
       F13-space: Alt-F2 # run app dialogue
       # Cmd+Tab / Cmd+grave intentionally NOT here: keyd emits real
