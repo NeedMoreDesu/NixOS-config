@@ -38,8 +38,8 @@ modmap:
       CapsLock: Control_L
       Control_L: Super_L
       Control_R: Super_L
-      # F14 prefix scheme (emacs_plans.md): left cmd -> F13, every
-      # F13+key becomes [F14, key] in the emacs keymap block below.
+      # F14 prefix scheme: left cmd -> F13, every F13+key becomes
+      # [F14, key] in the emacs keymap block below.
       # Old rollback identity: Super_L: Super_L (real Super, the s- space)
       Super_L: F13
       # Right cmd = Hyper: keyd normalizes both cmd keys to KEY_LEFTMETA
@@ -72,13 +72,15 @@ keymap:
   # Application-specific blocks MUST come before the generic block:
   # xremap uses the first matching keymap entry.
 
-  - name: emacs (F14 prefix scheme, see emacs_plans.md)
+  - name: emacs (F14 prefix scheme)
     application:
       only: [/(?i)emacs/]
     remap:
       # F13+<key> -> the key sequence [F14, <key>]. F14 reaches Emacs as
-      # <XF86Launch5> (measured 2026-11-09); the elisp prefix binding (not
-      # written yet) reads the event that follows. tab/grave NOT listed:
+      # <XF86Launch5> (measured 2026-11-09); the elisp binding in ~/.emacs.d
+      # (prelude fork, "Bind Cmd as a Super prefix") maps it to
+      # event-apply-super-modifier, so the following key arrives as s-<key>.
+      # tab/grave NOT listed:
       # keyd consumes them upstream. Arrows/home/end and space DELIBERATELY
       # absent (fall through to the generic block: Cmd+space keeps doing
       # the Alt+F2 run dialog — better than any chord).
