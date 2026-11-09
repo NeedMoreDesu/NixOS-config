@@ -22,13 +22,16 @@
       };
     };
 
-    # Idle policy: lock at 20m, panel power-off at 25m (kwinrc/kcfg defaults
-    # were 5m/10m). Journal proof that powerdevil auto-suspended on its own
-    # three times (Nov 8 16:40, Nov 9 01:47, 16:14) — a desktop never sleeps
-    # by itself here.
+    # Idle policy: lock at 20m, panel power-off at 25m, suspend at 40m
+    # (kwinrc/kcfg defaults were 5m/10m). Journal proof that powerdevil used
+    # to auto-suspend unasked (Nov 8 16:40, Nov 9 01:47, 16:14) - now an
+    # explicit, declared policy.
     powerdevil.AC = {
       turnOffDisplay.idleTimeout = 25 * 60;
-      autoSuspend.action = "nothing";
+      autoSuspend = {
+        action = "sleep";
+        idleTimeout = 40 * 60;
+      };
     };
 
     configFile = {
