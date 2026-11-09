@@ -47,7 +47,9 @@
       }:
     {
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
-        system = "x86_64-linux";
+        # no `system` arg: deprecated (warns as renamed to
+        # stdenv.hostPlatform.system); the platform comes from
+        # nixpkgs.hostPlatform in hardware-configuration.nix
         specialArgs = {
           inherit llm-agents home-manager seance workmux;
           plasma-manager = inputs.plasma-manager;
