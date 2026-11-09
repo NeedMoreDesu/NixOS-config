@@ -38,7 +38,9 @@ modmap:
       CapsLock: Control_L
       Control_L: Super_L
       Control_R: Super_L
-      Super_L: Super_L # identity: left cmd -> XKB -> real Super, the s- space
+      # TEST 2026-11-09: left cmd -> F13 (virtual modifier) to probe F14
+      # delivery (see emacs keymap block). Rollback: Super_L: Super_L
+      Super_L: F13
       # Right cmd = Hyper: keyd normalizes both cmd keys to KEY_LEFTMETA
       # (mac-keys.nix), so right cmd arrives here as KEY_MENU ("Menu",
       # the only distinguishable output). Menu -> CapsLock (keycode 58,
@@ -68,6 +70,14 @@ modmap:
 keymap:
   # Application-specific blocks MUST come before the generic block:
   # xremap uses the first matching keymap entry.
+
+  - name: emacs TEST (F13+c -> F14; does Emacs receive F14?)
+    application:
+      only: [/(?i)emacs/]
+    remap:
+      # F14 = evdev KEY_F14 (184) -> X keycode 192 -> keysym F14.
+      # Everything else falls through to the generic block.
+      F13-c: F14
 
   - name: terminals (emulators only; tmux/vim inside inherit this)
     application:
