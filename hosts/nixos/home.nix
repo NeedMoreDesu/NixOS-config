@@ -122,16 +122,17 @@
     Install.WantedBy = [ "graphical-session.target" ];
   };
 
-  # KWin computes maximize geometry when it restores/autostarts windows at
-  # login — BEFORE the panel struts (and our on-login kscreen scale change)
-  # exist, so those windows end up extending under the left dock. Upstream
-  # this is an open bug family (515323, 523995, 514225; the 6.6 "sinking"
-  # variant 515529 is fixed). One-shot workaround: load kwin-remax.js via
-  # KWin's Scripting D-Bus API and run it; the script sweeps immediately and
-  # then every 2s for ~20s, re-maximizes each victim window exactly once, and
-  # unloads itself — the unit itself is instant (no sleeps here, measured:
-  # plain-JS timers need the interval PROPERTY + start(); setInterval slot is
-  # not exposed to QJSEngine).
+  # Login sweep enforcing maximized state for the REMAX app-id list in
+  # kwin-remax.js (seance): Wayland session restore drops the maximize flag,
+  # so seance arrives unmaximized out of place; windows that DO arrive
+  # maximized may have geometry computed BEFORE the panel struts (and our
+  # on-login kscreen scale change) exist, so they extend under the left dock
+  # (upstream bug family 515323, 523995, 514225). Listed windows are toggled
+  # maximized exactly once each; everything else is untouched. Loaded via
+  # KWin's Scripting D-Bus API; the script sweeps immediately, then every 2s
+  # for ~20s, then unloads itself — the unit itself is instant (no sleeps
+  # here, measured: plain-JS timers need the interval PROPERTY + start();
+  # setInterval slot is not exposed to QJSEngine).
   systemd.user.services.kwin-remax = let
     script = ./kwin-remax.js;
     runner = pkgs.writeShellScript "kwin-remax-run" ''
@@ -146,7 +147,7 @@
     '';
   in {
     Unit = {
-      Description = "Re-apply maximize state after login (KWin strut race workaround)";
+      Description = "Enforce maximized state for REMAX app-ids at login (seance); strut-race geometry fixup";
       After = [ "graphical-session.target" "kscreen-scale.service" ];
     };
     Service = {
