@@ -17,8 +17,12 @@
     # agents (MIT, Zig, Linux/Wayland). Built against OUR nixpkgs (shared
     # glib/GL/store closure — the right thing for a GUI app on NixOS), but
     # ghostty is a git submodule it compiles against, hence submodules = true.
+    # FORK (github.com/NeedMoreDesu/seance, branch zmx): per-terminal UUIDs
+    # persisted in session.json, [hooks] on-tab-open/close, [behavior]
+    # zmx-attach (each pane exec's `zmx attach seance-<pane-uuid>`). Until
+    # the fork is pushed, pinned to the local clone at ~/seance.
     seance = {
-      url = "git+https://github.com/no1msd/seance?submodules=1";
+      url = "git+file:///home/mika/seance?submodules=1";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     # tmux + git-worktree orchestrator for parallel AI coding agents (MIT,
