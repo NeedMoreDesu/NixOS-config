@@ -37,6 +37,15 @@ codex-hooks = true
 pi-hooks = true
 opencode-hooks = true
 antigravity-hooks = true
+# Fork-only (NeedMoreDesu/seance "zmx" branch): every terminal pane execs
+# `zmx attach seance-<pane-uuid>` — per-terminal persistent sessions that
+# survive seance restarts (tabs re-attach with full history).
+zmx-attach = true
+
+[hooks]
+# Explicit tab close ONLY (never window quit or app exit): kill the zmx
+# sessions of the tab's terminals. Script installed by home.nix.
+on-tab-close = "/home/mika/.local/bin/seance-zmx-tab-closed.sh"
 
 [notifications]
 sound = "default"
