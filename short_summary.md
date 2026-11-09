@@ -66,7 +66,16 @@ hosts/nixos/
                         left panel: keyboardlayout is a STANDALONE panel
                         widget with displayStyle=flag — tray-nested widgets
                         cannot be configured, plasma-manager items.configs
-                        is dead code upstream, issue #504;
+                        is dead code upstream, issue #504. The tray DUPLICATE
+                        of keyboardlayout (2026-11-09): plasmashell's
+                        PlasmoidRegistry auto-nests EVERY applet with metadata
+                        EnabledByDefault + X-Plasma-NotificationAreaCategory
+                        (keyboardlayout = Hardware) regardless of panel
+                        declarations — GUI removal never sticks; exclusion is
+                        declared via systemTray.items.extra (= the extraItems
+                        list, now a 17-item allowlist WITHOUT keyboardlayout;
+                        knownItems still lists it, which keeps the registry
+                        from re-adding it at login).
                         also clones ~/.emacs.d from the GitHub prelude fork
                        on first activation — one-time setup, never touches
                        the tree afterwards; upstream remote added for pulls.

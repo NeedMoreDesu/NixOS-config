@@ -106,7 +106,34 @@
           }
           {
             systemTray = {
-              items.shown = [ ];
+              items = {
+                shown = [ ];
+                # Plasmashell's PlasmoidRegistry auto-nests EVERY applet whose
+                # metadata says X-Plasma-NotificationAreaCategory +
+                # EnabledByDefault (keyboardlayout = Hardware/default-true),
+                # so exclusion must be declared here, not just via GUI removal.
+                # keyboardlayout is the standalone flag widget above; the
+                # tray-nested clone is the duplicate this kills.
+                extra = [
+                  "org.kde.plasma.devicenotifier"
+                  "org.kde.plasma.cameraindicator"
+                  "org.kde.plasma.notifications"
+                  "org.kde.plasma.manage-inputmethod"
+                  "org.kde.plasma.clipboard"
+                  "org.kde.plasma.mediacontroller"
+                  "org.kde.plasma.brightness"
+                  "org.kde.kscreen"
+                  "org.kde.plasma.networkmanagement"
+                  "org.kde.plasma.bluetooth"
+                  "org.kde.plasma.printmanager"
+                  "org.kde.plasma.volume"
+                  "org.kde.plasma.battery"
+                  "org.kde.plasma.weather"
+                  "org.kde.plasma.dwellclicker"
+                  "org.kde.plasma.keyboardindicator"
+                  "org.kde.merkuro.contact.applet"
+                ];
+              };
             };
           }
           {
