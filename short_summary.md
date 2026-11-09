@@ -54,13 +54,14 @@ hosts/nixos/
                        system.stateVersion = "26.05" (NEVER bump, see comment)
   hardware-configuration.nix   generated at install; machine-specific mounts
    kwin-remax.js        login sweep loaded via KWin Scripting D-Bus by the
-                        kwin-remax user unit (home.nix): re-applies the
-                        maximize state of restored-maximized windows so
-                        geometry is computed after struts/kscreen settle, AND
-                        force-maximizes POLICY_MAXIMIZE app-ids (seance) that
-                        arrive unmaximized. Matches on resourceClass (this
-                        KWin build has NO appId property - reads undefined);
-                        self-unloads after ~20s. See debugging note below.
+                        kwin-remax user unit (home.nix): touches ONLY the
+                        REMAX app-id list (currently seance), Normal windows,
+                        once each - force-maximizes arrivals (Wayland restore
+                        drops the maximize flag) and re-applies maximize so
+                        geometry is computed after struts/kscreen settle.
+                        Matches on resourceClass (this KWin build has NO
+                        appId property - reads undefined); self-unloads
+                        after ~20s. See debugging note below.
     home.nix             home-manager user config for mika (plasma-manager;
                         left panel: keyboardlayout is a STANDALONE panel
                         widget with displayStyle=flag — tray-nested widgets
@@ -254,8 +255,10 @@ modules/               one topic per file:
   clients come back UNMAXIMIZED — seance arrived max=0 out of place every
   login, invisible to the original remax sweep (it only toggles windows that
   are already maximized; nothing "remembers" seance's state between logouts).
-  Fix = positive policy in kwin-remax.js: POLICY_MAXIMIZE app-ids get
-  force-maximized by the sweep. To inspect window state live: load a dump
+  Fix = REMAX app-id list in kwin-remax.js: the sweep only touches listed
+  windows (Normal type), force-maximizing arrivals and re-applying maximize
+  where needed; everything else is left alone (blanket re-max was dropped
+  2026-11-09 — unlisted windows place fine on their own). To inspect window state live: load a dump
   script via `qdbus org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript
   <file> <unique-name>` + run it; `print()` lands in `journalctl --user`
   under kwin_wayland. Use a UNIQUE plugin name per probe (same name twice =
