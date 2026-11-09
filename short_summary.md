@@ -70,7 +70,14 @@ hosts/nixos/
                         also clones ~/.emacs.d from the GitHub prelude fork
                        on first activation — one-time setup, never touches
                        the tree afterwards; upstream remote added for pulls.
-                       The emacs keyboard elisp lives in THAT repo)
+                        The emacs keyboard elisp lives in THAT repo.
+                        xdg.configFile manages ~/.config/seance/config.toml
+                        (seance-config.toml): keybinds are Nix policy —
+                        Cmd+T = new_column (vertical split), tabs come from
+                        the tab-bar + button/palette only; Ctrl+Shift+N =
+                        new workspace, Ctrl+Alt+N = new window. Seance's
+                        Settings window REPLACES the symlink when it saves
+                        (temp+rename) — GUI edits are not persistent policy.)
 modules/               one topic per file:
   boot.nix             systemd-boot + EFI, configurationLimit 20
   networking.nix       hostname, NetworkManager
