@@ -160,6 +160,7 @@ keymap:
       F13-t: Ctrl-Shift-t # new tab
       F13-w: Ctrl-Shift-w # close tab
       F13-n: Ctrl-Shift-n # new window (konsole/ghostty)
+      F13-l: Ctrl-Shift-l # seance tab layout
       # next/prev tab
       F13-backspace: Ctrl-Delete # kill word forward (Mac Cmd+Delete)
       F13-left: Ctrl-Shift-Tab # word left
