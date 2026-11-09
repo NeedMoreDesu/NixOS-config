@@ -1,4 +1,9 @@
 { pkgs, seance, workmux, ... }:
+let
+  # pkgs.system is deprecated (warns "renamed to stdenv.hostPlatform.system");
+  # flake outputs are still keyed by the plain system string.
+  hostSystem = pkgs.stdenv.hostPlatform.system;
+in
 {
   # Steam ships unfree deps; scoped by name prefix so nothing else silently
   # turns unfree on (matches steam, steam-run, steam-friends, steam-runtime...).
@@ -19,9 +24,9 @@
     tmux
     # Seance comes from its own flake input (github:no1msd/seance), not
     # nixpkgs — built against our pkgs via the follows = "nixpkgs" redirect.
-    seance.packages.${pkgs.system}.seance
+    seance.packages.${hostSystem}.seance
     # workmux: parallel agents in tmux windows, one git worktree per task.
     # Flake output is packages.default (github:raine/workmux).
-    workmux.packages.${pkgs.system}.default
+    workmux.packages.${hostSystem}.default
   ];
 }
