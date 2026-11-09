@@ -102,13 +102,21 @@ modules/               one topic per file:
                        ua(unicode) with Alt+Space cycling (grp:alt_space_toggle;
                         xkb-native so it works in SDDM too). KWin's per-layout
                         actions get Meta+Alt+1/2 via home.nix `shortcuts`.
-                        home.nix `shortcuts` also owns a kwin block (2026-11-09):
-                        Meta+Left/Right = switch desktop, Meta+Up/Down =
-                        maximize/restore, Meta+Tab = Overview (the switcher's
-                        default secondary Meta+Tab/Meta+Shift+Tab bindings are
-                        stripped by re-asserting Alt+Tab[+Shift]); all 8 kwinrc
-                        [ElectricBorders] entries pinned None — hot corners off,
-                        the Overview corner lives on the keyboard now.
+                         home.nix `shortcuts` also owns a kwin block (2026-11-09):
+                         Meta+Left/Right = switch desktop, Meta+Up/Down =
+                         maximize/restore, Meta+Tab = Overview (the switcher's
+                         default secondary Meta+Tab/Meta+Shift+Tab bindings are
+                         stripped by re-asserting Alt+Tab[+Shift]); the four
+                         quick-tile actions' DEFAULT Meta+arrow bindings must be
+                         pinned "none" too (KWin 6.5+ ships Quick Tile
+                         Top/Bottom/Left/Right on Meta+Up/Down/Left/Right — Meta+Down
+                         fired Quick Tile Bottom, never Window Restore); all 8 kwinrc
+                         [ElectricBorders] entries pinned None — hot corners off,
+                         the Overview corner lives on the keyboard now.
+                         Window Restore = UntileOrRestoreOp (un-fullscreen >
+                         un-tile > un-maximize; no-op on plain windows) — the
+                         title-bar middle button's toggle is Window Maximize
+                         (MaximizeOp), which Meta+Up already carries.
                        gb-mac-grave = gb(mac) with the §/± key (left
                        of 1) overridden to grave/asciitilde (modules/xkb-gb-mac-grave),
                         so xremap's `F13-grave -> Alt-grave` (Cmd+`) reaches KWin as

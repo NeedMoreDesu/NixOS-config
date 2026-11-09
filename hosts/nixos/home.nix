@@ -32,6 +32,14 @@
         # Meta+Shift+Tab exclusively.
         "Walk Through Windows" = "Alt+Tab";
         "Walk Through Windows (Reverse)" = "Alt+Shift+Tab";
+        # KWin 6.5+ quick-tile actions DEFAULT-bind Meta+Up/Down/Left/Right,
+        # colliding with the four above (Meta+Down fired Quick Tile Bottom,
+        # not Window Restore). "none" in the custom field kills the default;
+        # corners/bottom-left/right have no arrow defaults.
+        "Window Quick Tile Top" = "none";
+        "Window Quick Tile Bottom" = "none";
+        "Window Quick Tile Left" = "none";
+        "Window Quick Tile Right" = "none";
       };
     };
 
