@@ -38,8 +38,9 @@ modmap:
       CapsLock: Control_L
       Control_L: Super_L
       Control_R: Super_L
-      # TEST 2026-11-09: left cmd -> F13 (virtual modifier) to probe F14
-      # delivery (see emacs keymap block). Rollback: Super_L: Super_L
+      # F14 prefix scheme (emacs_plans.md): left cmd -> F13, every
+      # F13+key becomes [F14, key] in the emacs keymap block below.
+      # Old rollback identity: Super_L: Super_L (real Super, the s- space)
       Super_L: F13
       # Right cmd = Hyper: keyd normalizes both cmd keys to KEY_LEFTMETA
       # (mac-keys.nix), so right cmd arrives here as KEY_MENU ("Menu",
@@ -71,13 +72,78 @@ keymap:
   # Application-specific blocks MUST come before the generic block:
   # xremap uses the first matching keymap entry.
 
-  - name: emacs TEST (F13+c -> F14; does Emacs receive F14?)
+  - name: emacs (F14 prefix scheme, see emacs_plans.md)
     application:
       only: [/(?i)emacs/]
     remap:
-      # F14 = evdev KEY_F14 (184) -> X keycode 192 -> keysym F14.
-      # Everything else falls through to the generic block.
-      F13-c: F14
+      # F13+<key> -> the key sequence [F14, <key>]. F14 reaches Emacs as
+      # <XF86Launch5> (measured 2026-11-09); the elisp prefix binding (not
+      # written yet) reads the event that follows. tab/grave NOT listed:
+      # keyd consumes them upstream. Arrows/home/end and space DELIBERATELY
+      # absent (fall through to the generic block: Cmd+space keeps doing
+      # the Alt+F2 run dialog — better than any chord).
+      F13-a: [F14, a]
+      F13-b: [F14, b]
+      F13-c: [F14, c]
+      F13-d: [F14, d]
+      F13-e: [F14, e]
+      F13-f: [F14, f]
+      F13-g: [F14, g]
+      F13-h: [F14, h]
+      F13-i: [F14, i]
+      F13-j: [F14, j]
+      F13-k: [F14, k]
+      F13-l: [F14, l]
+      F13-m: [F14, m]
+      F13-n: [F14, n]
+      F13-o: [F14, o]
+      F13-p: [F14, p]
+      F13-q: [F14, q]
+      F13-r: [F14, r]
+      F13-s: [F14, s]
+      F13-t: [F14, t]
+      F13-u: [F14, u]
+      F13-v: [F14, v]
+      F13-w: [F14, w]
+      F13-x: [F14, x]
+      F13-y: [F14, y]
+      F13-z: [F14, z]
+      F13-0: [F14, "0"]
+      F13-1: [F14, "1"]
+      F13-2: [F14, "2"]
+      F13-3: [F14, "3"]
+      F13-4: [F14, "4"]
+      F13-5: [F14, "5"]
+      F13-6: [F14, "6"]
+      F13-7: [F14, "7"]
+      F13-8: [F14, "8"]
+      F13-9: [F14, "9"]
+      F13-F1: [F14, F1]
+      F13-F2: [F14, F2]
+      F13-F3: [F14, F3]
+      F13-F4: [F14, F4]
+      F13-F5: [F14, F5]
+      F13-F6: [F14, F6]
+      F13-F7: [F14, F7]
+      F13-F8: [F14, F8]
+      F13-F9: [F14, F9]
+      F13-F10: [F14, F10]
+      F13-F11: [F14, F11]
+      F13-F12: [F14, F12]
+      F13-minus: [F14, minus]
+      F13-equal: [F14, equal]
+      F13-leftbrace: [F14, leftbrace]
+      F13-rightbrace: [F14, rightbrace]
+      F13-apostrophe: [F14, apostrophe]
+      F13-backslash: [F14, backslash]
+      F13-semicolon: [F14, semicolon]
+      F13-comma: [F14, comma]
+      F13-dot: [F14, dot]
+      F13-slash: [F14, slash]
+      F13-enter: [F14, enter]
+      F13-backspace: [F14, backspace]
+      F13-delete: [F14, delete]
+      F13-esc: [F14, esc]
 
   - name: terminals (emulators only; tmux/vim inside inherit this)
     application:
