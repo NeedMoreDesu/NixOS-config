@@ -129,8 +129,24 @@ modules/               one topic per file:
                        swapm/maccycle hold-layer (Cmd+Tab / Cmd+grave emit
                        Alt held for as long as Cmd is down — the one thing
                        xremap cannot express; KWin switcher popups need a
-                        physically-held modifier). Cmd+Space moved to xremap.
-                        rightmeta = menu rebind (2026-11-08): keyd normalizes
+                         physically-held modifier). Cmd+Space moved to xremap.
+                         Option-key swap (2026-11-09): [main] leftalt =
+                         layer(altgr) + rightalt = layer(alt) — direct
+                         keycode assignment (leftalt = rightalt) parses but
+                         keyd check EXITS 255 with "use layer(altgr)"
+                         warnings; the descriptor form is sanctioned (exit 0).
+                         Must happen at the keycode layer:
+                         gb(mac) AND ua hard-wire level3(ralt_switch) (RALT
+                         keycode = the alt-characters layer, LALT = plain Alt),
+                         and BOTH keyd's maccycle and xremap's combos EMIT the
+                         LALT keycode (bypassing keyd via the 0x0fac skip) —
+                         swapping downstream with lv3: XKB options would break
+                         every emitted Alt combo + grp:alt_space_toggle. Result:
+                         left option types alt-chars, right option is the real
+                         Alt (switcher, Alt+Space, menus). keyd does NOT
+                         canonicalize alt (unlike MOD_SUPER) — RALT survives
+                         keyd today, proven by level3 working on right option.
+                         rightmeta = menu rebind (2026-11-08): keyd normalizes
                         BOTH cmd keys through the meta descriptor (src/keys.c:
                         MOD_SUPER -> canonical KEYD_LEFTMETA), so KEY_RIGHTMETA
                         never reaches xremap and any Super_R rule behind keyd is

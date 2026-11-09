@@ -29,6 +29,23 @@
       # line loses its leading whitespace (keyd needs [sections] at col 0)
       extraConfig = ''
         [main]
+        # Option-key role swap (2026-11-09): XKB (gb(mac) AND ua) hard-wire
+        # level3(ralt_switch) — the RALT *keycode* is the alt-characters
+        # layer, LALT is the plain Alt modifier. Swapping the keycodes here,
+        # upstream of XKB, is the only clean place: keyd's maccycle and every
+        # xremap combo EMIT the LALT keycode (A-tab, Alt-F4, Alt-grave...),
+        # and those outputs bypass keyd (vendor 0x0fac skip) straight to XKB —
+        # a downstream lv3: option swap would break all of them plus
+        # grp:alt_space_toggle. Result: left option types alt-chars,
+        # right option is the real Alt (Alt+Tab, Alt+Space layout switch,
+        # menus). keyd does NOT canonicalize alt (proven: RALT survives
+        # today as level3 trigger), so per-side rebinds work.
+        # Syntax trap: direct assignment (`leftalt = rightalt`) PARSES but
+        # keyd check exits 255 with "use layer(altgr)" warnings — the
+        # descriptor form below is the sanctioned one (check exit 0).
+        leftalt = layer(altgr)
+        rightalt = layer(alt)
+
         # keyd normalizes BOTH cmd keys through the meta descriptor
         # (src/keys.c: MOD_SUPER -> canonical KEYD_LEFTMETA), so
         # KEY_RIGHTMETA never reaches xremap and Super_R rules are dead
