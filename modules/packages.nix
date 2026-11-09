@@ -22,6 +22,8 @@ in
     krita
     librewolf
     tmux
+    # zmx: session attach/detach (tmux-lite, Zig). In nixpkgs — no flake input.
+    zmx
     # Seance comes from its own flake input (github:no1msd/seance), not
     # nixpkgs — built against our pkgs via the follows = "nixpkgs" redirect.
     seance.packages.${hostSystem}.seance
