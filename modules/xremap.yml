@@ -161,10 +161,10 @@ keymap:
       F13-w: Ctrl-Shift-w # close tab
       F13-n: Ctrl-Shift-n # new window (konsole/ghostty)
       F13-l: Ctrl-Shift-l # seance tab layout
-      # next/prev tab
       F13-backspace: Ctrl-Delete # kill word forward (Mac Cmd+Delete)
-      F13-left: Ctrl-Shift-Tab # word left
-      F13-right: Ctrl-Tab # word right
+      # next/prev tab
+      F13-left: Ctrl-Shift-left # split tab left
+      F13-right: Ctrl-Shift-right # split tab right
       # next/prev workspace
       F13-up: Ctrl-PageUp
       F13-down: Ctrl-PageDown
