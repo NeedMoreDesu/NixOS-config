@@ -232,6 +232,11 @@ modules/               one topic per file:
 
 ## Next steps (not done yet)
 
+- **F14/XF86Launch5 super-chord (2026-11-09)**: xremap side landed
+  (emacs_plans.md): Cmd+<key> in Emacs emits [F14, key]; F14 arrives as
+  <XF86Launch5> (verified). PENDING: run `nyx`, then write the elisp
+  binding (target: event-apply-super-modifier, the thing C-x @ s is).
+
 - **xremap experiment (this branch, 2026-11-08)**: the cycle + Cmd combos
   work post-reboot (see group gotcha). Cmd+Tab/grave gap solved by keeping
   keyd as a hold-layer sidecar under xremap (mac-keys.nix / xremap.nix
