@@ -165,12 +165,6 @@
   # Ctrl+Shift+comma to live-reload its config).
   xdg.configFile."seance/config.toml".source = ./seance-config.toml;
 
-  # zmx tab-close hook script (seance [hooks] on-tab-close runs it with
-  # SEANCE_PANE_UUIDS set; kills every terminal session of the closed tab).
-  home.file.".local/bin/seance-zmx-tab-closed.sh" = {
-    source = ./seance-zmx-tab-closed.sh;
-    executable = true;
-  };
 
   # Emacs config is a git repo of its own: the Prelude fork on GitHub
   # (upstream bbatsov/prelude kept as a remote for pulling updates).
