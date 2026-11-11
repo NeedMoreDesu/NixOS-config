@@ -4,7 +4,7 @@
 [font]
 
 [colors]
-background-opacity = 1.00
+background-opacity = 0.9
 dim-unfocused-panes = true
 
 [window]
@@ -39,10 +39,15 @@ opencode-hooks = true
 antigravity-hooks = true
 # Fork-only (NeedMoreDesu/seance zmx work): every terminal pane execs
 # `zmx attach seance-<pane-uuid>` — one persistent session PER TERMINAL
-# (tabs/splits/windows never share). Explicit closes (pane, tab, window
-# while others remain) kill the sessions; quitting seance keeps them for
-# the next launch to re-attach. Kill is BUILT INTO the fork — no [hooks]
-# config needed here for it.
+# (tabs/splits/windows never share). Closing a pane/tab/window KEEPS
+# its sessions detached and records the close in a separate history
+# file (session.json holds only live windows again); Ctrl+Shift+Z
+# reopens the most recent close and re-attaches to the still-alive
+# sessions. Kill-close mirrors for pane/tab (Ctrl+Shift+Alt+X / +W)
+# destroy sessions instead; windows have no kill-close shortcut by
+# design — close normally, then Ctrl+Shift+Alt+K sweeps every detached
+# seance-* session (never foreign zmx sessions, never sessions of
+# currently-open panes). Quitting the app never kills anything.
 zmx-attach = true
 
 [notifications]
@@ -66,6 +71,10 @@ workspace_8 = "Alt+8"
 workspace_9 = "Alt+9"
 new_tab = "unset"
 close_tab = "Ctrl+Shift+W"
+zmx_close_tab = "Ctrl+Shift+Alt+W"
+zmx_close_pane = "Ctrl+Shift+Alt+X"
+zmx_undo_close = "Ctrl+Shift+Z"
+zmx_kill_unattached = "Ctrl+Shift+Alt+K"
 next_tab = "Ctrl+Tab"
 prev_tab = "Ctrl+Shift+Tab"
 tab_1 = "Ctrl+1"
@@ -102,7 +111,7 @@ toggle_pin = "Ctrl+Shift+J"
 new_workspace = "Ctrl+Shift+N"
 close_workspace = "Ctrl+Alt+w"
 workspace_switcher = "Ctrl+Shift+G"
-new_window = "Ctrl+Alt+n"
+new_window = "Ctrl+Shift+Alt+n"
 toggle_fullscreen = "F11"
 quit_app = "Ctrl+Shift+Q"
 open_command_palette = "Ctrl+Shift+P"
