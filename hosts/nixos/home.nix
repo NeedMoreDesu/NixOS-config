@@ -164,6 +164,10 @@
   # policy; make them in seance-config.toml and nyx (seance also has
   # Ctrl+Shift+comma to live-reload its config).
   xdg.configFile."seance/config.toml".source = ./seance-config.toml;
+  # `force`: the clobbered plain file is throw-away GUI state (repo is the
+  # source of truth by design), so re-link over it on every activation
+  # instead of letting home-manager abort the switch with a clobber error.
+  xdg.configFile."seance/config.toml".force = true;
 
 
   # Emacs config is a git repo of its own: the Prelude fork on GitHub
