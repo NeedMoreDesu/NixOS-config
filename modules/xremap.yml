@@ -181,7 +181,6 @@ keymap:
       F13-g: []
       F13-i: []
       F13-j: []
-      F13-k: []
       F13-l: []
       F13-o: []
       F13-p: []
@@ -190,7 +189,6 @@ keymap:
       F13-u: []
       F13-y: []
       F13-d: []
-      F13-z: []
       F13-slash: []
       F13-enter: []
       # q (Alt-F4), space (run dialog), 1/2 (layout switch) are NOT
