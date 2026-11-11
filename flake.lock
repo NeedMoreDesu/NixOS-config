@@ -133,11 +133,11 @@
         "treefmt-nix": "treefmt-nix"
       },
       "locked": {
-        "lastModified": 1794357254,
-        "narHash": "sha256-gk6RJDnpbSh+zf/BX7JM+v2P7PYe+9PdhyY1L/Lf4E8=",
+        "lastModified": 1794397294,
+        "narHash": "sha256-ldRd1UWymZ+B1ngo5vNM2WYUbUYE0p8yTY6XIZJoc7A=",
         "owner": "numtide",
         "repo": "llm-agents.nix",
-        "rev": "579f423b564d6bb4fa5560fe6bc2c0b481371681",
+        "rev": "3c4f3e7ccf54c7279659536160f9c58de38073c1",
         "type": "github"
       },
       "original": {
@@ -251,11 +251,11 @@
         "zig": "zig"
       },
       "locked": {
-        "lastModified": 1794360852,
-        "narHash": "sha256-1FAhbFKeSI7ZH09R7yTDFCgyyRZvVEI3ytx0eSMKX5A=",
+        "lastModified": 1794425729,
+        "narHash": "sha256-j2BRKUs7dA8qUmMwyAF9nHAO4HIZw7UNCuC6ZDEB1nI=",
         "ref": "refs/heads/main",
-        "rev": "b67ba5b234cdd46a56dffb9be50d40805b92ffe1",
-        "revCount": 73,
+        "rev": "7dc45ca04e86e1748174ec2a7cee7b7fddd9bdba",
+        "revCount": 74,
         "submodules": true,
         "type": "git",
         "url": "file:///home/mika/seance"
