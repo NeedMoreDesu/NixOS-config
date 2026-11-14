@@ -1,0 +1,16 @@
+{
+    "KPackageStructure": "KSysguard/SensorFace",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Mika"
+            }
+        ],
+        "Icon": "view-list-text",
+        "Id": "org.kde.mika.mutedtextonly",
+        "License": "LGPLv2+",
+        "Name": "Muted Text Only",
+        "Version": "1.0"
+    },
+    "X-KDE-ParentApp": "org.kde.plasmashell"
+}

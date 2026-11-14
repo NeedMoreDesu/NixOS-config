@@ -156,59 +156,65 @@
         ];
       }
 
-      # Thin top bar: one built-in systemmonitor widget in the "textonly"
-      # face shows all stats as label:value columns (labels via
+      # Thin top bar: one systemmonitor widget in a custom "textonly"-style
+      # face (hosts/nixos/ksysguard/sensorfaces/org.kde.mika.mutedtextonly)
+      # shows all stats as label:value columns, then a spacer, then the clock
+      # at the right end. Why custom: the stock textonly face hard-codes the
+      # theme's bright text color, and ksystemstats only publishes
+      # instantaneous 500ms rates. The fork draws label+value in muted gray
+      # and rolls a 60s average for the network/disk RATE rows
+      # (download/upload/read/write); percentages stay live. Labels via
       # SensorLabels; sensor IDs verified live against ksystemstats:
-      # `qdbus org.kde.ksystemstats1 /org/kde/ksystemstats1 allSensors`),
-      # then a spacer, then the clock at the right end.
+      # `qdbus org.kde.ksystemstats1 /org/kde/ksystemstats1 allSensors`.
+      # Colors are the dim indicator accents (distinct hue per row).
       {
         location = "top";
         height = 30;
         widgets = [
           {
             systemMonitor = {
-              displayStyle = "org.kde.ksysguard.textonly";
+              displayStyle = "org.kde.mika.mutedtextonly";
               # color is a REQUIRED submodule option here (no default).
               sensors = [
                 {
                   name = "cpu/all/usage";
                   label = "CPU";
-                  color = "190,190,190";
+                  color = "110,140,150";
                 }
                 {
                   name = "gpu/all/usage";
                   label = "GPU";
-                  color = "180,180,180";
+                  color = "130,120,150";
                 }
                 {
                   name = "memory/physical/usedPercent";
                   label = "RAM";
-                  color = "185,185,185";
+                  color = "115,145,115";
                 }
                 {
                   name = "network/all/download";
                   label = "↓";
-                  color = "175,175,175";
+                  color = "150,150,100";
                 }
                 {
                   name = "network/all/upload";
                   label = "↑";
-                  color = "170,170,170";
+                  color = "160,130,95";
                 }
                 {
                   name = "disk/all/read";
                   label = "R";
-                  color = "165,165,165";
+                  color = "160,105,105";
                 }
                 {
                   name = "disk/all/write";
                   label = "W";
-                  color = "160,160,160";
+                  color = "150,110,135";
                 }
                 {
                   name = "disk/all/usedPercent";
                   label = "DSK";
-                  color = "150,150,150";
+                  color = "140,140,140";
                 }
               ];
             };
@@ -250,6 +256,12 @@
   # re-links over the old unmanaged file / any theme-picker writes.
   xdg.configFile."opencode/opencode.jsonc".source = ./opencode.jsonc;
   xdg.configFile."opencode/opencode.jsonc".force = true;
+
+  # Custom ksysguard sensor face used by the top-bar systemmonitor widget:
+  # muted label/value text plus a 60s rolling average for the network/disk
+  # rate rows (the stock textonly face can do neither).
+  xdg.dataFile."ksysguard/sensorfaces/org.kde.mika.mutedtextonly".source =
+    ./ksysguard/sensorfaces/org.kde.mika.mutedtextonly;
 
 
   # Emacs config is a git repo of its own: the Prelude fork on GitHub

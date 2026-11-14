@@ -138,16 +138,28 @@ hosts/nixos/
                          own activation, it has no session bus; see the
                          -k note above. GUI pin/drag lost on next nyx.)
                         Top bar (2026-11-14): thin (30px) panel, location
-                        top. ONE org.kde.plasma.systemmonitor widget with
-                        displayStyle org.kde.ksysguard.textonly shows all
-                        stats as label:value columns: CPU (cpu/all/usage),
-                        GPU (gpu/all/usage, both GPUs aggregated), RAM
-                        (memory/physical/usedPercent), ↓/↑ (network all
-                        download/upload), R/W (disk read/write rates), DSK
-                        (disk/all/usedPercent = root disk space used, NOT
-                        load), then panelSpacer + digitalClock right
-                        (custom date format "dd MMM yyyy"). Sensor IDs
-                        must be the ksystemstats paths — verify live:
+                        top. ONE org.kde.plasma.systemmonitor widget shows
+                        all stats as label:value columns: CPU
+                        (cpu/all/usage), GPU (gpu/all/usage, both GPUs
+                        aggregated), RAM (memory/physical/usedPercent),
+                        ↓/↑ (network all download/upload), R/W (disk
+                        read/write rates), DSK (disk/all/usedPercent =
+                        root disk space used, NOT load), then panelSpacer
+                        + digitalClock right (custom date format
+                        "dd MMM yyyy"). displayStyle is NOT the stock
+                        ksysguard textonly face: it is the local fork
+                        hosts/nixos/ksysguard/sensorfaces/
+                        org.kde.mika.mutedtextonly (installed via
+                        xdg.dataFile) because (a) stock textonly pins
+                        label/value text to the theme's bright color and
+                        (b) ksystemstats publishes only instantaneous
+                        500ms rates. The fork draws text in muted gray
+                        (#a8a8a8) and keeps a 60s rolling average for the
+                        four network/disk RATE rows (suffixes
+                        /download,/upload,/read,/write); percentages stay
+                        live. Sensor colors are the dim indicator
+                        accents, one distinct hue per row. Sensor IDs must
+                        be the ksystemstats paths — verify live:
                         `qdbus org.kde.ksystemstats1 /org/kde/ksystemstats1
                         allSensors` (needs `--literal`; qdbus without it
                         can't print the hash type). plasma-manager's
