@@ -5,7 +5,7 @@
  *  - the label/value text uses a fixed muted gray instead of the theme's
  *    bright text color;
  *  - network and disk RATE rows (download/upload/read/write) are shown as
- *    a 60-second rolling average. ksystemstats only publishes instantaneous
+ *    a 10-second rolling average. ksystemstats only publishes instantaneous
  *    rates (500ms deltas), so the averaging happens here, in the delegate.
  *
  * SPDX-FileCopyrightText: 2019 Marco Martin <mart@kde.org>
@@ -86,7 +86,7 @@ Faces.CompactSensorFace {
                 Layout.preferredWidth: root.horizontalFormFactor ? preferredWidth : minimumWidth
                 Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
 
-                readonly property int averageWindowMs: 60000
+                readonly property int averageWindowMs: 10000
                 readonly property bool averaged: legend.isRateSensor(modelData)
                 property var samples: []
                 property real averageValue: NaN

@@ -163,7 +163,7 @@ hosts/nixos/
                         label/value text to the theme's bright color and
                         (b) ksystemstats publishes only instantaneous
                         500ms rates. The fork draws text in muted gray
-                        (#a8a8a8) and keeps a 60s rolling average for the
+                        (#a8a8a8) and keeps a 10s rolling average for the
                         four network/disk RATE rows (suffixes
                         /download,/upload,/read,/write); percentages stay
                         live. Sensor colors are the dim indicator

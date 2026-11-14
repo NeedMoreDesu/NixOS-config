@@ -159,7 +159,7 @@
       # at the right end. Why custom: the stock textonly face hard-codes the
       # theme's bright text color, and ksystemstats only publishes
       # instantaneous 500ms rates. The fork draws label+value in muted gray
-      # and rolls a 60s average for the network/disk RATE rows
+      # and rolls a 10s average for the network/disk RATE rows
       # (download/upload/read/write); percentages stay live. Labels via
       # SensorLabels; sensor IDs verified live against ksystemstats:
       # `qdbus org.kde.ksystemstats1 /org/kde/ksystemstats1 allSensors`.
@@ -256,7 +256,7 @@
   xdg.configFile."opencode/opencode.jsonc".force = true;
 
   # Custom ksysguard sensor face used by the top-bar systemmonitor widget:
-  # muted label/value text plus a 60s rolling average for the network/disk
+  # muted label/value text plus a 10s rolling average for the network/disk
   # rate rows (the stock textonly face can do neither).
   xdg.dataFile."ksysguard/sensorfaces/org.kde.mika.mutedtextonly".source =
     ./ksysguard/sensorfaces/org.kde.mika.mutedtextonly;
