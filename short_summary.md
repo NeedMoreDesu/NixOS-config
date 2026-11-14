@@ -21,8 +21,6 @@ nyx    # alias -> sudo bash ~/nixos_config/rebuild.sh
        # there; runuser + XDG_RUNTIME_DIR so systemctl --user reaches
        # MIKA's manager, not root's — a bad yml now surfaces loudly
        # as a failed unit instead of silently stale keys)
-nyxx   # same, but first: scripts/flake-update.sh (runs as you, not root;
-       # commits the lockfile itself)
         # flags: -u/--update does the flake update, -r/--reboot reboots
         # after a successful switch, -l/--logout ends the KDE session
         # instead (qdbus org.kde.Shutdown /Shutdown logout as the user —
