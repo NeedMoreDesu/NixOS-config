@@ -1,4 +1,17 @@
 { lib, pkgs, plasma-manager, ... }:
+let
+  # agent-browser ships SKILL.md trees inside the CLI package. Copy the
+  # version-matched core skill (which itself lists the specialized skills)
+  # into opencode's user skill dir as real files, not store symlinks.
+  agentBrowserSkills = [ "core" ];
+
+  # Copy trees and record what was installed in ~/.nix_update_paths, so the
+  # next activation removes stale copies first. See scripts/nix-copy-tree.sh.
+  nixCopyTree = pkgs.writeShellScriptBin "nix-copy-tree" ''
+    export PATH=${pkgs.coreutils}/bin:$PATH
+    ${builtins.readFile ../../scripts/nix-copy-tree.sh}
+  '';
+in
 {
   imports = [ plasma-manager.homeModules.plasma-manager ];
 
@@ -253,11 +266,29 @@
   xdg.configFile."seance/config.toml".force = true;
 
   # opencode TUI theme, declarative (aura — purple, pairs with seance's
-  # Monokai Soda). Only opencode.jsonc is policy: plugins/, skills/ and
-  # node_modules/ under ~/.config/opencode stay user-local. `force`
-  # re-links over the old unmanaged file / any theme-picker writes.
+  # Monokai Soda). opencode.jsonc is policy; the agent-browser skill copy
+  # below is the one managed exception (tracked in ~/.nix_update_paths);
+  # everything else under plugins/, skills/ and node_modules/ stays
+  # user-local. `force` re-links over the old unmanaged file / any
+  # theme-picker writes.
   xdg.configFile."opencode/opencode.jsonc".source = ./opencode.jsonc;
   xdg.configFile."opencode/opencode.jsonc".force = true;
+
+  # agent-browser's core SKILL.md is copied out of the CLI package on every
+  # activation (real files, not store symlinks). scripts/nix-copy-tree.sh
+  # tracks installed paths in ~/.nix_update_paths and removes stale copies
+  # before the next copy. Specialized skills stay runtime-only — core's
+  # SKILL.md lists them and they are fetched with `agent-browser skills get`.
+  home.activation.agent-browser-skills = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    ${nixCopyTree}/bin/nix-copy-tree \
+      "$HOME/.nix_update_paths" \
+      "$HOME/.config/opencode/skills" \
+      agent-browser \
+      ${lib.escapeShellArgs (lib.concatMap (name: [
+        "agent-browser-${name}"
+        "${pkgs.agent-browser}/skill-data/${name}"
+      ]) agentBrowserSkills)}
+  '';
 
   # Custom ksysguard sensor face used by the top-bar systemmonitor widget:
   # muted label/value text plus a 10s rolling average for the network/disk

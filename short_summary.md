@@ -91,6 +91,12 @@ not launch Chromium itself); `agent-browser stream status` shows the
 per-session WebSocket stream port. Do NOT run `agent-browser install`
 (that fetches an unpatched Chrome for Testing); the nixpkgs version
 updates with `nyx -u`.
+opencode skill: home.nix copies the CLI's version-matched `core` skill into
+`~/.config/opencode/skills/agent-browser-core` on every activation (real
+files, not store symlinks; scripts/nix-copy-tree.sh records installed paths
+in `~/.nix_update_paths` and removes stale ones first). Only `core` is
+copied — its SKILL.md lists the specialized skills, which stay runtime-only
+(`agent-browser skills get <name>`).
 
 ## Layout
 
@@ -129,6 +135,10 @@ scripts/
   flake-version.nix    best-effort version probe for one input/ref (nixpkgs
                        lib.version, package .version, else blank).
   flake-lock-info.nix  shared root-input TSV (name/rev/date/flake-ref).
+  nix-copy-tree.sh     generic copy-with-manifest helper: copies trees under
+                       a dest root and records them in ~/.nix_update_paths so
+                       the next run removes stale copies first (used for the
+                       agent-browser opencode skill).
 hosts/nixos/
   default.nix          host entry: imports modules + hardware-configuration.nix,
                        system.stateVersion = "26.05" (NEVER bump, see comment)
@@ -207,6 +217,9 @@ hosts/nixos/
                         can't print the hash type). plasma-manager's
                         systemMonitor module requires color + label on
                         EVERY sensor (no defaults upstream).
+                        Also copies agent-browser's core SKILL.md into
+                        ~/.config/opencode/skills on every activation
+                        (manifest ~/.nix_update_paths; see "Agent browser").
 modules/               one topic per file:
   boot.nix             systemd-boot + EFI, configurationLimit 20
   networking.nix       hostname, NetworkManager
