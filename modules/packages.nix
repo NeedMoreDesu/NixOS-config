@@ -22,6 +22,10 @@ in
     krita
     librewolf
     tmux
+    # KDE Partition Manager: the two-partition layout (1G EFI + rest ext4)
+    # lives here when you want to look at it graphically (nixpkgs-only, no
+    # flake input; kdePackages subset of the Qt6 stack).
+    kdePackages.partitionmanager
     # zmx: session attach/detach (tmux-lite, Zig). In nixpkgs — no flake input.
     zmx
     # Seance comes from its own flake input (github:no1msd/seance), not
