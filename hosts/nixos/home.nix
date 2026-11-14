@@ -155,6 +155,81 @@
           }
         ];
       }
+
+      # Thin top bar: one built-in systemmonitor widget in the "textonly"
+      # face shows all stats as label:value columns (labels via
+      # SensorLabels; sensor IDs verified live against ksystemstats:
+      # `qdbus org.kde.ksystemstats1 /org/kde/ksystemstats1 allSensors`),
+      # then a spacer, then the clock at the right end.
+      {
+        location = "top";
+        height = 30;
+        widgets = [
+          {
+            systemMonitor = {
+              displayStyle = "org.kde.ksysguard.textonly";
+              # color is a REQUIRED submodule option here (no default).
+              sensors = [
+                {
+                  name = "cpu/all/usage";
+                  label = "CPU";
+                  color = "139,233,253";
+                }
+                {
+                  name = "gpu/all/usage";
+                  label = "GPU";
+                  color = "189,147,249";
+                }
+                {
+                  name = "memory/physical/usedPercent";
+                  label = "RAM";
+                  color = "80,250,123";
+                }
+                {
+                  name = "network/all/download";
+                  label = "↓";
+                  color = "255,255,121";
+                }
+                {
+                  name = "network/all/upload";
+                  label = "↑";
+                  color = "255,184,108";
+                }
+                {
+                  name = "disk/all/read";
+                  label = "R";
+                  color = "248,81,73";
+                }
+                {
+                  name = "disk/all/write";
+                  label = "W";
+                  color = "255,121,198";
+                }
+                {
+                  name = "disk/all/usedPercent";
+                  label = "DSK";
+                  color = "245,245,245";
+                }
+              ];
+            };
+          }
+          {
+            panelSpacer = { };
+          }
+          {
+            digitalClock = {
+              date = {
+                enable = true;
+                # "14 Nov 2026"
+                format = {
+                  custom = "dd MMM yyyy";
+                };
+                position = "besideTime";
+              };
+            };
+          }
+        ];
+      }
     ];
   };
 
