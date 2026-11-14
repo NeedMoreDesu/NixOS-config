@@ -59,7 +59,10 @@ scripts/
                        (currently nixpkgs — held for the zmx 1.0.1 SIGABRT);
                        prints held pins, commits flake.lock.
   flake-rollback.sh    interactive pin rollback: diffs flake.lock against a
-                       git ref, restores selected inputs via --override-input.
+                       git ref, shows rev/date + best-effort version numbers,
+                       restores selected inputs via --override-input.
+  flake-version.nix    best-effort version probe for one input/ref (nixpkgs
+                       lib.version, package .version, else blank).
   flake-lock-info.nix  shared root-input TSV (name/rev/date/flake-ref).
 hosts/nixos/
   default.nix          host entry: imports modules + hardware-configuration.nix,

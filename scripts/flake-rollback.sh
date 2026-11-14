@@ -51,22 +51,38 @@ lock_info() {
     --apply 'x: builtins.concatStringsSep "\n" (x ++ [""])'
 }
 
+declare -A version_cache
+flake_version() {
+  local ref=$1 name=$2 key="$1|$2"
+  if [[ -v version_cache[$key] ]]; then
+    printf '%s' "${version_cache[$key]}"
+    return
+  fi
+  local value
+  value=$(timeout 25 nix eval --impure --raw \
+    --expr "(import \"$DIR/flake-version.nix\" { flakeRef = \"$ref\"; name = \"$name\"; })" \
+    2>/dev/null) || value=""
+  version_cache[$key]=$value
+  printf '%s' "$value"
+}
+
 tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
 git show "$OLD_REF:flake.lock" >"$tmpdir/old.lock"
 cp flake.lock "$tmpdir/current.lock"
 
-declare -A old_rev old_date old_ref cur_rev cur_date
+declare -A old_rev old_date old_ref cur_rev cur_date cur_ref
 while IFS=$'\t' read -r name rev ts ref; do
   [[ -z "$name" ]] && continue
   old_rev[$name]=$rev
   old_date[$name]=$ts
   old_ref[$name]=$ref
 done < <(lock_info "$tmpdir/old.lock")
-while IFS=$'\t' read -r name rev ts _ref; do
+while IFS=$'\t' read -r name rev ts ref; do
   [[ -z "$name" ]] && continue
   cur_rev[$name]=$rev
   cur_date[$name]=$ts
+  cur_ref[$name]=$ref
 done < <(lock_info "$tmpdir/current.lock")
 
 changed=()
@@ -81,6 +97,13 @@ if ((${#changed[@]} == 0)); then
   exit 0
 fi
 
+declare -A old_ver new_ver
+printf 'Resolving versions (best effort)...\n' >&2
+for name in "${changed[@]}"; do
+  old_ver[$name]=$(flake_version "${old_ref[$name]}" "$name")
+  new_ver[$name]=$(flake_version "${cur_ref[$name]}" "$name")
+done
+
 echo "Pin changes: $OLD_SHORT -> working tree"
 i=0
 for name in "${changed[@]}"; do
@@ -94,6 +117,9 @@ for name in "${changed[@]}"; do
     printf ' (%s)' "$(date -d "@${cur_date[$name]}" +%Y-%m-%d)"
   fi
   printf '\n'
+  if [[ -n "${old_ver[$name]}" || -n "${new_ver[$name]}" ]]; then
+    printf '    %-16s %s -> %s\n' "version" "${old_ver[$name]:-?}" "${new_ver[$name]:-?}"
+  fi
 done
 
 echo
