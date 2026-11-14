@@ -17,6 +17,7 @@ in
 
   environment.systemPackages = with pkgs; [
     git
+    fastfetch
     sourcegit
     godot
     krita

@@ -301,7 +301,7 @@ modules/               one topic per file:
   bluetooth.nix        BT stack + bluetooth-reconnect service (see below)
   printing.nix         CUPS
   users.nix            mika: wheel+NM, kate/emacs
-   packages.nix         firefox + git, sourcegit, godot, krita, librewolf,
+   packages.nix         firefox + git, fastfetch, sourcegit, godot, krita, librewolf,
                         zmx (served at the held version while it is in
                         the package-hold list), kdePackages.partitionmanager;
                        steam via programs.steam (FHS sandbox, steam-hardware,
