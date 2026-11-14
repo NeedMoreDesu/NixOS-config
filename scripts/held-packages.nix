@@ -18,5 +18,5 @@
   # is zmx main f5d604e (PR #316), not released/packaged yet. Release:
   #   scripts/flake-rollback.sh --release zmx
   # once `nyx -u` shows the hold and nixpkgs on the same fixed version.
-  "zmx",
+  "zmx"
 ]
