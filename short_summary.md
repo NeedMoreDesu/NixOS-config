@@ -73,8 +73,8 @@ flake.nix              inputs: nixpkgs, nixpkgs-held (frozen anchor for the
                        inputs.nixpkgs.follows = "nixpkgs" so it builds against
                        our closure), xremap-flake (github:xremap/nix-flake:
                        NixOS/HM module + its own pinned xremap build; NOT
-                       following nixpkgs — same policy as llm-agents),
-                       workmux. Passed to modules via specialArgs.
+                       following nixpkgs — same policy as llm-agents).
+                       Passed to modules via specialArgs.
                        nixosSystem passes inputs to modules via specialArgs
 rebuild.sh             one-liner flake rebuild; -u runs scripts/flake-update.sh
 scripts/
@@ -302,7 +302,7 @@ modules/               one topic per file:
   printing.nix         CUPS
   users.nix            mika: wheel+NM, kate/emacs
    packages.nix         firefox + git, sourcegit, godot, krita, librewolf,
-                        tmux, zmx (served at the held version while it is in
+                        zmx (served at the held version while it is in
                         the package-hold list), kdePackages.partitionmanager;
                        steam via programs.steam (FHS sandbox, steam-hardware,
                        32-bit PipeWire). allowUnfreePredicate scoped to the
@@ -335,7 +335,7 @@ modules/               one topic per file:
 - **New group membership + the user manager**: adding mika to input/uinput groups doesn't
   take effect on logout/login alone — the `systemd --user` instance (check `loginctl
   user-status`: slice "Since:" predates the logout) survives if ANY process holds the slice
-  (tmux/opencode shells do), and keeps its launch-time credentials. `systemctl --user
+  (long-running shells like opencode do), and keeps its launch-time credentials. `systemctl --user
   daemon-reexec` won't re-read groups either. Symptom: xremap EPERMs on /dev/input +
   /dev/uinput even though `getent group` and the node perms are right — compare `id` (stale
   session creds) vs `getent` (DB truth). Fix: REBOOT. Don't `loginctl terminate-user`:
@@ -425,7 +425,7 @@ modules/               one topic per file:
   `nix eval --impure --expr 'f.inputs.nixpkgs.legacyPackages.x86_64-linux.system'`).
   Merely reading it warns — `seance.packages.${pkgs.system}` in a module did it.
   Use `pkgs.stdenv.hostPlatform.system` (fixed in packages.nix for the
-  seance/workmux flake outputs). The `system =` arg on nixosSystem was ALSO
+  seance flake output). The `system =` arg on nixosSystem was ALSO
   legacy (same rename) — dropped; the platform comes from nixpkgs.hostPlatform
   in hardware-configuration.nix, which stays correct.
 - **zmx 1.0.1 SIGABRT on session kill (2026-11-14)**: every seance cleanup

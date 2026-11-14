@@ -256,7 +256,6 @@
         "nixpkgs-held": "nixpkgs-held",
         "plasma-manager": "plasma-manager",
         "seance": "seance",
-        "workmux": "workmux",
         "xremap-flake": "xremap-flake"
       }
     },
@@ -332,26 +331,6 @@
       "original": {
         "owner": "numtide",
         "repo": "treefmt-nix",
-        "type": "github"
-      }
-    },
-    "workmux": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1794659038,
-        "narHash": "sha256-BdOcvHgd2J62HZJvmVKBPnbJUmw+Do1baiSmsdWIsUA=",
-        "owner": "raine",
-        "repo": "workmux",
-        "rev": "e76bb06daa21098c37412c003bf25320165b3e03",
-        "type": "github"
-      },
-      "original": {
-        "owner": "raine",
-        "repo": "workmux",
         "type": "github"
       }
     },

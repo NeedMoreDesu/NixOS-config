@@ -34,12 +34,6 @@
       url = "git+file:///home/mika/seance?submodules=1";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # tmux + git-worktree orchestrator for parallel AI coding agents (MIT,
-    # Rust). Own flake with a `packages.default`; follows our nixpkgs.
-    workmux = {
-      url = "github:raine/workmux";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     # Key remapper for X11/Wayland with app-specific rules (evdev level —
     # sits BELOW XKB). No follows: its module ships its own pinned nixpkgs +
     # crane and builds the static xremap-kde binary against them; following
@@ -55,7 +49,6 @@
         llm-agents,
         home-manager,
         seance,
-        workmux,
         xremap-flake,
         ...
       }:
@@ -65,7 +58,7 @@
         # stdenv.hostPlatform.system); the platform comes from
         # nixpkgs.hostPlatform in hardware-configuration.nix
         specialArgs = {
-          inherit llm-agents home-manager seance workmux nixpkgs-held;
+          inherit llm-agents home-manager seance nixpkgs-held;
           plasma-manager = inputs.plasma-manager;
         };
         modules = [

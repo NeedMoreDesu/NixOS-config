@@ -1,4 +1,4 @@
-{ pkgs, seance, workmux, ... }:
+{ pkgs, seance, ... }:
 let
   # pkgs.system is deprecated (warns "renamed to stdenv.hostPlatform.system");
   # flake outputs are still keyed by the plain system string.
@@ -21,7 +21,6 @@ in
     godot
     krita
     librewolf
-    tmux
     # KDE Partition Manager: the two-partition layout (1G EFI + rest ext4)
     # lives here when you want to look at it graphically (nixpkgs-only, no
     # flake input; kdePackages subset of the Qt6 stack).
@@ -33,8 +32,5 @@ in
     # Seance comes from its own flake input (github:no1msd/seance), not
     # nixpkgs — built against our pkgs via the follows = "nixpkgs" redirect.
     seance.packages.${hostSystem}.seance
-    # workmux: parallel agents in tmux windows, one git worktree per task.
-    # Flake output is packages.default (github:raine/workmux).
-    workmux.packages.${hostSystem}.default
   ];
 }
