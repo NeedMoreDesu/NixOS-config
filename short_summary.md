@@ -138,22 +138,31 @@ modules/               one topic per file:
                        Alt held for as long as Cmd is down — the one thing
                        xremap cannot express; KWin switcher popups need a
                          physically-held modifier). Cmd+Space moved to xremap.
-                         Option-key swap (2026-11-09): [main] leftalt =
-                         layer(altgr) + rightalt = layer(alt) — direct
-                         keycode assignment (leftalt = rightalt) parses but
-                         keyd check EXITS 255 with "use layer(altgr)"
-                         warnings; the descriptor form is sanctioned (exit 0).
+                         Option keys (2026-11-14): [main] leftalt =
+                         layer(alt) + rightalt = layer(alt) — both options
+                         are plain Alt alone (switcher, Alt+Space toggle,
+                         menus). Alt-chars are a left-cmd chord: [meta]
+                         leftalt/rightalt = swap(altgr), so left cmd + either
+                         option switches keyd to its built-in altgr:G layer
+                         for the next keys. swap, NOT layer(altgr): [meta]
+                         holds Super -> xremap's virtual F13, and a plain
+                         altgr layer would leave F13+RALT held so xremap's
+                         inexact F13-<key> rules emit Ctrl-* instead of the
+                         level3 char; swap sheds meta/Super first, so keyd
+                         emits a clean RALT+<key> and XKB level3 resolves it.
                          Must happen at the keycode layer:
                          gb(mac) AND ua hard-wire level3(ralt_switch) (RALT
                          keycode = the alt-characters layer, LALT = plain Alt),
                          and BOTH keyd's maccycle and xremap's combos EMIT the
                          LALT keycode (bypassing keyd via the 0x0fac skip) —
                          swapping downstream with lv3: XKB options would break
-                         every emitted Alt combo + grp:alt_space_toggle. Result:
-                         left option types alt-chars, right option is the real
-                         Alt (switcher, Alt+Space, menus). keyd does NOT
-                         canonicalize alt (unlike MOD_SUPER) — RALT survives
-                         keyd today, proven by level3 working on right option.
+                         every emitted Alt combo + grp:alt_space_toggle.
+                         keyd does NOT canonicalize alt (unlike MOD_SUPER) —
+                         RALT survives keyd today. The swap is banked on the
+                         cmd keypress: Cmd FIRST, then Option; AltGr stays
+                         until Cmd is released (releasing Option first does
+                         not swap back). Right cmd (menu) doesn't enter
+                         [meta], so the chord is left-cmd only.
                          rightmeta = menu rebind (2026-11-08): keyd normalizes
                         BOTH cmd keys through the meta descriptor (src/keys.c:
                         MOD_SUPER -> canonical KEYD_LEFTMETA), so KEY_RIGHTMETA

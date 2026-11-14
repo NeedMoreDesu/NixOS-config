@@ -29,21 +29,32 @@
       # line loses its leading whitespace (keyd needs [sections] at col 0)
       extraConfig = ''
         [main]
-        # Option-key role swap (2026-11-09): XKB (gb(mac) AND ua) hard-wire
-        # level3(ralt_switch) — the RALT *keycode* is the alt-characters
-        # layer, LALT is the plain Alt modifier. Swapping the keycodes here,
-        # upstream of XKB, is the only clean place: keyd's maccycle and every
-        # xremap combo EMIT the LALT keycode (A-tab, Alt-F4, Alt-grave...),
-        # and those outputs bypass keyd (vendor 0x0fac skip) straight to XKB —
-        # a downstream lv3: option swap would break all of them plus
-        # grp:alt_space_toggle. Result: left option types alt-chars,
-        # right option is the real Alt (Alt+Tab, Alt+Space layout switch,
-        # menus). keyd does NOT canonicalize alt (proven: RALT survives
-        # today as level3 trigger), so per-side rebinds work.
+        # Option keys (2026-11-14): BOTH are plain Alt on their own. XKB
+        # (gb(mac) AND ua) hard-wire level3(ralt_switch) — the RALT *keycode*
+        # is the alt-characters layer, LALT is the plain Alt modifier. keyd
+        # does NOT canonicalize alt (RALT survives), so layer rebinds work.
+        # The alt-char map is now a double-key chord: left cmd (the [meta]
+        # layer) swaps either option key to keyd's built-in altgr:G layer,
+        # so Cmd+Option+<key> types the level3 char while Option alone stays
+        # a real Alt (Alt+Tab, Alt+Space layout switch, menus). Right cmd
+        # stays `menu` (see below) and does NOT enter [meta], so the chord
+        # is left-cmd only.
+        #
+        # swap(altgr), NOT layer(altgr): [meta] normally holds the Super
+        # modifier, which xremap turns into its F13 virtual modifier. A
+        # plain layer(altgr) would leave Super/F13 held alongside RALT, and
+        # xremap's inexact F13-<key> rules would win over the alt char
+        # (F13-e -> Ctrl-e). swap() deactivates the meta layer for the
+        # chord, shedding Super/F13 before RALT is emitted; keyd then sends
+        # a clean RALT+<key> that XKB level3 resolves per layout. The swap
+        # is banked on the cmd keypress: press Cmd BEFORE Option, and AltGr
+        # remains engaged until Cmd is released (releasing Option first does
+        # not swap back to meta).
+        #
         # Syntax trap: direct assignment (`leftalt = rightalt`) PARSES but
         # keyd check exits 255 with "use layer(altgr)" warnings — the
         # descriptor form below is the sanctioned one (check exit 0).
-        leftalt = layer(altgr)
+        leftalt = layer(alt)
         rightalt = layer(alt)
 
         # keyd normalizes BOTH cmd keys through the meta descriptor
@@ -63,6 +74,9 @@
         [meta]
         tab = swapm(maccycle, tab)
         grave = swapm(maccycle, grave)
+        # left cmd + either option = AltGr for the next keys (see above).
+        leftalt = swap(altgr)
+        rightalt = swap(altgr)
 
         [maccycle:A]
         tab = A-tab
