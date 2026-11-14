@@ -267,11 +267,11 @@
         "zig": "zig"
       },
       "locked": {
-        "lastModified": 1794681580,
-        "narHash": "sha256-BP5kkt5BgUd+Hrh91Y128r57NnyKV2WXJu21reKXsuk=",
+        "lastModified": 1794682174,
+        "narHash": "sha256-Zbu4Er268SJRRjUBp8EZy6laQyt4r/U9926J0FUTY9o=",
         "ref": "refs/heads/zmx-integration",
-        "rev": "24e000722a1225bde12af90c8011a02fe09f8c7f",
-        "revCount": 83,
+        "rev": "1bd9f5c953f9fa9b34de5d227970e69df40458a2",
+        "revCount": 84,
         "submodules": true,
         "type": "git",
         "url": "file:///home/mika/seance"
