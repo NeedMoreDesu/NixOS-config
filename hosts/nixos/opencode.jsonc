@@ -1,0 +1,6 @@
+{
+  // Managed by home-manager (hosts/nixos/opencode.jsonc) — theme is Nix
+  // policy; GUI/TUI theme-picker changes are re-linked on next nyx.
+  "$schema": "https://opencode.ai/config.json",
+  "theme": "aura"
+}

@@ -169,6 +169,13 @@
   # instead of letting home-manager abort the switch with a clobber error.
   xdg.configFile."seance/config.toml".force = true;
 
+  # opencode TUI theme, declarative (aura — purple, pairs with seance's
+  # Monokai Soda). Only opencode.jsonc is policy: plugins/, skills/ and
+  # node_modules/ under ~/.config/opencode stay user-local. `force`
+  # re-links over the old unmanaged file / any theme-picker writes.
+  xdg.configFile."opencode/opencode.jsonc".source = ./opencode.jsonc;
+  xdg.configFile."opencode/opencode.jsonc".force = true;
+
 
   # Emacs config is a git repo of its own: the Prelude fork on GitHub
   # (upstream bbatsov/prelude kept as a remote for pulling updates).
