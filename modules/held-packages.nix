@@ -30,10 +30,10 @@ in
             name:
             {
               inherit name;
-              value = heldPkgs.${name} or builtins.throw ''
+              value = heldPkgs.${name} or (builtins.throw ''
                 scripts/held-packages.nix: '${name}' is not in the nixpkgs-held pin —
                 drop the hold or re-pin it: scripts/flake-rollback.sh --hold ${name} [ref]
-              '';
+              '');
             }
           )
           heldNames
