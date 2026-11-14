@@ -173,42 +173,42 @@
                 {
                   name = "cpu/all/usage";
                   label = "CPU";
-                  color = "139,233,253";
+                  color = "190,190,190";
                 }
                 {
                   name = "gpu/all/usage";
                   label = "GPU";
-                  color = "189,147,249";
+                  color = "180,180,180";
                 }
                 {
                   name = "memory/physical/usedPercent";
                   label = "RAM";
-                  color = "80,250,123";
+                  color = "185,185,185";
                 }
                 {
                   name = "network/all/download";
                   label = "↓";
-                  color = "255,255,121";
+                  color = "175,175,175";
                 }
                 {
                   name = "network/all/upload";
                   label = "↑";
-                  color = "255,184,108";
+                  color = "170,170,170";
                 }
                 {
                   name = "disk/all/read";
                   label = "R";
-                  color = "248,81,73";
+                  color = "165,165,165";
                 }
                 {
                   name = "disk/all/write";
                   label = "W";
-                  color = "255,121,198";
+                  color = "160,160,160";
                 }
                 {
                   name = "disk/all/usedPercent";
                   label = "DSK";
-                  color = "245,245,245";
+                  color = "150,150,150";
                 }
               ];
             };
