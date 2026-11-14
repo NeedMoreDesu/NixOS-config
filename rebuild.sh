@@ -16,6 +16,14 @@ REPO="/home/mika/nixos_config"
 # `logout` ends the session from the inside, so sddm-helper exits 0 and
 # SDDM brings the greeter back. No confirmation — apps that block
 # logout (unsaved changes) still get their usual say.
+# -k: apply the new plasma config to the LIVE session without logging out:
+# runs the user's plasma-manager runner. It diffs the generated desktop
+# scripts against ~/.local/share/plasma-manager/last_run_* stamps (a fresh
+# generation always re-runs them), pushes the layout into the running
+# plasmashell via qdbus, and restarts whatever services the scripts marked
+# (plasma-plasmashell & co). Needed because nixos-rebuild's own activation
+# cannot reach the session bus: the switch flips the ~/.local symlinks but
+# the layout only lands on-screen at login (autostart) or here.
 # NEVER `loginctl terminate-user`: systemd hits sddm-helper with TERM
 # then HUP, Qt reports a SIGHUP death as exit status 1 =
 # Auth::HELPER_AUTH_ERROR, and Display.cpp treats that as an auth error
@@ -24,13 +32,15 @@ REPO="/home/mika/nixos_config"
 update=false
 reboot_after=false
 logout_after=false
+kde_after=false
 for arg in "$@"; do
   case "$arg" in
     -u | --update) update=true ;;
     -r | --reboot) reboot_after=true ;;
     -l | --logout) logout_after=true ;;
+    -k | --kde) kde_after=true ;;
     *)
-      echo "usage: rebuild.sh [-u|--update] [-r|--reboot] [-l|--logout]" >&2
+      echo "usage: rebuild.sh [-u|--update] [-r|--reboot] [-l|--logout] [-k|--kde]" >&2
       exit 2
       ;;
   esac
@@ -55,6 +65,19 @@ restart_user="${SUDO_USER:-mika}"
 runuser -u "$restart_user" -- \
   env XDG_RUNTIME_DIR="/run/user/$(id -u "$restart_user")" \
   systemctl --user restart xremap
+
+# -k: push the new plasma layout into the live session. Non-fatal: no
+# runner yet (never logged in since install) or a hiccup here must not
+# fail the switch - worst case the config lands at next login anyway.
+# Skipped when -l/-r follow: the plasma-manager autostart re-applies on
+# the fresh session regardless.
+if $kde_after && ! $logout_after && ! $reboot_after; then
+  kde_user="${SUDO_USER:-mika}"
+  runuser -u "$kde_user" -- \
+    env XDG_RUNTIME_DIR="/run/user/$(id -u "$kde_user")" \
+    sh -c '"$HOME/.local/share/plasma-manager/run_all.sh"' \
+    || echo "nyx -k: plasma-manager runner failed or absent - config applies at next login" >&2
+fi
 
 # -r wins over -l (a reboot logs the session out anyway)
 if $logout_after && ! $reboot_after; then
