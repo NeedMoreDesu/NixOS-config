@@ -170,6 +170,7 @@
       {
         location = "top";
         height = 30;
+        opacity = "translucent";
         widgets = [
           {
             systemMonitor = {
