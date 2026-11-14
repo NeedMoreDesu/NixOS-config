@@ -3,8 +3,9 @@ set -euo pipefail
 
 REPO="/home/mika/nixos_config"
 
-# -u: bump all flake inputs and commit flake.lock before rebuilding.
-# Runs as the invoking user (git identity + flake lockfile ownership).
+# -u: bump flake inputs and commit flake.lock before rebuilding. Inputs in
+# scripts/flake-update.sh's HOLD_INPUTS stay pinned and are printed. Runs as
+# the invoking user (git identity + flake lockfile ownership).
 # -r: reboot once the switch succeeds (use after changes that only apply
 # on a fresh boot/session, e.g. xkb layout swaps).
 # -l: end the graphical session after a successful switch instead of
@@ -37,9 +38,9 @@ done
 
 if $update; then
   if [[ -n "${SUDO_USER:-}" ]]; then
-    runuser -l "$SUDO_USER" -c "cd $REPO && nix flake update --commit-lock-file"
+    runuser -l "$SUDO_USER" -c "cd $REPO && ./scripts/flake-update.sh"
   else
-    (cd "$REPO" && nix flake update --commit-lock-file)
+    (cd "$REPO" && ./scripts/flake-update.sh)
   fi
 fi
 
