@@ -62,6 +62,25 @@ GC. `nix-env` alone only unlinks generations.
 
 Update pins: `nix flake update <input>` (git needed; `sudo`-free shell may lack git until systemPackages rebuild lands — `nix-shell -p git` works). Rollback selected pins: `./scripts/flake-rollback.sh [ref]` (default: parent of the last lock commit) lists changed root inputs and restores the chosen ones via `nix flake lock --override-input`; it also lists the package holds. `--hold <pkg> [ref]` is the per-package rollback (re-pin nixpkgs-held to that ref's nixpkgs + add pkg to the hold list); `--release <pkg>` drops an entry — with an empty list, retire the nixpkgs-held input from flake.nix + HOLD_INPUTS.
 
+## Agent browser
+
+`agent-browser` (nixpkgs; dashboard + skills embedded) drives a DEDICATED
+CDP Chromium, never the normal browser. `agent-browser` is a wrapper that
+lazily starts `agent-chrome` on the first page command: Chromium with
+`--user-data-dir=~/.local/share/agent-chrome`, `--remote-debugging-port=9222`
+(bound to 127.0.0.1), then `agent-browser --auto-connect --pin-tab`.
+Browser-less subcommands (skills/dashboard/install/upgrade/doctor/close/
+stream, no args, help/version) and explicit `--cdp`/`--auto-connect`/
+`connect` bypass the launch. `--pin-tab` keeps the agent on its own tab
+(otherwise `open` navigates the shared active tab). The CDP port can
+enumerate/control every tab in THAT instance — that is why the profile is
+separate: your normal Firefox/LibreWolf/Chromium tabs are out of reach.
+Live view: `agent-browser dashboard start` -> http://localhost:4848 (does
+not launch Chromium itself); `agent-browser stream status` shows the
+per-session WebSocket stream port. Do NOT run `agent-browser install`
+(that fetches an unpatched Chrome for Testing); the nixpkgs version
+updates with `nyx -u`.
+
 ## Layout
 
 ```
@@ -305,6 +324,8 @@ modules/               one topic per file:
   printing.nix         CUPS
   users.nix            mika: wheel+NM, kate/emacs
    packages.nix         firefox + git, fastfetch, sourcegit, godot, krita, librewolf,
+                        chromium + agent-browser/agent-chrome (dedicated CDP
+                        browser for agent-browser; see "Agent browser"),
                         zmx (served at the held version while it is in
                         the package-hold list), kdePackages.partitionmanager;
                        steam via programs.steam (FHS sandbox, steam-hardware,
