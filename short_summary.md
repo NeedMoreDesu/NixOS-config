@@ -51,6 +51,15 @@ nyx    # alias -> sudo bash ~/nixos_config/rebuild.sh
         # nixpkgs. Manage: scripts/flake-rollback.sh --hold/--release.
 ```
 
+Cleanup also runs from `nyx` after every successful switch: it caps system +
+home-manager generations at the last 10 (`nix-env --delete-generations +10`)
+then runs `nix-collect-garbage`; the weekly `nix-gc.timer` (`--delete-older-
+than 14d`) stays as a fallback for weeks without rebuilds. The collect is the
+step that frees bytes — build inputs are NOT in the runtime closure, so the
+local seance flake source (`git+file` of a dirty worktree, which copies the
+whole tree incl. its multi-GB `.zig-cache`) only goes away via an explicit
+GC. `nix-env` alone only unlinks generations.
+
 Update pins: `nix flake update <input>` (git needed; `sudo`-free shell may lack git until systemPackages rebuild lands — `nix-shell -p git` works). Rollback selected pins: `./scripts/flake-rollback.sh [ref]` (default: parent of the last lock commit) lists changed root inputs and restores the chosen ones via `nix flake lock --override-input`; it also lists the package holds. `--hold <pkg> [ref]` is the per-package rollback (re-pin nixpkgs-held to that ref's nixpkgs + add pkg to the hold list); `--release <pkg>` drops an entry — with an empty list, retire the nixpkgs-held input from flake.nix + HOLD_INPUTS.
 
 ## Layout
@@ -311,7 +320,9 @@ modules/               one topic per file:
                        interpreter ecosystems, or packages with NOS/HM
                        modules. `nyx -u` reports held-vs-current per name.
   nix.nix              nix-command + flakes; weekly GC (--delete-older-than 14d)
-                       + weekly store optimise via nix-gc/nix-optimise timers
+                       + weekly store optimise via nix-gc/nix-optimise timers;
+                       `nyx` also caps gens to the last 10 and collects after
+                       each successful switch
   llm-agents.nix       numtide cache (binary substituter) + opencode + dsh
   home-manager.nix     HM wiring: useGlobalPkgs, users.mika -> hosts/nixos/home.nix
 ```

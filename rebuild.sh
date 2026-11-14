@@ -33,10 +33,18 @@ REPO="/home/mika/nixos_config"
 # Auth::HELPER_AUTH_ERROR, and Display.cpp treats that as an auth error
 # and skips the greeter restart — dead black console on the session VT
 # (sddm#1908, unfixed in 0.21).
+# After a successful switch nyx also does the store cleanup (on top of the
+# weekly nix-gc timer in modules/nix.nix): cap system + home-manager
+# generations at the last KEEP_GENERATIONS, then run nix-collect-garbage.
+# The collect is the part that reclaims disk — build inputs (notably the
+# local seance flake source, which copies the whole dirty worktree incl.
+# .zig-cache) are NOT part of the runtime closure, so no generation-rooted
+# GC ever frees them.
 update=false
 reboot_after=false
 logout_after=false
 kde_after=false
+KEEP_GENERATIONS=10
 for arg in "$@"; do
   case "$arg" in
     -u | --update) update=true ;;
@@ -69,6 +77,27 @@ restart_user="${SUDO_USER:-mika}"
 runuser -u "$restart_user" -- \
   env XDG_RUNTIME_DIR="/run/user/$(id -u "$restart_user")" \
   systemctl --user restart xremap
+
+# Store cleanup after a successful switch (see header): keep the last
+# KEEP_GENERATIONS generations per profile, then collect every dead path.
+# Non-fatal — the switch already succeeded, a hiccup here must not abort
+# the -k/-l/-r handling below, but it must be loud or the disk fills
+# silently. nix-env only unlinks generation symlinks; the bytes are freed
+# by nix-collect-garbage afterwards.
+nix-env -p /nix/var/nix/profiles/system \
+  --delete-generations "+$KEEP_GENERATIONS" \
+  || echo "nyx: system generation prune failed" >&2
+
+gc_user="${SUDO_USER:-mika}"
+hm_profile="/home/$gc_user/.local/state/nix/profiles/home-manager"
+if [[ -e "$hm_profile" ]]; then
+  runuser -u "$gc_user" -- env HOME="/home/$gc_user" \
+    "$(command -v nix-env)" -p "$hm_profile" \
+    --delete-generations "+$KEEP_GENERATIONS" \
+    || echo "nyx: home-manager generation prune failed" >&2
+fi
+
+nix-collect-garbage || echo "nyx: garbage collection failed" >&2
 
 # -k: push the new plasma layout into the live session. Non-fatal: no
 # runner yet (never logged in since install) or a hiccup here must not
