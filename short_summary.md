@@ -39,18 +39,27 @@ nyx    # alias -> sudo bash ~/nixos_config/rebuild.sh
         # top bar did nothing until the runner ran from inside the
         # session). Flags combine, e.g. nyx -u -r
         # -u updates every ROOT input EXCEPT those in HOLD_INPUTS
-        # (scripts/flake-update.sh) and prints the held pins. nixpkgs is
-        # held at f4a03c0 (zmx 0.8.1): zmx 1.0.1 SIGABRTs on every session
-        # daemon shutdown, i.e. every zmx cleanup shortcut. Drop the hold
-        # when the fix (zmx f5d604e) reaches a release/nixpkgs.
+        # (scripts/flake-update.sh) and prints the held pins. nixpkgs
+        # itself is NOT held anymore: single known-bad nixpkgs packages
+        # are frozen via modules/held-packages.nix (list:
+        # scripts/held-packages.nix), which overlays them from the pinned
+        # nixpkgs-held input. -u then prints one line per held package:
+        # held version vs what current nixpkgs would give (equal = hold
+        # redundant, release it). Currently held: zmx 0.8.1 — zmx 1.0.1
+        # SIGABRTs on every session daemon shutdown, i.e. every zmx
+        # cleanup shortcut; release once the fix (zmx f5d604e) reaches
+        # nixpkgs. Manage: scripts/flake-rollback.sh --hold/--release.
 ```
 
-Update pins: `nix flake update <input>` (git needed; `sudo`-free shell may lack git until systemPackages rebuild lands — `nix-shell -p git` works). Rollback selected pins: `./scripts/flake-rollback.sh [ref]` (default: parent of the last lock commit) lists changed root inputs and restores the chosen ones via `nix flake lock --override-input`.
+Update pins: `nix flake update <input>` (git needed; `sudo`-free shell may lack git until systemPackages rebuild lands — `nix-shell -p git` works). Rollback selected pins: `./scripts/flake-rollback.sh [ref]` (default: parent of the last lock commit) lists changed root inputs and restores the chosen ones via `nix flake lock --override-input`; it also lists the package holds. `--hold <pkg> [ref]` is the per-package rollback (re-pin nixpkgs-held to that ref's nixpkgs + add pkg to the hold list); `--release <pkg>` drops an entry — with an empty list, retire the nixpkgs-held input from flake.nix + HOLD_INPUTS.
 
 ## Layout
 
 ```
-flake.nix              inputs: nixpkgs, llm-agents, home-manager, plasma-manager,
+flake.nix              inputs: nixpkgs, nixpkgs-held (frozen anchor for the
+                       package holds; never -u'd, moves only via
+                       flake-rollback --hold), llm-agents, home-manager,
+                       plasma-manager,
                        seance (git+https + ?submodules=1 for vendored ghostty;
                        inputs.nixpkgs.follows = "nixpkgs" so it builds against
                        our closure), xremap-flake (github:xremap/nix-flake:
@@ -61,11 +70,23 @@ flake.nix              inputs: nixpkgs, llm-agents, home-manager, plasma-manager
 rebuild.sh             one-liner flake rebuild; -u runs scripts/flake-update.sh
 scripts/
   flake-update.sh      `nyx -u` updater: every root input except HOLD_INPUTS
-                       (currently nixpkgs — held for the zmx 1.0.1 SIGABRT);
-                       prints held pins, commits flake.lock.
+                       (now only nixpkgs-held — the package-hold anchor);
+                       prints held pins, commits flake.lock, THEN prints the
+                       package holds (held vs current nixpkgs versions).
   flake-rollback.sh    interactive pin rollback: diffs flake.lock against a
                        git ref, shows rev/date + best-effort version numbers,
-                       restores selected inputs via --override-input.
+                       restores selected inputs via --override-input; always
+                       shows the package holds. --hold <pkg> [ref] freezes
+                       ONE nixpkgs package: re-pins nixpkgs-held to ref's
+                       nixpkgs + appends <pkg> to held-packages.nix (one
+                       shared anchor — existing entries move with it, shown
+                       first); --release <pkg> removes the entry.
+  held-packages.nix    THE package-hold list: one nixpkgs attr name per
+                       line with rationale comments. Imported by
+                       modules/held-packages.nix, read by both scripts.
+                       Standalone binaries only (see module header).
+  held-packages-lib.sh shared helpers: held_package_names, held_lock_ref,
+                       pkg_version (best-effort legacyPackages eval).
   flake-version.nix    best-effort version probe for one input/ref (nixpkgs
                        lib.version, package .version, else blank).
   flake-lock-info.nix  shared root-input TSV (name/rev/date/flake-ref).
@@ -260,7 +281,8 @@ modules/               one topic per file:
   printing.nix         CUPS
   users.nix            mika: wheel+NM, kate/emacs
    packages.nix         firefox + git, sourcegit, godot, krita, librewolf,
-                        tmux, zmx, kdePackages.partitionmanager;
+                        tmux, zmx (served at the held version while it is in
+                        the package-hold list), kdePackages.partitionmanager;
                        steam via programs.steam (FHS sandbox, steam-hardware,
                        32-bit PipeWire). allowUnfreePredicate scoped to the
                        "steam" name prefix (steam pulls steam-run etc.).
@@ -268,6 +290,14 @@ modules/               one topic per file:
                        that tracks AI coding agents; MIT, Zig 0.16) comes from
                        the seance flake input, NOT nixpkgs:
                        seance.packages.${pkgs.system}.seance.
+  held-packages.nix  per-package holds: overlays every name in
+                       scripts/held-packages.nix with the nixpkgs-held
+                       input's build (modules/held-packages.nix reads the
+                       list; empty list = no overlay). Standalone binaries
+                       only — the held drv brings its old-tree deps
+                       beside the new ones; never for ABI libs,
+                       interpreter ecosystems, or packages with NOS/HM
+                       modules. `nyx -u` reports held-vs-current per name.
   nix.nix              nix-command + flakes; weekly GC (--delete-older-than 14d)
                        + weekly store optimise via nix-gc/nix-optimise timers
   llm-agents.nix       numtide cache (binary substituter) + opencode + dsh
@@ -381,9 +411,14 @@ modules/               one topic per file:
   allocator and glibc aborts (`_int_free_merge_chunk`). zmx 0.8.1 is clean
   (verified: `attach` + `kill --force` makes no core); 1.0.1, the version the
   2026-11-14 nixpkgs bump pulled in, aborts on every daemon shutdown.
-  nixpkgs was rolled back to f4a03c0 (zmx 0.8.1) and put in HOLD_INPUTS so
-  `nyx -u` cannot pull it back. Upstream fix is zmx main f5d604e (PR #316);
-  remove the hold once it is released and packaged.
+   first rolled back wholesale (nixpkgs pinned at f4a03c0, zmx 0.8.1, so
+   `nyx -u` couldn't pull it back) — replaced 2026-11-14 by the
+   per-package hold: zmx is overlaid from the frozen nixpkgs-held input
+   (same f4a03c0) while listed in scripts/held-packages.nix, and the
+   nixpkgs input itself updates freely again. `nyx -u` shows
+   `zmx held 0.8.1 -> nixpkgs would give <ver>`; when that version
+   carries the fix (upstream zmx main f5d604e, PR #316 — unreleased),
+   run `scripts/flake-rollback.sh --release zmx`.
 - **llm-agents input**: do NOT add `follows = "nixpkgs"` — their binaries in `cache.numtide.com` are built against their own pinned nixpkgs; following yours = cache misses + rebuilds.
 - `/etc/nixos/` is obsolete; the repo is the source of truth.
 

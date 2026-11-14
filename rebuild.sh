@@ -4,8 +4,12 @@ set -euo pipefail
 REPO="/home/mika/nixos_config"
 
 # -u: bump flake inputs and commit flake.lock before rebuilding. Inputs in
-# scripts/flake-update.sh's HOLD_INPUTS stay pinned and are printed. Runs as
-# the invoking user (git identity + flake lockfile ownership).
+# scripts/flake-update.sh's HOLD_INPUTS stay pinned and are printed, then
+# the per-package holds (scripts/held-packages.nix, overlaid by
+# modules/held-packages.nix from the frozen nixpkgs-held input) are listed
+# with held-vs-current versions; equal = redundant, release with
+# scripts/flake-rollback.sh --release <pkg>. Runs as the invoking user
+# (git identity + flake lockfile ownership).
 # -r: reboot once the switch succeeds (use after changes that only apply
 # on a fresh boot/session, e.g. xkb layout swaps).
 # -l: end the graphical session after a successful switch instead of
