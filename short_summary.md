@@ -259,7 +259,8 @@ modules/               one topic per file:
   bluetooth.nix        BT stack + bluetooth-reconnect service (see below)
   printing.nix         CUPS
   users.nix            mika: wheel+NM, kate/emacs
-  packages.nix         firefox + git, sourcegit, godot, krita, librewolf;
+   packages.nix         firefox + git, sourcegit, godot, krita, librewolf,
+                        tmux, zmx, kdePackages.partitionmanager;
                        steam via programs.steam (FHS sandbox, steam-hardware,
                        32-bit PipeWire). allowUnfreePredicate scoped to the
                        "steam" name prefix (steam pulls steam-run etc.).
