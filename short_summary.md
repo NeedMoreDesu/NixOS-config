@@ -140,7 +140,10 @@ hosts/nixos/
                          Dock pins (iconTasks `launchers`) are declared in the
                          panel: seance -> librewolf -> sourcegit (the
                          preferred://browser pin failed — pin real .desktop
-                         names);
+                         names); the task list is global: showTasks
+                         onlyInCurrentDesktop/onlyInCurrentActivity = false,
+                         so running apps stay in the dock on every virtual
+                         desktop/activity;
                          plasma-manager applies them via a desktop script
                          (xdg.dataFile plasma-manager/data/*.js, run at
                          login autostart or `nyx -k` — NOT by the switch's

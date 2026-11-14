@@ -101,6 +101,10 @@
                 "applications:librewolf.desktop"
                 "applications:SourceGit.desktop"
               ];
+              # Global dock: running windows stay visible regardless of the
+              # current virtual desktop/activity (defaults filter per desktop).
+              behavior.showTasks.onlyInCurrentDesktop = false;
+              behavior.showTasks.onlyInCurrentActivity = false;
             };
           }
           "org.kde.plasma.marginsseparator"
