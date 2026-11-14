@@ -159,6 +159,7 @@ keymap:
       F13-t: Ctrl-Shift-t # new tab
       F13-w: Ctrl-Shift-w # close tab
       F13-Alt-w: Ctrl-Shift-Alt-w # close tap kill zmx
+      F13-Alt-q: Ctrl-Shift-Alt-q # close all kill zmx
       F13-n: Ctrl-Shift-n # new window (konsole/ghostty)
       F13-z: Ctrl-Shift-z # seance-zmx tab restore
       F13-k: Ctrl-Alt-Shift-k # seance-zmx kill zmx unattached
