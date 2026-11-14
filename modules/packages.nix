@@ -5,21 +5,30 @@ let
   hostSystem = pkgs.stdenv.hostPlatform.system;
 
   # CDP-enabled Chromium for agent-browser. Own profile dir + fixed port so
-  # the debug endpoint never exposes the normal browser's tabs, and so
-  # --auto-connect's 9222 probe finds it. Port stays on 127.0.0.1.
+  # the debug endpoint never exposes the normal browser's tabs. Port stays on
+  # 127.0.0.1. --no-startup-window matters: a normal launch starts with a
+  # NTP tab, and agent-browser then opens a SECOND tab on attach, so every
+  # restart left a stray about:blank. With no startup window, the first
+  # agent command creates the only tab. --auto-connect also opens its own
+  # blank tab on attach, so attach via the fixed --cdp port instead.
   agentChrome = pkgs.writeShellScriptBin "agent-chrome" ''
     set -eu
 
     port=9222
     profile="$HOME/.local/share/agent-chrome"
+    state="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/agent-browser"
+    real=${pkgs.agent-browser}/bin/agent-browser
+    started=0
 
     if ! (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
       ${pkgs.util-linux}/bin/setsid -f ${pkgs.chromium}/bin/chromium \
         --user-data-dir="$profile" \
         --remote-debugging-port="$port" \
+        --no-startup-window \
         --no-first-run \
         --no-default-browser-check \
         >/dev/null 2>&1
+      started=1
     fi
 
     i=0
@@ -32,7 +41,32 @@ let
       sleep 0.1
     done
 
-    exec ${pkgs.agent-browser}/bin/agent-browser --auto-connect --pin-tab "$@"
+    if [ "$started" -eq 1 ]; then
+      # Fresh browser: every previous tab binding is dead, so drop the stale
+      # target files (the live daemons fall back on their own; no pin-tab).
+      rm -f "$state"/*.target
+    else
+      # Already running: a session with no binding would otherwise make
+      # `open` navigate whatever tab is active. Give it its own tab.
+      sess=default
+      prev=0
+      for a in "$@"; do
+        if [ "$prev" -eq 1 ]; then
+          sess="$a"
+          prev=0
+          continue
+        fi
+        case "$a" in
+          --session) prev=1 ;;
+          --session=*) sess="''${a#--session=}" ;;
+        esac
+      done
+      if [ ! -e "$state/$sess.target" ]; then
+        "$real" --session "$sess" --cdp "$port" tab new >/dev/null 2>&1 || true
+      fi
+    fi
+
+    exec "$real" --cdp "$port" "$@"
   '';
 
   # Lazy front door: starts agent-chrome on the first browser command, then

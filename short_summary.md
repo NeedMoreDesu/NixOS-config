@@ -68,13 +68,24 @@ Update pins: `nix flake update <input>` (git needed; `sudo`-free shell may lack 
 CDP Chromium, never the normal browser. `agent-browser` is a wrapper that
 lazily starts `agent-chrome` on the first page command: Chromium with
 `--user-data-dir=~/.local/share/agent-chrome`, `--remote-debugging-port=9222`
-(bound to 127.0.0.1), then `agent-browser --auto-connect --pin-tab`.
-Browser-less subcommands (skills/dashboard/install/upgrade/doctor/close/
-stream, no args, help/version) and explicit `--cdp`/`--auto-connect`/
-`connect` bypass the launch. `--pin-tab` keeps the agent on its own tab
-(otherwise `open` navigates the shared active tab). The CDP port can
-enumerate/control every tab in THAT instance — that is why the profile is
-separate: your normal Firefox/LibreWolf/Chromium tabs are out of reach.
+(bound to 127.0.0.1) and `--no-startup-window`, then
+`agent-browser --cdp 9222`. The two flags fix the stray-blank-tab
+behaviour: a normal Chromium launch starts with an NTP tab and
+agent-browser opens a second one on attach, and `--auto-connect` itself
+opens a blank tab — so each reopen used to leave `new tab + about:blank`.
+With no startup window, the first agent command creates the only tab; the
+explicit `--cdp` port avoids auto-connect's extra tab. A fresh launch also
+clears the stale `*.target` bindings under
+`$XDG_RUNTIME_DIR/agent-browser`; when Chromium is already running and the
+session has no binding, the wrapper pre-creates that session's own tab
+(`tab new`) so `open` cannot hijack the active tab. Browser-less
+subcommands (skills/dashboard/install/upgrade/doctor/close/stream, no
+args, help/version) and explicit `--cdp`/`--auto-connect`/`connect` bypass
+the launch. No `--pin-tab`: the dedicated instance is the isolation
+boundary, and a sticky pin reports `tab_gone` for every command after a
+Chromium restart. The CDP port can enumerate/control every tab in THAT
+instance — that is why the profile is separate: your normal
+Firefox/LibreWolf/Chromium tabs are out of reach.
 Live view: `agent-browser dashboard start` -> http://localhost:4848 (does
 not launch Chromium itself); `agent-browser stream status` shows the
 per-session WebSocket stream port. Do NOT run `agent-browser install`
