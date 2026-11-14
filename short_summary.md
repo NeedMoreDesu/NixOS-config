@@ -21,8 +21,8 @@ nyx    # alias -> sudo bash ~/nixos_config/rebuild.sh
        # there; runuser + XDG_RUNTIME_DIR so systemctl --user reaches
        # MIKA's manager, not root's — a bad yml now surfaces loudly
        # as a failed unit instead of silently stale keys)
-nyxx   # same, but first: nix flake update --commit-lock-file
-       # (runs as you, not root; commits the lockfile itself)
+nyxx   # same, but first: scripts/flake-update.sh (runs as you, not root;
+       # commits the lockfile itself)
         # flags: -u/--update does the flake update, -r/--reboot reboots
         # after a successful switch, -l/--logout ends the KDE session
         # instead (qdbus org.kde.Shutdown /Shutdown logout as the user —
@@ -33,9 +33,14 @@ nyxx   # same, but first: nix flake update --commit-lock-file
         # the greeter never restarts — black VT. KWin re-reads session
         # bits on login; -r wins if both are given). Flags combine,
         # e.g. nyx -u -r
+        # -u updates every ROOT input EXCEPT those in HOLD_INPUTS
+        # (scripts/flake-update.sh) and prints the held pins. nixpkgs is
+        # held at f4a03c0 (zmx 0.8.1): zmx 1.0.1 SIGABRTs on every session
+        # daemon shutdown, i.e. every zmx cleanup shortcut. Drop the hold
+        # when the fix (zmx f5d604e) reaches a release/nixpkgs.
 ```
 
-Update pins: `nix flake update <input>` (git needed; `sudo`-free shell may lack git until systemPackages rebuild lands — `nix-shell -p git` works).
+Update pins: `nix flake update <input>` (git needed; `sudo`-free shell may lack git until systemPackages rebuild lands — `nix-shell -p git` works). Rollback selected pins: `./scripts/flake-rollback.sh [ref]` (default: parent of the last lock commit) lists changed root inputs and restores the chosen ones via `nix flake lock --override-input`.
 
 ## Layout
 
@@ -48,7 +53,14 @@ flake.nix              inputs: nixpkgs, llm-agents, home-manager, plasma-manager
                        following nixpkgs — same policy as llm-agents),
                        workmux. Passed to modules via specialArgs.
                        nixosSystem passes inputs to modules via specialArgs
-rebuild.sh             one-liner flake rebuild
+rebuild.sh             one-liner flake rebuild; -u runs scripts/flake-update.sh
+scripts/
+  flake-update.sh      `nyx -u` updater: every root input except HOLD_INPUTS
+                       (currently nixpkgs — held for the zmx 1.0.1 SIGABRT);
+                       prints held pins, commits flake.lock.
+  flake-rollback.sh    interactive pin rollback: diffs flake.lock against a
+                       git ref, restores selected inputs via --override-input.
+  flake-lock-info.nix  shared root-input TSV (name/rev/date/flake-ref).
 hosts/nixos/
   default.nix          host entry: imports modules + hardware-configuration.nix,
                        system.stateVersion = "26.05" (NEVER bump, see comment)
@@ -336,6 +348,15 @@ modules/               one topic per file:
   seance/workmux flake outputs). The `system =` arg on nixosSystem was ALSO
   legacy (same rename) — dropped; the platform comes from nixpkgs.hostPlatform
   in hardware-configuration.nix, which stays correct.
+- **zmx 1.0.1 SIGABRT on session kill (2026-11-14)**: every seance cleanup
+  shortcut ends in `zmx kill`; the daemon's shutdown path (`Daemon.run` ->
+  `Daemon.deinit`) frees a caller-owned `socket_path` with its post-fork C
+  allocator and glibc aborts (`_int_free_merge_chunk`). zmx 0.8.1 is clean
+  (verified: `attach` + `kill --force` makes no core); 1.0.1, the version the
+  2026-11-14 nixpkgs bump pulled in, aborts on every daemon shutdown.
+  nixpkgs was rolled back to f4a03c0 (zmx 0.8.1) and put in HOLD_INPUTS so
+  `nyx -u` cannot pull it back. Upstream fix is zmx main f5d604e (PR #316);
+  remove the hold once it is released and packaged.
 - **llm-agents input**: do NOT add `follows = "nixpkgs"` — their binaries in `cache.numtide.com` are built against their own pinned nixpkgs; following yours = cache misses + rebuilds.
 - `/etc/nixos/` is obsolete; the repo is the source of truth.
 
