@@ -29,8 +29,15 @@ nyx    # alias -> sudo bash ~/nixos_config/rebuild.sh
         # greeter. loginctl terminate-user is broken with SDDM 0.21:
         # HUP-killed sddm-helper reads as exit 1 = HELPER_AUTH_ERROR and
         # the greeter never restarts — black VT. KWin re-reads session
-        # bits on login; -r wins if both are given). Flags combine,
-        # e.g. nyx -u -r
+        # bits on login; -r wins if both are given). -k/--kde re-applies
+        # the plasma config to the LIVE session (runs
+        # ~/.local/share/plasma-manager/run_all.sh as the user with
+        # XDG_RUNTIME_DIR set; non-fatal; skipped if -l/-r also given).
+        # plasma-manager only reaches the screen at login or via -k —
+        # nixos-rebuild's own activation cannot touch the session bus,
+        # it only flips the ~/.local symlinks (2026-11-14: after nyx the
+        # top bar did nothing until the runner ran from inside the
+        # session). Flags combine, e.g. nyx -u -r
         # -u updates every ROOT input EXCEPT those in HOLD_INPUTS
         # (scripts/flake-update.sh) and prints the held pins. nixpkgs is
         # held at f4a03c0 (zmx 0.8.1): zmx 1.0.1 SIGABRTs on every session
@@ -104,9 +111,27 @@ hosts/nixos/
                          panel: seance -> librewolf -> sourcegit (the
                          preferred://browser pin failed — pin real .desktop
                          names);
-                        plasma-manager applies them via a desktop script
-                        (xdg.dataFile plasma-manager/data/*.js, run on
-                        activation + login), GUI pin/drag lost on next nyx.)
+                         plasma-manager applies them via a desktop script
+                         (xdg.dataFile plasma-manager/data/*.js, run at
+                         login autostart or `nyx -k` — NOT by the switch's
+                         own activation, it has no session bus; see the
+                         -k note above. GUI pin/drag lost on next nyx.)
+                        Top bar (2026-11-14): thin (30px) panel, location
+                        top. ONE org.kde.plasma.systemmonitor widget with
+                        displayStyle org.kde.ksysguard.textonly shows all
+                        stats as label:value columns: CPU (cpu/all/usage),
+                        GPU (gpu/all/usage, both GPUs aggregated), RAM
+                        (memory/physical/usedPercent), ↓/↑ (network all
+                        download/upload), R/W (disk read/write rates), DSK
+                        (disk/all/usedPercent = root disk space used, NOT
+                        load), then panelSpacer + digitalClock right
+                        (custom date format "dd MMM yyyy"). Sensor IDs
+                        must be the ksystemstats paths — verify live:
+                        `qdbus org.kde.ksystemstats1 /org/kde/ksystemstats1
+                        allSensors` (needs `--literal`; qdbus without it
+                        can't print the hash type). plasma-manager's
+                        systemMonitor module requires color + label on
+                        EVERY sensor (no defaults upstream).
 modules/               one topic per file:
   boot.nix             systemd-boot + EFI, configurationLimit 20
   networking.nix       hostname, NetworkManager
