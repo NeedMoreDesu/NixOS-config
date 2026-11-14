@@ -163,6 +163,7 @@ keymap:
       F13-n: Ctrl-Shift-n # new window (konsole/ghostty)
       F13-z: Ctrl-Shift-z # seance-zmx tab restore
       F13-k: Ctrl-Alt-Shift-k # seance-zmx kill zmx unattached
+      F13-l: Ctrl-Shift-k # seance cLear
       F13-backspace: Ctrl-Delete # kill word forward (Mac Cmd+Delete)
       # next/prev tab
       F13-left: Ctrl-Shift-left # split tab left
@@ -182,7 +183,6 @@ keymap:
       F13-g: []
       F13-i: []
       F13-j: []
-      F13-l: []
       F13-o: []
       F13-p: []
       F13-r: []

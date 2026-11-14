@@ -7,6 +7,9 @@
     packages = with pkgs; [
       kdePackages.kate
       emacs
+      # Provides `cc` for Emacs' treesit-install-language-grammar, which
+      # shells out to `cc` to build tree-sitter grammars.
+      gcc
     ];
   };
 }
