@@ -4,6 +4,7 @@
 [font]
 
 [colors]
+theme = "Monokai Soda"
 background-opacity = 0.9
 dim-unfocused-panes = true
 
