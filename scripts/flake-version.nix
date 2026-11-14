@@ -11,7 +11,7 @@ let
   defaultPkg = tryString (flake.packages.${system}.default.version or null);
   namedPkg = tryString (flake.packages.${system}.${name}.version or null);
   candidates =
-    if name == "nixpkgs" then [ lib top ] else [ top defaultPkg namedPkg ];
+    if name == "nixpkgs" || name == "nixpkgs-held" then [ lib top ] else [ top defaultPkg namedPkg ];
   values = builtins.filter (x: x != null) candidates;
 in
 if values == [ ] then "" else builtins.head values
