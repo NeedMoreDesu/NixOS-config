@@ -144,9 +144,6 @@
               };
             };
           }
-          {
-            digitalClock = { };
-          }
           "org.kde.plasma.showdesktop"
           {
             pager = {
