@@ -3,6 +3,15 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # Frozen nixpkgs serving the per-package holds in
+    # scripts/held-packages.nix (modules/held-packages.nix overlays
+    # them): nixpkgs itself updates freely again, a regressed package is
+    # served from THIS rev instead. Never bumped by `nyx -u` (it is the
+    # HOLD_INPUTS entry); it moves only via
+    # scripts/flake-rollback.sh --hold (re-pin to the last known-good
+    # nixpkgs). Currently f4a03c0 = the rev carrying zmx 0.8.1 (the
+    # nixpkgs zmx 1.0.1 SIGABRT; see held-packages.nix).
+    nixpkgs-held.url = "github:NixOS/nixpkgs/f4a03c008967841f2a0b3cb7c436fc6fc31671f6";
     llm-agents.url = "github:numtide/llm-agents.nix";
     home-manager = {
       url = "github:nix-community/home-manager";
@@ -42,6 +51,7 @@
     outputs =
       inputs@{
         nixpkgs,
+        nixpkgs-held,
         llm-agents,
         home-manager,
         seance,
@@ -55,7 +65,7 @@
         # stdenv.hostPlatform.system); the platform comes from
         # nixpkgs.hostPlatform in hardware-configuration.nix
         specialArgs = {
-          inherit llm-agents home-manager seance workmux;
+          inherit llm-agents home-manager seance workmux nixpkgs-held;
           plasma-manager = inputs.plasma-manager;
         };
         modules = [

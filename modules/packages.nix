@@ -26,7 +26,9 @@ in
     # lives here when you want to look at it graphically (nixpkgs-only, no
     # flake input; kdePackages subset of the Qt6 stack).
     kdePackages.partitionmanager
-    # zmx: session attach/detach (tmux-lite, Zig). In nixpkgs — no flake input.
+    # zmx: session attach/detach (tmux-lite, Zig). In nixpkgs — no flake
+    # input — but while it sits in scripts/held-packages.nix its actual
+    # version comes from the nixpkgs-held overlay (modules/held-packages.nix).
     zmx
     # Seance comes from its own flake input (github:no1msd/seance), not
     # nixpkgs — built against our pkgs via the follows = "nixpkgs" redirect.
