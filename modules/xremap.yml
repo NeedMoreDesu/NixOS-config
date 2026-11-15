@@ -72,6 +72,25 @@ keymap:
   # Application-specific blocks MUST come before the generic block:
   # xremap uses the first matching keymap entry.
 
+  # macOS-style screenshots. Cmd is F13 here, so the triggers are
+  # F13-Shift-3/4/5/6. This block is FIRST and has no app filter: xremap
+  # checks entries in order per combo, so these win in every app (including
+  # Emacs and terminals) while every other combo falls through.
+  #   Cmd+Shift+3 = full screen, save + copy image
+  #   Cmd+Shift+4 = rectangular region, save + copy image
+  #   Cmd+Shift+5 = Spectacle GUI (delay/options/recording)
+  #   Cmd+Shift+6 = window picker (KWin "Select Window"), save + copy image
+  # The script does the timestamped file + clipboard; background mode
+  # ignores Spectacle's GUI save/clipboard settings. Needs
+  # --allow-launch true (xremap.nix). Absolute bash path: the xremap
+  # user unit has a minimal PATH with no shell.
+  - name: screenshots (macOS Cmd+Shift+3/4/5/6)
+    remap:
+      F13-Shift-3: { launch: ["/run/current-system/sw/bin/bash", "-c", "$HOME/nixos_config/scripts/screenshot.sh full"] }
+      F13-Shift-4: { launch: ["/run/current-system/sw/bin/bash", "-c", "$HOME/nixos_config/scripts/screenshot.sh region"] }
+      F13-Shift-5: { launch: ["/run/current-system/sw/bin/bash", "-c", "$HOME/nixos_config/scripts/screenshot.sh gui"] }
+      F13-Shift-6: { launch: ["/run/current-system/sw/bin/bash", "-c", "$HOME/nixos_config/scripts/screenshot.sh window"] }
+
   - name: emacs (F14 prefix scheme)
     application:
       only: [/(?i)emacs/]

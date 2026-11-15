@@ -201,6 +201,13 @@ scripts/
                        a dest root and records them in ~/.nix_update_paths so
                        the next run removes stale copies first (used for the
                        agent-browser opencode skill).
+  screenshot.sh        macOS-style captures for the xremap Cmd+Shift+3/4/5/6
+                       bindings: full/region/window via Spectacle background
+                       mode (timestamped file in ~/Pictures/Screenshots +
+                       image on the clipboard; background mode ignores
+                       Spectacle's GUI save/clipboard settings, hence the
+                       explicit -o + -c) or the GUI (-l). Sets its own PATH
+                       because xremap's user unit has a minimal one.
 hosts/nixos/
   default.nix          host entry: imports modules + hardware-configuration.nix,
                        system.stateVersion = "26.05" (NEVER bump, see comment)
@@ -405,6 +412,11 @@ modules/               one topic per file:
                        NO F13-tab/F13-grave rules: keyd consumes those before
                        xremap, and an extra rule would stack a second synthetic
                        Alt on keyd's held Alt_L (inexact matching).
+                       screenshots block FIRST (no app filter, so it wins in
+                       every app incl. Emacs/terminals): Cmd+Shift+3/4/5/6 ->
+                       scripts/screenshot.sh full/region/gui/window
+                       (Spectacle background mode / GUI; needs
+                       --allow-launch true in xremap.nix).
   audio.nix            PipeWire (pulse compat), rtkit
   bluetooth.nix        BT stack + bluetooth-reconnect service (see below)
   printing.nix         CUPS

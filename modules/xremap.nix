@@ -18,7 +18,9 @@
     # Mark xremap's own output device as "virtual" (keyd skips vendor 0x0fac,
     # the same way it skips its own device) — without this keyd would grab it
     # and the two remappers would loop on each other's output.
-    extraArgs = [ "--vendor" "0x0fac" ];
+    # --allow-launch: the screenshot keymap entries execute
+    # scripts/screenshot.sh (Cmd+Shift+3/4/5/6).
+    extraArgs = [ "--vendor" "0x0fac" "--allow-launch" "true" ];
     watch = true;
 
     # One file in the repo, not an attrset — easier to iterate by hand and
