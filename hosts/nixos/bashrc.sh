@@ -127,7 +127,6 @@ nybox() {
         --tmpfs /tmp
         # Home is deny-by-default, then the allowlist above is layered in.
         --tmpfs "$HOME"
-        --bind "$PWD" "$PWD"
       )
 
       if [ "${NYBOX_GUI:-0}" -eq 1 ] && [ -d "/run/user/$(id -u)" ]; then
@@ -147,11 +146,11 @@ nybox() {
         flags+=(--bind-try "$HOME/$p" "$HOME/$p")
       done
       for p in "${_NYBOX_HOME_RO[@]}"; do
-        # An allowlist entry equal to the workspace would make it read-only.
-        [ "$HOME/$p" = "$PWD" ] && continue
         flags+=(--ro-bind-try "$HOME/$p" "$HOME/$p")
       done
 
+      # Workspace last, so a read-only allowlist parent cannot shadow it.
+      flags+=(--bind "$PWD" "$PWD")
       flags+=(--die-with-parent --new-session --chdir "$PWD")
       bwrap "${flags[@]}" -- "${cmd[@]}"
       ;;
@@ -174,7 +173,6 @@ nybox() {
         --proc /proc
         --bind "$tmp" /tmp
         --dir "$HOME"
-        --bind "$PWD" "$PWD"
         --unshare-user --disable-userns
         --unshare-pid --unshare-ipc --unshare-uts --hostname nybox
         --unsetenv XDG_RUNTIME_DIR
@@ -188,6 +186,7 @@ nybox() {
       for p in "${_NYBOX_PROJECT_RO[@]}"; do
         flags+=(--ro-bind-try "$HOME/$p" "$HOME/$p")
       done
+      flags+=(--bind "$PWD" "$PWD")
 
       # The single random /tmp directory dies with the session.
       ( trap 'rm -rf -- "$tmp"' EXIT; bwrap "${flags[@]}" -- "${cmd[@]}" )
