@@ -101,27 +101,31 @@ copied — its SKILL.md lists the specialized skills, which stay runtime-only
 ## Agent sandboxes (`hosts/nixos/bashrc.sh`)
 
 `~/.bashrc` only sources `hosts/nixos/bashrc.sh`; `nyx`, `nyvibe`, and the
-bwrap launchers live in the repo. Two modes:
+`box` bwrap launcher live in the repo. `box [cmd]` is project mode,
+`box -s|--system [cmd]` is system mode; `cmd` defaults to `bash -i`.
+`nyvibe` = `box -s opencode` with the short_summary prompt.
 
-- `nybox system [cmd]` — `/` read-only, fresh minimal `/dev` (no
-  `/dev/input`, so the input group cannot snoop), private `/tmp`,
-  `$PWD` writable. HOME is a tmpfs rebuilt from `_NYBOX_HOME_RW/RO`:
-  opencode + nix state writable; KDE/kate/emacs/seance settings
-  read-only. Everything else in HOME (`.ssh`, browsers, `.dsh`, keyrings,
-  cloud creds, histories) is absent. `/run/user` (D-Bus, Wayland, SSH
-  agent, KWallet, KWin Scripting) is masked too unless `NYBOX_GUI=1`.
-  Refuses `$PWD` = `/`, `$HOME`, or an ancestor of `$HOME`.
-- `nybox project [cmd]` — no host root or home; only `/nix/store`,
-  `/run/current-system`, `/etc`, `/usr`, `/bin`, `/lib64`, a fresh `/dev`
-  + `/proc`, `$PWD` rw, and ONE random `/tmp/nybox.*` bound to `/tmp`
+- system mode — `/` read-only, fresh minimal `/dev` (no `/dev/input`, so
+  the input group cannot snoop), private `/tmp`, `$PWD` writable. HOME is
+  a tmpfs rebuilt from `_BOX_SYSTEM_RW/RO`: opencode + nix state
+  writable; KDE/kate/emacs/seance settings read-only. Everything else in
+  HOME (`.ssh`, browsers, `.dsh`, keyrings, cloud creds, histories) is
+  absent. `/run/user` (D-Bus, Wayland, SSH agent, KWallet, KWin
+  Scripting) is masked unless `BOX_GUI=1`. Refuses `$PWD` = `/`, `$HOME`,
+  or an ancestor of `$HOME`.
+- project mode — no host root or home; only `/nix/store`,
+  `/run/current-system`, `/etc`, `/usr`, `/bin`, `/lib64`, `/sys`, a fresh
+  `/dev` + `/proc`, `$PWD` rw, and ONE random `/tmp/box.*` bound to `/tmp`
   (deleted on exit). PID/IPC/UTS unshared, further user namespaces
-  disabled, network kept for model calls. Only the opencode + nix state
-  dirs are bound from HOME.
-- `nyvibe` = system-mode opencode with the short_summary prompt;
-  `nycode` = project-mode opencode. `bubblewrap` is in
-  modules/packages.nix. opencode's own `auth.json` must stay visible for
-  provider calls — the sandbox boundary covers everything outside the
-  allowlist.
+  disabled, network kept. Compilers come from the store; `_BOX_PROJECT_RW`
+  whitelists per-user build caches (cargo registry, go build/mod, npm/bun/
+  pnpm/yarn, pip/uv, maven/gradle, cabal, ccache/sccache, ...) and
+  `_BOX_PROJECT_RO` toolchain state. Credential files next to those caches
+  (`.cargo/credentials.toml`, `.m2/settings.xml`, `.npmrc`, ...) stay
+  unmounted. `BOX_SECRETS=1` read-only-binds `.ssh`/`.gnupg`/cloud/gh/dsh.
+- `bubblewrap` is in modules/packages.nix. opencode's own `auth.json`
+  must stay visible for provider calls — the boundary covers everything
+  outside the allowlist.
 
 ## Layout
 
