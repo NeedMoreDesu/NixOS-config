@@ -73,13 +73,15 @@ keymap:
   # xremap uses the first matching keymap entry.
 
   # macOS-style screenshots. Cmd is F13 here, so the triggers are
-  # F13-Shift-3/4/5/6. This block is FIRST and has no app filter: xremap
+  # F13-Shift-<digit>. This block is FIRST and has no app filter: xremap
   # checks entries in order per combo, so these win in every app (including
   # Emacs and terminals) while every other combo falls through.
+  #   Cmd+Shift+1 = current (active) window, save + copy image
+  #   Cmd+Shift+2 = window under cursor, save + copy image
   #   Cmd+Shift+3 = full screen, save + copy image
   #   Cmd+Shift+4 = rectangular region, save + copy image
   #   Cmd+Shift+5 = Spectacle GUI (delay/options/recording)
-  #   Cmd+Shift+6 = window picker (KWin "Select Window"), save + copy image
+  #   Cmd+Shift+6 = unbound (swallowed; the old window-under-cursor key)
   # The script does the timestamped file + clipboard; background mode
   # ignores Spectacle's GUI save/clipboard settings. Needs
   # --allow-launch true (xremap.nix).
@@ -90,12 +92,14 @@ keymap:
   # ("env: 'bash': No such file or directory", exit 127) with the child's
   # stderr discarded. `bash /path/script` runs the file directly and
   # ignores the shebang.
-  - name: screenshots (macOS Cmd+Shift+3/4/5/6)
+  - name: screenshots (macOS Cmd+Shift+1/2/3/4/5)
     remap:
+      F13-Shift-1: { launch: ["/run/current-system/sw/bin/bash", "/home/mika/nixos_config/scripts/screenshot.sh", "current"] }
+      F13-Shift-2: { launch: ["/run/current-system/sw/bin/bash", "/home/mika/nixos_config/scripts/screenshot.sh", "window"] }
       F13-Shift-3: { launch: ["/run/current-system/sw/bin/bash", "/home/mika/nixos_config/scripts/screenshot.sh", "full"] }
       F13-Shift-4: { launch: ["/run/current-system/sw/bin/bash", "/home/mika/nixos_config/scripts/screenshot.sh", "region"] }
       F13-Shift-5: { launch: ["/run/current-system/sw/bin/bash", "/home/mika/nixos_config/scripts/screenshot.sh", "gui"] }
-      F13-Shift-6: { launch: ["/run/current-system/sw/bin/bash", "/home/mika/nixos_config/scripts/screenshot.sh", "window"] }
+      F13-Shift-6: []
 
   - name: emacs (F14 prefix scheme)
     application:

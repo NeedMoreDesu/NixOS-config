@@ -1,18 +1,19 @@
 #!/run/current-system/sw/bin/bash
 # macOS-style screenshots via Spectacle, called from xremap (Cmd = F13):
+#   Cmd+Shift+1 -> current (active) window
+#   Cmd+Shift+2 -> window under cursor
 #   Cmd+Shift+3 -> full screen
 #   Cmd+Shift+4 -> rectangular region
 #   Cmd+Shift+5 -> Spectacle GUI (launch only)
-#   Cmd+Shift+6 -> window picker (KWin "Select Window")
 #
 # Background mode (-b) ignores Spectacle's GUI auto-save/clipboard settings,
 # so pass -o + -c explicitly: a timestamped file in $SPECTACLE_SCREENSHOT_DIR
 # AND the image on the clipboard (same as macOS Cmd+Shift+3/4).
 #
-# xremap's user unit runs with a minimal PATH and no shell, so this script
-# sets its own PATH and is invoked with an absolute bash path. xremap also
-# discards the launch child's stdout/stderr, so everything is logged to
-# $SCREENSHOT_LOG (default: a file in the repo, visible from the agent box).
+# The shebang is the ABSOLUTE bash on purpose: xremap launches the script as
+# `bash /path/screenshot.sh <mode>`, and the xremap unit's PATH contains no
+# bash (a `#!/usr/bin/env bash` shebang would die with exit 127 there).
+# The script also sets its own PATH because that unit PATH is minimal.
 set -euo pipefail
 
 PATH=/run/current-system/sw/bin:/run/current-system/sw/sbin:$PATH
@@ -20,47 +21,19 @@ export PATH
 
 mode=${1:-region}
 dir=${SPECTACLE_SCREENSHOT_DIR:-$HOME/Pictures/Screenshots}
-log=${SCREENSHOT_LOG:-/home/mika/nixos_config/.screenshot.log}
-
-{
-  printf '\n=== %s mode=%s\n' "$(date -Is)" "$mode"
-  id
-  printf 'HOME=%s\nXDG_RUNTIME_DIR=%s\nWAYLAND_DISPLAY=%s\nDISPLAY=%s\nDBUS_SESSION_BUS_ADDRESS=%s\nQT_QPA_PLATFORM=%s\n' \
-    "${HOME-UNSET}" "${XDG_RUNTIME_DIR-UNSET}" "${WAYLAND_DISPLAY-UNSET}" \
-    "${DISPLAY-UNSET}" "${DBUS_SESSION_BUS_ADDRESS-UNSET}" "${QT_QPA_PLATFORM-UNSET}"
-  printf 'spectacle=%s\n' "$(command -v spectacle || echo NOT-FOUND)"
-} >>"$log" 2>&1
 
 case "$mode" in
-  full)   args=(-f) ;;
-  region) args=(-r) ;;
-  window) args=(-u) ;;
-  gui)
-    set +e
-    spectacle -l >>"$log" 2>&1
-    rc=$?
-    set -e
-    echo "rc=$rc" >>"$log"
-    exit "$rc"
-    ;;
+  current) args=(-a) ;;
+  window)  args=(-u) ;;
+  full)    args=(-f) ;;
+  region)  args=(-r) ;;
+  gui)     exec spectacle -l ;;
   *)
-    printf 'usage: %s full|region|window|gui\n' "${0##*/}" >&2
+    printf 'usage: %s current|window|full|region|gui\n' "${0##*/}" >&2
     exit 2
     ;;
 esac
 
 mkdir -p "$dir"
 name="Screenshot_$(date +%Y%m%d_%H%M%S_%N).png"
-out="$dir/$name"
-
-set +e
-spectacle -b -n "${args[@]}" -c -o "$out" >>"$log" 2>&1
-rc=$?
-set -e
-
-{
-  echo "rc=$rc"
-  ls -l "$out" 2>&1 || true
-} >>"$log"
-
-exit "$rc"
+exec spectacle -b -n "${args[@]}" -c -o "$dir/$name"

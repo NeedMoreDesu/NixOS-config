@@ -201,8 +201,9 @@ scripts/
                        a dest root and records them in ~/.nix_update_paths so
                        the next run removes stale copies first (used for the
                        agent-browser opencode skill).
-  screenshot.sh        macOS-style captures for the xremap Cmd+Shift+3/4/5/6
-                       bindings: full/region/window via Spectacle background
+  screenshot.sh        macOS-style captures for the xremap Cmd+Shift+1/2/3/4/5
+                       bindings: current-window/window-under-cursor/full/
+                       region via Spectacle background
                        mode (timestamped file in ~/Pictures/Screenshots +
                        image on the clipboard; background mode ignores
                        Spectacle's GUI save/clipboard settings, hence the
@@ -415,8 +416,9 @@ modules/               one topic per file:
                        xremap, and an extra rule would stack a second synthetic
                        Alt on keyd's held Alt_L (inexact matching).
                         screenshots block FIRST (no app filter, so it wins in
-                        every app incl. Emacs/terminals): Cmd+Shift+3/4/5/6 ->
-                        scripts/screenshot.sh full/region/gui/window
+                        every app incl. Emacs/terminals): Cmd+Shift+1/2/3/4/5 ->
+                        scripts/screenshot.sh current/window/full/region/gui
+                        (Cmd+Shift+6 swallowed)
                         (Spectacle background mode / GUI; needs
                         --allow-launch true in xremap.nix). The script is
                         passed as an ARGUMENT to the absolute bash, not via
@@ -583,7 +585,7 @@ modules/               one topic per file:
   opened a random loopback WebSocket stream port for the unused dashboard;
   agent-chrome now disables the session stream after every page command,
   and `session` is browser-less so it no longer starts Chromium.
-- **xremap `launch` + script shebang (2026-11-15)**: Cmd+Shift+3/4/5/6 did
+- **xremap `launch` + script shebang (2026-11-15)**: Cmd+Shift+1/2/3/4/5 did
   nothing while every other F13 combo worked. The rules launched
   `/run/current-system/sw/bin/bash -c /home/mika/nixos_config/scripts/screenshot.sh ...`;
   the script's `#!/usr/bin/env bash` shebang is resolved by `/usr/bin/env`
