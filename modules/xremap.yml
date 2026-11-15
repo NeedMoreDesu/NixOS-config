@@ -72,6 +72,15 @@ keymap:
   # Application-specific blocks MUST come before the generic block:
   # xremap uses the first matching keymap entry.
 
+  # TEMPORARY probe (remove once the screenshot launch path is sorted):
+  # Cmd+Shift+1 records that the launch child ran plus the environment it
+  # saw, and touches a marker. Absolute paths only, so it still reports
+  # something if HOME is unset. Both files live in the repo (bind-mounted
+  # into the agent box) so they can be inspected from either side.
+  - name: launch probe (TEMPORARY Cmd+Shift+1)
+    remap:
+      F13-Shift-1: { launch: ["/run/current-system/sw/bin/bash", "-c", "{ date; id; echo \"HOME=${HOME-UNSET}\"; echo \"XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR-UNSET}\"; echo \"WAYLAND_DISPLAY=${WAYLAND_DISPLAY-UNSET}\"; echo \"DISPLAY=${DISPLAY-UNSET}\"; echo \"DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS-UNSET}\"; } >> /home/mika/nixos_config/.xremap-launch-probe 2>&1; touch /home/mika/nixos_config/.xremap-probe-touch"] }
+
   # macOS-style screenshots. Cmd is F13 here, so the triggers are
   # F13-Shift-3/4/5/6. This block is FIRST and has no app filter: xremap
   # checks entries in order per combo, so these win in every app (including
@@ -83,13 +92,14 @@ keymap:
   # The script does the timestamped file + clipboard; background mode
   # ignores Spectacle's GUI save/clipboard settings. Needs
   # --allow-launch true (xremap.nix). Absolute bash path: the xremap
-  # user unit has a minimal PATH with no shell.
+  # user unit has a minimal PATH with no shell. Script path is absolute
+  # too: do not rely on HOME in the launch child.
   - name: screenshots (macOS Cmd+Shift+3/4/5/6)
     remap:
-      F13-Shift-3: { launch: ["/run/current-system/sw/bin/bash", "-c", "$HOME/nixos_config/scripts/screenshot.sh full"] }
-      F13-Shift-4: { launch: ["/run/current-system/sw/bin/bash", "-c", "$HOME/nixos_config/scripts/screenshot.sh region"] }
-      F13-Shift-5: { launch: ["/run/current-system/sw/bin/bash", "-c", "$HOME/nixos_config/scripts/screenshot.sh gui"] }
-      F13-Shift-6: { launch: ["/run/current-system/sw/bin/bash", "-c", "$HOME/nixos_config/scripts/screenshot.sh window"] }
+      F13-Shift-3: { launch: ["/run/current-system/sw/bin/bash", "-c", "/home/mika/nixos_config/scripts/screenshot.sh full"] }
+      F13-Shift-4: { launch: ["/run/current-system/sw/bin/bash", "-c", "/home/mika/nixos_config/scripts/screenshot.sh region"] }
+      F13-Shift-5: { launch: ["/run/current-system/sw/bin/bash", "-c", "/home/mika/nixos_config/scripts/screenshot.sh gui"] }
+      F13-Shift-6: { launch: ["/run/current-system/sw/bin/bash", "-c", "/home/mika/nixos_config/scripts/screenshot.sh window"] }
 
   - name: emacs (F14 prefix scheme)
     application:
