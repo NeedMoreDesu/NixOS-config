@@ -356,7 +356,7 @@ nyvibe() {
 # Results live in a stable workspace outside the repo. Remaining args are the
 # first prompt (joined); no args starts the TUI without one.
 ab() {
-  local dir="$HOME/.ab_workspace" prompt="$*"
+  local dir="$HOME/ab_workspace" prompt="$*"
   mkdir -p "$dir" || return 1
   # Ensure the dedicated host Chromium is up, then drop the helper session:
   # the browser is externally owned and stays, but the daemon (and its tab)

@@ -95,7 +95,7 @@ a command runs, never after it. `session` is in the browser-less skip list
 so `session id`/`info` do not start Chromium at all. `dashboard start` still
 exists but nothing starts it automatically.
 `ab` (bashrc) is the agent-browser session: project-mode opencode in
-`~/.ab_workspace`, on the host network (`box -n`) so it can attach to this
+`~/ab_workspace`, on the host network (`box -n`) so it can attach to this
 Chromium. It exports `AGENT_BROWSER_CDP=9222`; agent-chrome honors that and
 attaches instead of launching a second browser (and still disables the
 stream). Remaining `ab` args are joined into one `--prompt`; no args opens
@@ -116,7 +116,7 @@ and the `box` bwrap launcher live in the repo. `box [cmd]` is project mode,
 `-n|--network` keeps the host network namespace (needed for CDP); without
 it the box gets an egress-only pasta namespace (see below). `nyvibe` =
 `box -s opencode` with the short_summary prompt. `ab [prompt...]` =
-project-mode opencode in `~/.ab_workspace` with `-n`, attaching to the
+project-mode opencode in `~/ab_workspace` with `-n`, attaching to the
 host's dedicated Chromium (see "Agent browser").
 
 - system mode — `/` read-only, fresh minimal `/dev` (no `/dev/input`, so
