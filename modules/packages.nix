@@ -18,61 +18,78 @@ let
     profile="$HOME/.local/share/agent-chrome"
     state="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/agent-browser"
     real=${pkgs.agent-browser}/bin/agent-browser
+    # `ab` sets this to attach to the host's already-running dedicated
+    # browser instead of launching one inside the box.
+    cdp="''${AGENT_BROWSER_CDP:-}"
     started=0
 
-    if ! (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
-      ${pkgs.util-linux}/bin/setsid -f ${pkgs.chromium}/bin/chromium \
-        --user-data-dir="$profile" \
-        --remote-debugging-port="$port" \
-        --no-startup-window \
-        --no-first-run \
-        --no-default-browser-check \
-        >/dev/null 2>&1
-      started=1
-    fi
-
-    i=0
-    until (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; do
-      i=$((i + 1))
-      if [ "$i" -gt 100 ]; then
-        echo "agent-chrome: Chromium never opened CDP port $port" >&2
-        exit 1
+    # Session name: needed for the tab binding and for disabling the
+    # per-session stream server afterwards.
+    sess="''${AGENT_BROWSER_SESSION:-default}"
+    prev=0
+    for a in "$@"; do
+      if [ "$prev" -eq 1 ]; then
+        sess="$a"
+        prev=0
+        continue
       fi
-      sleep 0.1
+      case "$a" in
+        --session) prev=1 ;;
+        --session=*) sess="''${a#--session=}" ;;
+      esac
     done
 
-    if [ "$started" -eq 1 ]; then
-      # Fresh browser: every previous tab binding is dead, so drop the stale
-      # target files (the live daemons fall back on their own; no pin-tab).
-      rm -f "$state"/*.target
-    else
-      # Already running: a session with no binding would otherwise make
-      # `open` navigate whatever tab is active. Give it its own tab.
-      sess=default
-      prev=0
-      for a in "$@"; do
-        if [ "$prev" -eq 1 ]; then
-          sess="$a"
-          prev=0
-          continue
+    if [ -z "$cdp" ]; then
+      if ! (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
+        ${pkgs.util-linux}/bin/setsid -f ${pkgs.chromium}/bin/chromium \
+          --user-data-dir="$profile" \
+          --remote-debugging-port="$port" \
+          --no-startup-window \
+          --no-first-run \
+          --no-default-browser-check \
+          >/dev/null 2>&1
+        started=1
+      fi
+
+      i=0
+      until (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; do
+        i=$((i + 1))
+        if [ "$i" -gt 100 ]; then
+          echo "agent-chrome: Chromium never opened CDP port $port" >&2
+          exit 1
         fi
-        case "$a" in
-          --session) prev=1 ;;
-          --session=*) sess="''${a#--session=}" ;;
-        esac
+        sleep 0.1
       done
-      if [ ! -e "$state/$sess.target" ]; then
-        "$real" --session "$sess" --cdp "$port" tab new >/dev/null 2>&1 || true
+
+      if [ "$started" -eq 1 ]; then
+        # Fresh browser: every previous tab binding is dead, so drop the stale
+        # target files (the live daemons fall back on their own; no pin-tab).
+        rm -f "$state"/*.target
       fi
     fi
 
-    exec "$real" --cdp "$port" "$@"
+    target="''${cdp:-$port}"
+    if [ "$started" -eq 0 ] && [ ! -e "$state/$sess.target" ]; then
+      # Already running (or attached): a session with no binding would
+      # otherwise make `open` navigate whatever tab is active. Give it its
+      # own tab.
+      "$real" --session "$sess" --cdp "$target" tab new >/dev/null 2>&1 || true
+    fi
+
+    rc=0
+    "$real" --cdp "$target" "$@" || rc=$?
+    # Streaming only feeds the (unused) observability dashboard; disable the
+    # session's stream server after each command so no random localhost port
+    # lingers. This also re-disables daemons that restarted between commands.
+    "$real" --session "$sess" --cdp "$target" stream disable >/dev/null 2>&1 || true
+    exit "$rc"
   '';
 
   # Lazy front door: starts agent-chrome on the first browser command, then
-  # hands off. Commands that never touch a page (skills/dashboard/install/
-  # close/...) skip the launch; an explicit --cdp/--auto-connect/connect
-  # means the caller manages the browser.
+  # hands off. Commands that never touch a page (skills/session/dashboard/
+  # install/close/...) skip the launch; an explicit --cdp/--auto-connect/
+  # connect means the caller manages the browser. AGENT_BROWSER_CDP (set by
+  # bashrc's `ab`) is handled in agent-chrome: attach, don't launch.
   agentBrowser = pkgs.writeShellScriptBin "agent-browser" ''
     set -eu
 
@@ -111,7 +128,7 @@ let
     fi
 
     case "$sub" in
-      ""|skills|dashboard|install|upgrade|doctor|close|stream)
+      ""|skills|session|dashboard|install|upgrade|doctor|close|stream)
         exec "$real" "$@"
         ;;
     esac
@@ -146,6 +163,10 @@ in
     # a random /tmp; -s/--system mounts / read-only plus a home allowlist.
     # bwrap is unprivileged, so no setuid helper.
     bubblewrap
+    # pasta supplies the egress-only network namespace for `box` (host
+    # loopback unreachable). `box -n/--network` opts back into the host netns
+    # for agent-browser/CDP work. Needs the tun module (see networking.nix).
+    passt
     # KDE Partition Manager: the two-partition layout (1G EFI + rest ext4)
     # lives here when you want to look at it graphically (nixpkgs-only, no
     # flake input; kdePackages subset of the Qt6 stack).
