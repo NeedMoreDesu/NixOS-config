@@ -126,6 +126,12 @@ copied — its SKILL.md lists the specialized skills, which stay runtime-only
 - `bubblewrap` is in modules/packages.nix. opencode's own `auth.json`
   must stay visible for provider calls — the boundary covers everything
   outside the allowlist.
+- opencode's own "outside the project" folder prompts are off
+  (hosts/nixos/opencode.jsonc): `permission.external_directory = allow`
+  plus explicit `/tmp/*` edit allow — the sandbox is the boundary. V1
+  shape (`permission`, value strings), NOT V2's `permissions` array:
+  this opencode (1.19.5) hard-errors on V2 keys. Applies to sessions
+  outside `box` too, since the config is global.
 
 ## Layout
 

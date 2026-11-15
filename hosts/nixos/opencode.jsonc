@@ -1,6 +1,16 @@
 {
-  // Managed by home-manager (hosts/nixos/opencode.jsonc) — theme is Nix
-  // policy; GUI/TUI theme-picker changes are re-linked on next nyx.
+  // Managed by home-manager (hosts/nixos/opencode.jsonc) — theme and
+  // permissions are Nix policy; GUI/TUI theme-picker changes are
+  // re-linked on next nyx.
   "$schema": "https://opencode.ai/config.json",
-  "theme": "aura"
+  "theme": "aura",
+  // The `box` sandbox is the isolation boundary, so opencode's own
+  // "outside the project" prompts are redundant: inspect any folder and
+  // write scratch files under /tmp without asking.
+  "permission": {
+    "external_directory": "allow",
+    "edit": {
+      "/tmp/*": "allow"
+    }
+  }
 }
