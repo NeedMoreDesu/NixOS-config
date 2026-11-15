@@ -207,7 +207,9 @@ scripts/
                        image on the clipboard; background mode ignores
                        Spectacle's GUI save/clipboard settings, hence the
                        explicit -o + -c) or the GUI (-l). Sets its own PATH
-                       because xremap's user unit has a minimal one.
+                       because xremap's user unit has a minimal one; the
+                       shebang is the absolute bash for the same reason
+                       (xremap passes the script as bash's argument).
 hosts/nixos/
   default.nix          host entry: imports modules + hardware-configuration.nix,
                        system.stateVersion = "26.05" (NEVER bump, see comment)
@@ -412,11 +414,14 @@ modules/               one topic per file:
                        NO F13-tab/F13-grave rules: keyd consumes those before
                        xremap, and an extra rule would stack a second synthetic
                        Alt on keyd's held Alt_L (inexact matching).
-                       screenshots block FIRST (no app filter, so it wins in
-                       every app incl. Emacs/terminals): Cmd+Shift+3/4/5/6 ->
-                       scripts/screenshot.sh full/region/gui/window
-                       (Spectacle background mode / GUI; needs
-                       --allow-launch true in xremap.nix).
+                        screenshots block FIRST (no app filter, so it wins in
+                        every app incl. Emacs/terminals): Cmd+Shift+3/4/5/6 ->
+                        scripts/screenshot.sh full/region/gui/window
+                        (Spectacle background mode / GUI; needs
+                        --allow-launch true in xremap.nix). The script is
+                        passed as an ARGUMENT to the absolute bash, not via
+                        `bash -c /path/script`: the unit PATH has no bash, so
+                        a `#!/usr/bin/env bash` shebang dies with exit 127.
   audio.nix            PipeWire (pulse compat), rtkit
   bluetooth.nix        BT stack + bluetooth-reconnect service (see below)
   printing.nix         CUPS
@@ -578,6 +583,21 @@ modules/               one topic per file:
   opened a random loopback WebSocket stream port for the unused dashboard;
   agent-chrome now disables the session stream after every page command,
   and `session` is browser-less so it no longer starts Chromium.
+- **xremap `launch` + script shebang (2026-11-15)**: Cmd+Shift+3/4/5/6 did
+  nothing while every other F13 combo worked. The rules launched
+  `/run/current-system/sw/bin/bash -c /home/mika/nixos_config/scripts/screenshot.sh ...`;
+  the script's `#!/usr/bin/env bash` shebang is resolved by `/usr/bin/env`
+  against the **launch child's PATH — xremap's unit PATH, which has no
+  bash** (xremap/systemd/coreutils only). Result: `env: 'bash': No such file
+  or directory`, exit 127, before the script body, and xremap discards the
+  child's stdout/stderr (`Stdio::null`), so it was completely silent. An
+  inline `bash -c 'touch ...'` probe worked; the same script run from a
+  normal terminal worked; `env -i PATH="<unit PATH>" /usr/bin/env bash`
+  reproduces the 127. Fix: pass the script as bash's ARGUMENT
+  (`bash /path/screenshot.sh full`), which bypasses the shebang, and the
+  shebang is now the absolute `/run/current-system/sw/bin/bash`. General
+  rule: xremap launch children are NOT your shell — no bash in PATH, and
+  their stderr is thrown away.
 - **llm-agents input**: do NOT add `follows = "nixpkgs"` — their binaries in `cache.numtide.com` are built against their own pinned nixpkgs; following yours = cache misses + rebuilds.
 - `/etc/nixos/` is obsolete; the repo is the source of truth.
 

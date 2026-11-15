@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/run/current-system/sw/bin/bash
 # macOS-style screenshots via Spectacle, called from xremap (Cmd = F13):
 #   Cmd+Shift+3 -> full screen
 #   Cmd+Shift+4 -> rectangular region
