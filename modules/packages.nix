@@ -141,10 +141,10 @@ in
     chromium
     agentBrowser
     agentChrome
-    # Namespace sandboxes for agent sessions (nyvibe/nycode, defined in
-    # hosts/nixos/bashrc.sh): system mode mounts / read-only plus a home
-    # allowlist; project mode mounts only runtime dirs + $PWD + a random
-    # /tmp. bwrap is unprivileged, so no setuid helper.
+    # Namespace sandboxes for agent sessions (`box`, defined in
+    # hosts/nixos/bashrc.sh): project mode mounts only runtime dirs + $PWD +
+    # a random /tmp; -s/--system mounts / read-only plus a home allowlist.
+    # bwrap is unprivileged, so no setuid helper.
     bubblewrap
     # KDE Partition Manager: the two-partition layout (1G EFI + rest ext4)
     # lives here when you want to look at it graphically (nixpkgs-only, no
