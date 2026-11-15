@@ -158,31 +158,41 @@ _BOX_SECRETS=(
   .dsh
 )
 
-# Refuse a workspace that is HOME or an ancestor of it: binding it writable
-# would re-expose the very tree the tmpfs mask hides.
+# Refuse a workspace that would re-expose a masked path. The workspace bind
+# is applied last, so PWD=/tmp, PWD=/dev, PWD=/run, PWD=/run/user/$UID, or
+# PWD=$HOME (or an ancestor of one of them) would undo the corresponding
+# mask.
 _box_guard_pwd() {
-  local pwd_real home_real
+  local pwd_real mask mask_real
   pwd_real=$(realpath -- "$PWD") || return 1
-  home_real=$(realpath -- "$HOME") || return 1
   if [ "$pwd_real" = / ]; then
     printf 'box: refusing workspace /\n' >&2
     return 1
   fi
-  case "$home_real/" in
-    "$pwd_real"/*)
-      printf 'box: refusing workspace %s (it contains $HOME)\n' "$PWD" >&2
-      return 1
-      ;;
-  esac
+  for mask in "$HOME" /tmp /dev /dev/shm /proc /sys \
+              /var/log/journal /run/log/journal "/run/user/$(id -u)"; do
+    mask_real=$(realpath -- "$mask" 2>/dev/null) || continue
+    case "$mask_real" in
+      "$pwd_real"|"$pwd_real"/*)
+        printf 'box: refusing workspace %s (it would re-expose %s)\n' \
+          "$PWD" "$mask" >&2
+        return 1
+        ;;
+    esac
+  done
   return 0
 }
 
 box() {
-  local mode=project
+  local mode=project network=0
   while :; do
     case "${1:-}" in
       -s|--system)
         mode=system
+        shift
+        ;;
+      -n|--network)
+        network=1
         shift
         ;;
       --)
@@ -198,6 +208,11 @@ box() {
 
   _box_guard_pwd || return 1
 
+  if [ "$network" -eq 0 ] && [ ! -e /dev/net/tun ]; then
+    printf 'box: /dev/net/tun missing: load tun (sudo modprobe tun) or use -n/--network\n' >&2
+    return 1
+  fi
+
   if [ "$mode" = system ]; then
     local p
     flags+=(
@@ -205,12 +220,24 @@ box() {
       # /dev/input, so the input group cannot snoop keystrokes).
       --ro-bind / /
       --dev /dev
+      --tmpfs /dev/shm
       --dev-bind-try /dev/dri /dev/dri
       --proc /proc
       --tmpfs /tmp
+      # Keep the sandbox's mika identity even when `box` is wrapped by pasta
+      # (which runs its child as userns-root). PID/IPC/UTS are unshared for
+      # the same reason project mode does it: host /proc is not an oracle.
+      --unshare-user
+      --uid "$(id -u)"
+      --gid "$(id -g)"
+      --unshare-pid --unshare-ipc --unshare-uts
       # Home is deny-by-default, then the allowlist above is layered in.
       --tmpfs "$HOME"
     )
+    # The host journal is otherwise readable through the ro-bind of /. Mask
+    # it: the sandbox has no legitimate use for host logs.
+    [ -d /var/log/journal ] && flags+=(--tmpfs /var/log/journal)
+    [ -d /run/log/journal ] && flags+=(--tmpfs /run/log/journal)
 
     if [ "${BOX_GUI:-0}" -eq 1 ] && [ -d "/run/user/$(id -u)" ]; then
       # Wayland/D-Bus/audio. Also exposes keyring/SSH-agent/KWin-Scripting,
@@ -245,8 +272,9 @@ box() {
     tmp=$(mktemp -d "${TMPDIR:-/tmp}/box.XXXXXXXX") || return 1
     chmod 700 "$tmp"
     flags+=(
-      # Runtime only: no host /home, no /run/user, no network isolation
-      # (the agent still needs its API). /etc is NixOS state, not user data.
+      # Runtime only: no host /home, no /run/user. /etc is NixOS state, not
+      # user data. The network namespace is provided by pasta (host loopback
+      # unreachable) unless -n/--network is given.
       --ro-bind /nix/store /nix/store
       --ro-bind /run/current-system /run/current-system
       --ro-bind /etc /etc
@@ -257,10 +285,13 @@ box() {
       --ro-bind-try /nix/var/nix/profiles/default /nix/var/nix/profiles/default
       --ro-bind-try /nix/var/nix/daemon-socket /nix/var/nix/daemon-socket
       --dev /dev
+      --tmpfs /dev/shm
       --proc /proc
       --bind "$tmp" /tmp
       --dir "$HOME"
       --unshare-user --disable-userns
+      --uid "$(id -u)"
+      --gid "$(id -g)"
       --unshare-pid --unshare-ipc --unshare-uts --hostname box
     )
 
@@ -298,14 +329,45 @@ box() {
   flags+=(--bind "$PWD" "$PWD")
   flags+=(--die-with-parent --new-session --chdir "$PWD")
 
+  # Egress-only network namespace by default: pasta supplies the tap/NAT but
+  # the namespace cannot reach host loopback (no gateway mapping, no local
+  # splice path). -n/--network skips pasta and keeps the host netns, which is
+  # what agent-browser needs to reach the dedicated Chromium on 127.0.0.1:9222.
+  local -a net=()
+  if [ "$network" -eq 0 ]; then
+    net=(pasta -f --config-net --no-map-gw --no-splice --quiet \
+         -t none -u none -T none -U none --)
+  fi
+
   if [ "$mode" = project ]; then
     # The single random /tmp directory dies with the session.
-    ( trap 'rm -rf -- "$tmp"' EXIT; bwrap "${flags[@]}" -- "${cmd[@]}" )
+    ( trap 'rm -rf -- "$tmp"' EXIT; "${net[@]}" bwrap "${flags[@]}" -- "${cmd[@]}" )
   else
-    bwrap "${flags[@]}" -- "${cmd[@]}"
+    "${net[@]}" bwrap "${flags[@]}" -- "${cmd[@]}"
   fi
 }
 
 nyvibe() {
   ( cd "$HOME/nixos_config" && box -s opencode --prompt "read short_summary.md" "$@" )
+}
+
+# Agent-browser session: project-mode opencode with the host network so the
+# agent-browser skill can drive the host's dedicated Chromium (CDP 9222).
+# Results live in a stable workspace outside the repo. Remaining args are the
+# first prompt (joined); no args starts the TUI without one.
+ab() {
+  local dir="$HOME/.ab_workspace" prompt="$*"
+  mkdir -p "$dir" || return 1
+  # Ensure the dedicated host Chromium is up, then drop the helper session:
+  # the browser is externally owned and stays, but the daemon (and its tab)
+  # do not linger. The wrapper disables the stream server on the way out.
+  agent-browser --session ab tab list >/dev/null 2>&1 || true
+  agent-browser --session ab close >/dev/null 2>&1 || true
+  local -a oc=(opencode)
+  [ -n "$prompt" ] && oc+=(--prompt "$prompt")
+  ( cd "$dir" && AGENT_BROWSER_CDP=9222 box -n bash -c '
+      mkdir -p -m 700 "$HOME/.run" || exit 1
+      export XDG_RUNTIME_DIR="$HOME/.run"
+      exec "$@"
+    ' ab "${oc[@]}" )
 }
