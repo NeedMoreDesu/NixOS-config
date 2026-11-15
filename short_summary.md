@@ -79,18 +79,28 @@ clears the stale `*.target` bindings under
 `$XDG_RUNTIME_DIR/agent-browser`; when Chromium is already running and the
 session has no binding, the wrapper pre-creates that session's own tab
 (`tab new`) so `open` cannot hijack the active tab. Browser-less
-subcommands (skills/dashboard/install/upgrade/doctor/close/stream, no
-args, help/version) and explicit `--cdp`/`--auto-connect`/`connect` bypass
-the launch. No `--pin-tab`: the dedicated instance is the isolation
+subcommands (skills/session/dashboard/install/upgrade/doctor/close/stream,
+no args, help/version) and explicit `--cdp`/`--auto-connect`/`connect`
+bypass the launch. No `--pin-tab`: the dedicated instance is the isolation
 boundary, and a sticky pin reports `tab_gone` for every command after a
 Chromium restart. The CDP port can enumerate/control every tab in THAT
 instance — that is why the profile is separate: your normal
 Firefox/LibreWolf/Chromium tabs are out of reach.
-Live view: `agent-browser dashboard start` -> http://localhost:4848 (does
-not launch Chromium itself); `agent-browser stream status` shows the
-per-session WebSocket stream port. Do NOT run `agent-browser install`
-(that fetches an unpatched Chrome for Testing); the nixpkgs version
-updates with `nyx -u`.
+Streaming: each session daemon otherwise opens a random loopback
+WebSocket stream port for the observability dashboard. The dashboard is
+unused, and those leftover ports were pure spam, so agent-chrome runs
+`agent-browser --session <sess> stream disable` after every page command
+(cheap, idempotent; covers daemons that restarted). A port can exist while
+a command runs, never after it. `session` is in the browser-less skip list
+so `session id`/`info` do not start Chromium at all. `dashboard start` still
+exists but nothing starts it automatically.
+`ab` (bashrc) is the agent-browser session: project-mode opencode in
+`~/.ab_workspace`, on the host network (`box -n`) so it can attach to this
+Chromium. It exports `AGENT_BROWSER_CDP=9222`; agent-chrome honors that and
+attaches instead of launching a second browser (and still disables the
+stream). Remaining `ab` args are joined into one `--prompt`; no args opens
+the TUI without one. Do NOT run `agent-browser install` (that fetches an
+unpatched Chrome for Testing); the nixpkgs version updates with `nyx -u`.
 opencode skill: home.nix copies the CLI's version-matched `core` skill into
 `~/.config/opencode/skills/agent-browser-core` on every activation (real
 files, not store symlinks; scripts/nix-copy-tree.sh records installed paths
@@ -100,32 +110,49 @@ copied — its SKILL.md lists the specialized skills, which stay runtime-only
 
 ## Agent sandboxes (`hosts/nixos/bashrc.sh`)
 
-`~/.bashrc` only sources `hosts/nixos/bashrc.sh`; `nyx`, `nyvibe`, and the
-`box` bwrap launcher live in the repo. `box [cmd]` is project mode,
+`~/.bashrc` only sources `hosts/nixos/bashrc.sh`; `nyx`, `nyvibe`, `ab`,
+and the `box` bwrap launcher live in the repo. `box [cmd]` is project mode,
 `box -s|--system [cmd]` is system mode; `cmd` defaults to `bash -i`.
-`nyvibe` = `box -s opencode` with the short_summary prompt.
+`-n|--network` keeps the host network namespace (needed for CDP); without
+it the box gets an egress-only pasta namespace (see below). `nyvibe` =
+`box -s opencode` with the short_summary prompt. `ab [prompt...]` =
+project-mode opencode in `~/.ab_workspace` with `-n`, attaching to the
+host's dedicated Chromium (see "Agent browser").
 
 - system mode — `/` read-only, fresh minimal `/dev` (no `/dev/input`, so
-  the input group cannot snoop), private `/tmp`, `$PWD` writable. HOME is
-  a tmpfs rebuilt from `_BOX_SYSTEM_RW/RO`: opencode + nix state
-  writable; KDE/kate/emacs/seance settings read-only. Everything else in
-  HOME (`.ssh`, browsers, `.dsh`, keyrings, cloud creds, histories) is
-  absent. `/run/user` (D-Bus, Wayland, SSH agent, KWallet, KWin
-  Scripting) is masked unless `BOX_GUI=1`. Refuses `$PWD` = `/`, `$HOME`,
-  or an ancestor of `$HOME`.
+  the input group cannot snoop), private `/tmp` and `/dev/shm`, PID/IPC/UTS
+  unshared (host `/proc`, cmdlines, signals and SysV IPC are invisible),
+  host journal (`/var/log/journal`, `/run/log/journal`) masked, `$PWD`
+  writable. HOME is a tmpfs rebuilt from `_BOX_SYSTEM_RW/RO`: opencode + nix
+  state writable; KDE/kate/emacs/seance settings read-only. Everything else
+  in HOME (`.ssh`, browsers, `.dsh`, keyrings, cloud creds, histories) is
+  absent. `/run/user` (D-Bus, Wayland, SSH agent, KWallet, KWin Scripting)
+  is masked unless `BOX_GUI=1`. Refuses a `$PWD` that is (or is an ancestor
+  of) a masked path: `$HOME`, `/tmp`, `/dev`, `/dev/shm`, `/proc`, `/sys`,
+  `/var/log/journal`, `/run/log/journal`, `/run/user/$UID` — the workspace
+  bind is last and would otherwise undo the mask.
 - project mode — no host root or home; only `/nix/store`,
   `/run/current-system`, `/etc`, `/usr`, `/bin`, `/lib64`, `/sys`, a fresh
   `/dev` + `/proc`, `$PWD` rw, and ONE random `/tmp/box.*` bound to `/tmp`
   (deleted on exit). PID/IPC/UTS unshared, further user namespaces
-  disabled, network kept. Compilers come from the store; `_BOX_PROJECT_RW`
-  whitelists per-user build caches (cargo registry, go build/mod, npm/bun/
+  disabled. Network is egress-only by default: `pasta` supplies a tap/NAT
+  namespace configured with `--no-map-gw --no-splice -t none -u none
+  -T none -U none`, so host loopback (CDP 9222, agent-browser streams,
+  CUPS, systemd varlink) is unreachable while DNS/HTTPS still work. `-n`
+  keeps the host netns for the agent browser. Needs the `tun` module
+  (modules/networking.nix); udev already ships the `/dev/net/tun` 0666
+  rule. Compilers come from the store; `_BOX_PROJECT_RW` whitelists
+  per-user build caches (cargo registry, go build/mod, npm/bun/
   pnpm/yarn, pip/uv, maven/gradle, cabal, ccache/sccache, ...) and
   `_BOX_PROJECT_RO` toolchain state. Credential files next to those caches
   (`.cargo/credentials.toml`, `.m2/settings.xml`, `.npmrc`, ...) stay
   unmounted. `BOX_SECRETS=1` read-only-binds `.ssh`/`.gnupg`/cloud/gh/dsh.
-- `bubblewrap` is in modules/packages.nix. opencode's own `auth.json`
-  must stay visible for provider calls — the boundary covers everything
-  outside the allowlist.
+- `bubblewrap` and `passt` are in modules/packages.nix. opencode's own
+  `auth.json` must stay visible for provider calls — the boundary covers
+  everything outside the allowlist. After the tun module is added, run
+  `nyx -r` (or `sudo modprobe tun`) once; before that every default-mode
+  box fails loudly at "Failed to open /dev/net/tun" instead of running
+  without the network. `ab` uses `-n`, so it works without pasta.
 - opencode's own "outside the project" folder prompts are off
   (hosts/nixos/opencode.jsonc): `permission.external_directory = allow`
   plus explicit `/tmp/*` edit allow — the sandbox is the boundary. V1
@@ -257,7 +284,7 @@ hosts/nixos/
                         (manifest ~/.nix_update_paths; see "Agent browser").
 modules/               one topic per file:
   boot.nix             systemd-boot + EFI, configurationLimit 20
-  networking.nix       hostname, NetworkManager
+  networking.nix       hostname, NetworkManager; tun module (pasta's tap)
   locale.nix           Europe/Dublin, en_IE, console keymap ie
   desktop.nix          Plasma 6, SDDM (HiDPI on), xkb layouts: gb-mac-grave +
                        ua(unicode) with Alt+Space cycling (grp:alt_space_toggle;
@@ -385,6 +412,7 @@ modules/               one topic per file:
    packages.nix         firefox + git, fastfetch, sourcegit, godot, krita, librewolf,
                         chromium + agent-browser/agent-chrome (dedicated CDP
                         browser for agent-browser; see "Agent browser"),
+                        passt (pasta egress-only netns for box),
                         zmx (served at the held version while it is in
                         the package-hold list), kdePackages.partitionmanager;
                        steam via programs.steam (FHS sandbox, steam-hardware,
@@ -525,6 +553,19 @@ modules/               one topic per file:
    `zmx held 0.8.1 -> nixpkgs would give <ver>`; when that version
    carries the fix (upstream zmx main f5d604e, PR #316 — unreleased),
    run `scripts/flake-rollback.sh --release zmx`.
+- **box escape surface + dashboard spam (2026-11-15)**: system mode kept the
+  host PID, IPC and network namespaces. `/proc/<host-pid>/root` (the real
+  `$HOME`, including `.ssh`) was gated only by `kernel.yama.ptrace_scope=1`;
+  host cmdlines, mountinfo, the journal and SysV shm were readable, and
+  signals reached host processes. Shared localhost reach also exposed the
+  dedicated Chromium's CDP (file:// reads and download writes as mika). Fix:
+  `--unshare-pid/--unshare-ipc/--unshare-uts`, private `/dev/shm`, journal
+  masked, and an egress-only pasta netns (`--no-map-gw --no-splice`); `-n`
+  keeps the host netns for `ab`/CDP. pasta needs the `tun` module
+  (modules/networking.nix). Separately, each agent-browser session daemon
+  opened a random loopback WebSocket stream port for the unused dashboard;
+  agent-chrome now disables the session stream after every page command,
+  and `session` is browser-less so it no longer starts Chromium.
 - **llm-agents input**: do NOT add `follows = "nixpkgs"` — their binaries in `cache.numtide.com` are built against their own pinned nixpkgs; following yours = cache misses + rebuilds.
 - `/etc/nixos/` is obsolete; the repo is the source of truth.
 
