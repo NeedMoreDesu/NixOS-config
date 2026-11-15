@@ -4,7 +4,8 @@
 #                      random /tmp. HOME is deny-by-default with a build
 #                      cache allowlist (no credentials).
 # box -s|--system [cmd] system mode: / read-only, $PWD writable, HOME
-#                      rebuilt from the settings allowlist.
+#                      rebuilt from the settings allowlist plus the
+#                      project build-cache/toolchain lists.
 # nyvibe               system-mode opencode in the repo with the
 #                      short_summary prompt.
 #
@@ -228,6 +229,15 @@ box() {
       flags+=(--bind-try "$HOME/$p" "$HOME/$p")
     done
     for p in "${_BOX_SYSTEM_RO[@]}"; do
+      flags+=(--ro-bind-try "$HOME/$p" "$HOME/$p")
+    done
+    # Build caches + toolchain state ride along too: / is read-only here,
+    # so this only saves re-downloads. Re-binds of shared entries are
+    # harmless (same source over same target).
+    for p in "${_BOX_PROJECT_RW[@]}"; do
+      flags+=(--bind-try "$HOME/$p" "$HOME/$p")
+    done
+    for p in "${_BOX_PROJECT_RO[@]}"; do
       flags+=(--ro-bind-try "$HOME/$p" "$HOME/$p")
     done
   else
