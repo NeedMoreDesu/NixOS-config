@@ -35,5 +35,5 @@ case "$mode" in
 esac
 
 mkdir -p "$dir"
-name="Screenshot_$(date +%Y%m%d_%H%M%S_%N).png"
+name="Screenshot_$(date +%Y-%m-%d_%H-%M-%S).png"
 exec spectacle -b -n "${args[@]}" -c -o "$dir/$name"
