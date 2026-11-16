@@ -77,8 +77,10 @@ in
       # kscreenlocker Daemon.Timeout is in MINUTES (kcfg Double), Autolock
       # default true; LockGrace default 5s.
       "kscreenlockerrc"."Daemon"."Timeout" = 20;
-      # All 8 screen edges/corners pinned to None (Overview moved to
-      # Meta+Tab); GUI-configured corners would otherwise drift.
+      # All 8 legacy screen edges/corners pinned to None (Overview moved
+      # to Meta+Tab); GUI-configured corners would otherwise drift. These
+      # only cover the built-in actions (Show Desktop, KRunner, ...) -
+      # effect-registered borders are separate, see Effect-overview below.
       "kwinrc"."ElectricBorders" = {
         Top = "None";
         TopRight = "None";
@@ -89,6 +91,12 @@ in
         Left = "None";
         TopLeft = "None";
       };
+      # The Overview effect registers its OWN screen edge: its kcfg
+      # defaults BorderActivate to ElectricTopLeft, so the top-left corner
+      # opened Overview even with every [ElectricBorders] entry None.
+      # ElectricNone is the enum sentinel (9, what the Screen Edges KCM
+      # writes for "No Action") and reserves no edge.
+      "kwinrc"."Effect-overview"."BorderActivate" = "9";
     };
 
     # Mirrors ~/.config/plasma-org.kde.plasma.desktop-appletsrc:

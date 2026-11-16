@@ -327,7 +327,12 @@ modules/               one topic per file:
                          Top/Bottom/Left/Right on Meta+Up/Down/Left/Right — Meta+Down
                          fired Quick Tile Bottom, never Window Restore); all 8 kwinrc
                          [ElectricBorders] entries pinned None — hot corners off,
-                         the Overview corner lives on the keyboard now.
+                         the Overview corner lives on the keyboard now. That pin
+                         only covers the legacy actions; the Overview EFFECT has
+                         its own `[Effect-overview] BorderActivate`, whose kcfg
+                         default is ElectricTopLeft (top-left corner). Pinned to
+                         ElectricNone (9) too, otherwise the corner still opens
+                         Overview.
                          Window Restore = UntileOrRestoreOp (un-fullscreen >
                          un-tile > un-maximize; no-op on plain windows) — the
                          title-bar middle button's toggle is Window Maximize
@@ -624,6 +629,13 @@ modules/               one topic per file:
   is 0; a centered row then spills over the left neighbour. Bind
   Layout.minimum/preferred/maximumWidth to the content's implicitWidth
   (plus implicitWidth for good measure) and anchor the content left.
+- **Top-left still opened Overview with all hot corners "None" (2026-11-16)**:
+  `[ElectricBorders]` only maps the legacy built-in actions. Effects
+  register screen edges separately from their own config group, and the
+  Overview effect's kcfg defaults `[Effect-overview] BorderActivate` to
+  ElectricTopLeft. Pin it to ElectricNone (9) — the same sentinel the
+  Screen Edges KCM writes for "No Action". Check the effect's *.kcfg for
+  other non-None defaults (windowview already defaults to ElectricNone).
 - **llm-agents input**: do NOT add `follows = "nixpkgs"` — their binaries in `cache.numtide.com` are built against their own pinned nixpkgs; following yours = cache misses + rebuilds.
 - `/etc/nixos/` is obsolete; the repo is the source of truth.
 
