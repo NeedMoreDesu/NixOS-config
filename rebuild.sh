@@ -110,6 +110,23 @@ if $kde_after && ! $logout_after && ! $reboot_after; then
     env XDG_RUNTIME_DIR="/run/user/$(id -u "$kde_user")" \
     sh -c '"$HOME/.local/share/plasma-manager/run_all.sh"' \
     || echo "nyx -k: plasma-manager runner failed or absent - config applies at next login" >&2
+
+  # plasma-manager only WRITES kwinrc; KWin caches its settings at startup
+  # and only reloads when told to. The Screen Edges KCM does two things
+  # after saving (src/kcms/screenedges/main.cpp): sends the reloadConfig
+  # signal to /KWin (Workspace::slotReloadConfig -> reconfigure) and calls
+  # reconfigureEffect on /Effects. Effects that reserve their own border
+  # (Overview's kcfg default is ElectricTopLeft) are NOT covered by the
+  # [ElectricBorders] reload, so both calls are needed. Non-fatal, same
+  # reasoning as above: without a running KWin the next login applies it.
+  runuser -u "$kde_user" -- \
+    env XDG_RUNTIME_DIR="/run/user/$(id -u "$kde_user")" \
+    sh -c '
+      qdbus org.kde.KWin /KWin org.kde.KWin.reconfigure >/dev/null 2>&1
+      qdbus org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect overview >/dev/null 2>&1
+      qdbus org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect windowview >/dev/null 2>&1
+    ' \
+    || echo "nyx -k: KWin reload failed - config applies at next login" >&2
 fi
 
 # -r wins over -l (a reboot logs the session out anyway)

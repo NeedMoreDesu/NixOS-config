@@ -33,6 +33,11 @@ nyx    # alias -> sudo bash ~/nixos_config/rebuild.sh
         # the plasma config to the LIVE session (runs
         # ~/.local/share/plasma-manager/run_all.sh as the user with
         # XDG_RUNTIME_DIR set; non-fatal; skipped if -l/-r also given).
+        # plasma-manager only WRITES kwinrc — KWin caches settings at
+        # startup — so -k also calls org.kde.KWin.reconfigure and
+        # reconfigureEffect on overview/windowview (what the Screen
+        # Edges KCM does after saving). Without those calls a kwinrc
+        # change like a disabled hot corner survives until login.
         # plasma-manager only reaches the screen at login or via -k —
         # nixos-rebuild's own activation cannot touch the session bus,
         # it only flips the ~/.local symlinks (2026-11-14: after nyx the
@@ -332,7 +337,13 @@ modules/               one topic per file:
                          its own `[Effect-overview] BorderActivate`, whose kcfg
                          default is ElectricTopLeft (top-left corner). Pinned to
                          ElectricNone (9) too, otherwise the corner still opens
-                         Overview.
+                         Overview. KWin caches kwinrc at startup: `nyx -k` now
+                         also calls org.kde.KWin.reconfigure + reconfigureEffect
+                         overview/windowview (as the Screen Edges KCM does), so
+                         the edge goes away without a logout. To apply by hand:
+                         qdbus org.kde.KWin /KWin org.kde.KWin.reconfigure &&
+                         qdbus org.kde.KWin /Effects \
+                           org.kde.kwin.Effects.reconfigureEffect overview
                          Window Restore = UntileOrRestoreOp (un-fullscreen >
                          un-tile > un-maximize; no-op on plain windows) — the
                          title-bar middle button's toggle is Window Maximize
