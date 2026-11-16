@@ -55,12 +55,21 @@ PlasmoidItem {
         : root.devices.map(device => device.name + ": " + device.charge + "%").join("\n")
 
     compactRepresentation: Item {
+        // The panel sizes applets from the Layout attached properties, not
+        // from implicitWidth. Without these the item keeps its initial width
+        // (empty output -> 0) and the row spills over the neighbour.
+        Layout.minimumWidth: compactRow.implicitWidth
+        Layout.preferredWidth: compactRow.implicitWidth
+        Layout.maximumWidth: compactRow.implicitWidth
+        Layout.fillWidth: false
+
         implicitWidth: compactRow.implicitWidth
         implicitHeight: compactRow.implicitHeight
 
         Row {
             id: compactRow
-            anchors.centerIn: parent
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
             spacing: Kirigami.Units.smallSpacing * 2
 
             Repeater {

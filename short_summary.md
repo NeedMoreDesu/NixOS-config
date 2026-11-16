@@ -613,6 +613,13 @@ modules/               one topic per file:
   shebang is now the absolute `/run/current-system/sw/bin/bash`. General
   rule: xremap launch children are NOT your shell — no bash in PATH, and
   their stderr is thrown away.
+- **Panel applet width from a compact representation (2026-11-16)**: the
+  panel sizes an applet from the Layout attached properties of the
+  compactRepresentation's ROOT item, not its implicitWidth (libplasma
+  AppletQuickItem::connectLayoutAttached). With async data the first width
+  is 0; a centered row then spills over the left neighbour. Bind
+  Layout.minimum/preferred/maximumWidth to the content's implicitWidth
+  (plus implicitWidth for good measure) and anchor the content left.
 - **llm-agents input**: do NOT add `follows = "nixpkgs"` — their binaries in `cache.numtide.com` are built against their own pinned nixpkgs; following yours = cache misses + rebuilds.
 - `/etc/nixos/` is obsolete; the repo is the source of truth.
 
