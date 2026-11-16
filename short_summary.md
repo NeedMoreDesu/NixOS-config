@@ -120,21 +120,24 @@ project-mode opencode in `~/ab_workspace` with `-n`, attaching to the
 host's dedicated Chromium (see "Agent browser").
 
 - system mode — `/` read-only, fresh minimal `/dev` (no `/dev/input`, so
-  the input group cannot snoop), private `/tmp` and `/dev/shm`, PID/IPC/UTS
+  the input group cannot snoop), host `/tmp` rw (shared; systemd-tmpfiles
+  cleans it after 10 days), private `/dev/shm`, PID/IPC/UTS
   unshared (host `/proc`, cmdlines, signals and SysV IPC are invisible),
   host journal (`/var/log/journal`, `/run/log/journal`) masked, `$PWD`
   writable. HOME is a tmpfs rebuilt from `_BOX_SYSTEM_RW/RO`: opencode + nix
-  state writable; KDE/kate/emacs/seance settings read-only. Everything else
+  state and `~/temp` writable; KDE/kate/emacs/seance settings read-only.
+  Everything else
   in HOME (`.ssh`, browsers, `.dsh`, keyrings, cloud creds, histories) is
   absent. `/run/user` (D-Bus, Wayland, SSH agent, KWallet, KWin Scripting)
   is masked unless `BOX_GUI=1`. Refuses a `$PWD` that is (or is an ancestor
-  of) a masked path: `$HOME`, `/tmp`, `/dev`, `/dev/shm`, `/proc`, `/sys`,
-  `/var/log/journal`, `/run/log/journal`, `/run/user/$UID` — the workspace
-  bind is last and would otherwise undo the mask.
+  of) a special mount/masked path: `$HOME`, `/tmp`, `/dev`, `/dev/shm`,
+  `/proc`, `/sys`, `/var/log/journal`, `/run/log/journal`, `/run/user/$UID`
+  — the workspace bind is last and would otherwise undo the mask.
 - project mode — no host root or home; only `/nix/store`,
   `/run/current-system`, `/etc`, `/usr`, `/bin`, `/lib64`, `/sys`, a fresh
-  `/dev` + `/proc`, `$PWD` rw, and ONE random `/tmp/box.*` bound to `/tmp`
-  (deleted on exit). PID/IPC/UTS unshared, further user namespaces
+  `/dev` + `/proc`, `$PWD` rw, `~/temp` rw (shared), and ONE random
+  `/tmp/box.*` bound to `/tmp` (deleted on exit). PID/IPC/UTS unshared,
+  further user namespaces
   disabled. Network is egress-only by default: `pasta` supplies a tap/NAT
   namespace configured with `--no-map-gw --no-splice -t none -u none
   -T none -U none`, so host loopback (CDP 9222, agent-browser streams,
@@ -144,7 +147,8 @@ host's dedicated Chromium (see "Agent browser").
   rule. Compilers come from the store; `_BOX_PROJECT_RW` whitelists
   per-user build caches (cargo registry, go build/mod, npm/bun/
   pnpm/yarn, pip/uv, maven/gradle, cabal, ccache/sccache, ...) and
-  `_BOX_PROJECT_RO` toolchain state. Credential files next to those caches
+  `_BOX_PROJECT_RO` toolchain state; `~/temp` is the shared rw scratch/log
+  handoff. Credential files next to those caches
   (`.cargo/credentials.toml`, `.m2/settings.xml`, `.npmrc`, ...) stay
   unmounted. `BOX_SECRETS=1` read-only-binds `.ssh`/`.gnupg`/cloud/gh/dsh.
 - `bubblewrap` and `passt` are in modules/packages.nix. opencode's own

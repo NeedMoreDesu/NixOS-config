@@ -1,11 +1,12 @@
 # NixOS workflow + sandboxed agent launches. Sourced from ~/.bashrc.
 #
 # box [cmd]            project mode (default): runtime dirs + $PWD + one
-#                      random /tmp. HOME is deny-by-default with a build
-#                      cache allowlist (no credentials).
-# box -s|--system [cmd] system mode: / read-only, $PWD writable, HOME
-#                      rebuilt from the settings allowlist plus the
-#                      project build-cache/toolchain lists.
+#                      random /tmp + ~/temp rw. HOME is deny-by-default
+#                      with a build cache allowlist (no credentials).
+# box -s|--system [cmd] system mode: / read-only, $PWD + host /tmp +
+#                      ~/temp writable, HOME rebuilt from the settings
+#                      allowlist plus the project build-cache/toolchain
+#                      lists.
 # nyvibe               system-mode opencode in the repo with the
 #                      short_summary prompt.
 #
@@ -25,6 +26,9 @@ _BOX_SYSTEM_RW=(
   .cache/opencode
   .local/state/nix
   .cache/nix
+  # Shared scratch/log handoff. Host rw in both modes; do not put
+  # credentials here.
+  temp
 )
 
 _BOX_SYSTEM_RO=(
@@ -127,6 +131,8 @@ _BOX_PROJECT_RW=(
   .cache/huggingface
   .cache/torch
   .local/share/direnv
+  # shared scratch/log handoff (host rw; not a credential path)
+  temp
 )
 
 _BOX_PROJECT_RO=(
@@ -158,10 +164,10 @@ _BOX_SECRETS=(
   .dsh
 )
 
-# Refuse a workspace that would re-expose a masked path. The workspace bind
-# is applied last, so PWD=/tmp, PWD=/dev, PWD=/run, PWD=/run/user/$UID, or
-# PWD=$HOME (or an ancestor of one of them) would undo the corresponding
-# mask.
+# Refuse a workspace that would shadow a special mount or re-expose a
+# masked path. The workspace bind is applied last, so PWD=/tmp would shadow
+# the project-mode private /tmp (and is pointless with the system-mode host
+# /tmp bind), PWD=$HOME would re-expose the hidden home, etc.
 _box_guard_pwd() {
   local pwd_real mask mask_real
   pwd_real=$(realpath -- "$PWD") || return 1
@@ -174,7 +180,7 @@ _box_guard_pwd() {
     mask_real=$(realpath -- "$mask" 2>/dev/null) || continue
     case "$mask_real" in
       "$pwd_real"|"$pwd_real"/*)
-        printf 'box: refusing workspace %s (it would re-expose %s)\n' \
+        printf 'box: refusing workspace %s (it would shadow/re-expose %s)\n' \
           "$PWD" "$mask" >&2
         return 1
         ;;
@@ -208,6 +214,10 @@ box() {
 
   _box_guard_pwd || return 1
 
+  # Shared scratch/log handoff in both modes. Create it on the host so the
+  # --bind-try in the HOME allowlists always has a source.
+  mkdir -p "$HOME/temp" 2>/dev/null || true
+
   if [ "$network" -eq 0 ] && [ ! -e /dev/net/tun ]; then
     printf 'box: /dev/net/tun missing: load tun (sudo modprobe tun) or use -n/--network\n' >&2
     return 1
@@ -223,7 +233,10 @@ box() {
       --tmpfs /dev/shm
       --dev-bind-try /dev/dri /dev/dri
       --proc /proc
-      --tmpfs /tmp
+      # Host /tmp is rw: scratch/log files written here are visible outside
+      # the box. systemd-tmpfiles cleans it after 10 days. /dev/shm stays
+      # private.
+      --bind /tmp /tmp
       # Keep the sandbox's mika identity even when `box` is wrapped by pasta
       # (which runs its child as userns-root). PID/IPC/UTS are unshared for
       # the same reason project mode does it: host /proc is not an oracle.
