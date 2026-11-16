@@ -224,7 +224,14 @@ hosts/nixos/
                         Matches on resourceClass (this KWin build has NO
                         appId property - reads undefined); self-unloads
                         after ~20s. See debugging note below.
-    home.nix             home-manager user config for mika (plasma-manager;
+   plasmoids/org.kde.mika.btbattery/   custom top-bar applet: asks
+                        contents/tools/bt-battery.sh for `TYPE<TAB>PCT<TAB>NAME`
+                        lines and renders them as one label per device
+                        (K/M/H/...). Installed via xdg.dataFile; the script
+                        intersects `bluetoothctl devices Connected` with
+                        UPower (`serial`/`native-path` == MAC; wired HID
+                        keyboards stay out) plus a BlueZ Battery1 fallback.
+     home.nix             home-manager user config for mika (plasma-manager;
                         left panel: keyboardlayout is a STANDALONE panel
                         widget with displayStyle=flag — tray-nested widgets
                         cannot be configured, plasma-manager items.configs
@@ -268,7 +275,13 @@ hosts/nixos/
                         aggregated), RAM (memory/physical/usedPercent),
                         ↓/↑ (network all download/upload), R/W (disk
                         read/write rates), DSK (disk/all/usedPercent =
-                        root disk space used, NOT load), then panelSpacer
+                        root disk space used, NOT load), then the
+                        org.kde.mika.btbattery applet (connected Bluetooth
+                        charge per device as type+value, e.g. "K 100% M
+                        100% H 90%"; UPower charge intersected with the
+                        BlueZ connected set, 30s refresh — see
+                        hosts/nixos/plasmoids/org.kde.mika.btbattery),
+                        then panelSpacer
                         + digitalClock right (custom date format
                         "dd MMM yyyy"). displayStyle is NOT the stock
                         ksysguard textonly face: it is the local fork

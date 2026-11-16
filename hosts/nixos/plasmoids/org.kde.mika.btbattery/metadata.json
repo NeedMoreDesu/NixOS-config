@@ -1,0 +1,18 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Mika"
+            }
+        ],
+        "Category": "System Information",
+        "Description": "Shows the charge of connected Bluetooth devices, labelled by type",
+        "Icon": "preferences-system-bluetooth",
+        "Id": "org.kde.mika.btbattery",
+        "License": "MIT",
+        "Name": "Bluetooth Battery",
+        "Version": "1.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

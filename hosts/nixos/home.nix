@@ -234,6 +234,11 @@ in
               ];
             };
           }
+          # Connected Bluetooth device charge, one label per device by type
+          # (K keyboard, M mouse, H headphones; see the applet's
+          # contents/tools/bt-battery.sh). Own applet because ksystemstats
+          # has no battery sensors — UPower/BlueZ are the only sources.
+          "org.kde.mika.btbattery"
           {
             panelSpacer = { };
           }
@@ -295,6 +300,13 @@ in
   # rate rows (the stock textonly face can do neither).
   xdg.dataFile."ksysguard/sensorfaces/org.kde.mika.mutedtextonly".source =
     ./ksysguard/sensorfaces/org.kde.mika.mutedtextonly;
+
+  # Top-bar Bluetooth battery stat (org.kde.mika.btbattery). Plasma5Support's
+  # executable data source runs contents/tools/bt-battery.sh, which intersects
+  # the BlueZ connected set with UPower's charge levels, so only current
+  # Bluetooth peripherals show up (a Magic Keyboard on USB does not).
+  xdg.dataFile."plasma/plasmoids/org.kde.mika.btbattery".source =
+    ./plasmoids/org.kde.mika.btbattery;
 
 
   # Emacs config is a git repo of its own: the Prelude fork on GitHub
