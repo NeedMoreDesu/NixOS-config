@@ -4,6 +4,6 @@
     useGlobalPkgs = true;
     useUserPackages = true;
     extraSpecialArgs = { inherit plasma-manager; };
-    users.mika.imports = [ ../hosts/nixos/home.nix ];
+    users.mika.imports = [ ../home ];
   };
 }

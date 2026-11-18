@@ -1,6 +1,7 @@
 {
   imports = [
     ./hardware-configuration.nix
+    ./kscreen.nix
     ../../modules/audio.nix
     ../../modules/bluetooth.nix
     ../../modules/boot.nix

@@ -1,23 +1,6 @@
-{ lib, pkgs, plasma-manager, ... }:
-let
-  # agent-browser ships SKILL.md trees inside the CLI package. Copy the
-  # version-matched core skill (which itself lists the specialized skills)
-  # into opencode's user skill dir as real files, not store symlinks.
-  agentBrowserSkills = [ "core" ];
-
-  # Copy trees and record what was installed in ~/.nix_update_paths, so the
-  # next activation removes stale copies first. See scripts/nix-copy-tree.sh.
-  nixCopyTree = pkgs.writeShellScriptBin "nix-copy-tree" ''
-    export PATH=${pkgs.coreutils}/bin:$PATH
-    ${builtins.readFile ../../scripts/nix-copy-tree.sh}
-  '';
-in
+{ plasma-manager, ... }:
 {
   imports = [ plasma-manager.homeModules.plasma-manager ];
-
-  home.username = "mika";
-  home.homeDirectory = "/home/mika";
-  home.stateVersion = "26.05";
 
   programs.plasma = {
     enable = true;
@@ -267,120 +250,16 @@ in
     ];
   };
 
-  # Seance keyboard policy + appearance, declarative. NOTE: seance's Settings
-  # window writes ~/.config/seance/config.toml via temp-file+rename, which
-  # replaces this symlink with a plain file — GUI changes are NOT persistent
-  # policy; make them in assets/seance/config.toml and nyx (seance also has
-  # Ctrl+Shift+comma to live-reload its config).
-  xdg.configFile."seance/config.toml".source = ../../assets/seance/config.toml;
-  # `force`: the clobbered plain file is throw-away GUI state (repo is the
-  # source of truth by design), so re-link over it on every activation
-  # instead of letting home-manager abort the switch with a clobber error.
-  xdg.configFile."seance/config.toml".force = true;
-
-  # opencode TUI theme, declarative (aura — purple, pairs with seance's
-  # Monokai Soda). assets/opencode/opencode.jsonc is policy; the agent-browser skill copy
-  # below is the one managed exception (tracked in ~/.nix_update_paths);
-  # everything else under plugins/, skills/ and node_modules/ stays
-  # user-local. `force` re-links over the old unmanaged file / any
-  # theme-picker writes.
-  xdg.configFile."opencode/opencode.jsonc".source = ../../assets/opencode/opencode.jsonc;
-  xdg.configFile."opencode/opencode.jsonc".force = true;
-
-  # agent-browser's core SKILL.md is copied out of the CLI package on every
-  # activation (real files, not store symlinks). scripts/nix-copy-tree.sh
-  # tracks installed paths in ~/.nix_update_paths and removes stale copies
-  # before the next copy. Specialized skills stay runtime-only — core's
-  # SKILL.md lists them and they are fetched with `agent-browser skills get`.
-  home.activation.agent-browser-skills = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    ${nixCopyTree}/bin/nix-copy-tree \
-      "$HOME/.nix_update_paths" \
-      "$HOME/.config/opencode/skills" \
-      agent-browser \
-      ${lib.escapeShellArgs (lib.concatMap (name: [
-        "agent-browser-${name}"
-        "${pkgs.agent-browser}/skill-data/${name}"
-      ]) agentBrowserSkills)}
-  '';
-
   # Custom ksysguard sensor face used by the top-bar systemmonitor widget:
   # muted label/value text plus a 10s rolling average for the network/disk
   # rate rows (the stock textonly face can do neither).
   xdg.dataFile."ksysguard/sensorfaces/org.kde.mika.mutedtextonly".source =
-    ../../assets/plasma/ksysguard/sensorfaces/org.kde.mika.mutedtextonly;
+    ../assets/plasma/ksysguard/sensorfaces/org.kde.mika.mutedtextonly;
 
   # Top-bar Bluetooth battery stat (org.kde.mika.btbattery). Plasma5Support's
   # executable data source runs contents/tools/bt-battery.sh, which intersects
   # the BlueZ connected set with UPower's charge levels, so only current
   # Bluetooth peripherals show up (a Magic Keyboard on USB does not).
   xdg.dataFile."plasma/plasmoids/org.kde.mika.btbattery".source =
-    ../../assets/plasma/plasmoids/org.kde.mika.btbattery;
-
-
-  # Emacs config is a git repo of its own: the Prelude fork on GitHub
-  # (upstream bbatsov/prelude kept as a remote for pulling updates).
-  # Clone on first activation so a fresh machine is usable right after
-  # `nyx`; never touch it afterwards — it is the user's working tree,
-  # pulls/commits stay manual. Non-fatal on failure (network/ssh key)
-  # so a rebuild never dies on it.
-  home.activation.emacs-d = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    if [ ! -d "$HOME/.emacs.d/.git" ]; then
-      $VERBOSE_ECHO "Cloning prelude fork into ~/.emacs.d"
-      if git clone git@github.com:NeedMoreDesu/prelude.git "$HOME/.emacs.d"; then
-        git -C "$HOME/.emacs.d" remote add upstream git@github.com:bbatsov/prelude.git
-      else
-        echo "WARNING: ~/.emacs.d clone failed (needs network + GitHub ssh key) - clone it manually" >&2
-      fi
-    fi
-  '';
-
-  # KScreen owns per-output scaling (plasma-manager has no kscreen module),
-  # so re-assert our scale on every login.
-  systemd.user.services.kscreen-scale = {
-    Unit = {
-      Description = "Force 200% scale on HDMI-A-1";
-      PartOf = [ "graphical-session.target" ];
-      After = [ "graphical-session.target" ];
-    };
-    Service = {
-      Type = "oneshot";
-      ExecStart = "/run/current-system/sw/bin/kscreen-doctor output.HDMI-A-1.scale.2";
-    };
-    Install.WantedBy = [ "graphical-session.target" ];
-  };
-
-  # Login sweep enforcing maximized state for the REMAX app-id list in
-  # remax.js (seance): Wayland session restore drops the maximize flag,
-  # so seance arrives unmaximized out of place; windows that DO arrive
-  # maximized may have geometry computed BEFORE the panel struts (and our
-  # on-login kscreen scale change) exist, so they extend under the left dock
-  # (upstream bug family 515323, 523995, 514225). Listed windows are toggled
-  # maximized exactly once each; everything else is untouched. Loaded via
-  # KWin's Scripting D-Bus API; the script sweeps immediately, then every 2s
-  # for ~20s, then unloads itself — the unit itself is instant (no sleeps
-  # here, measured: plain-JS timers need the interval PROPERTY + start();
-  # setInterval slot is not exposed to QJSEngine).
-  systemd.user.services.kwin-remax = let
-    script = ../../assets/kwin-remax/remax.js;
-    runner = pkgs.writeShellScript "kwin-remax-run" ''
-      set -e
-      q=${pkgs.kdePackages.qttools}/bin/qdbus
-      id=$($q org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript ${script} kwin-remax)
-      if [ "$id" = "-1" ]; then
-        # a previous trigger is still sweeping: let it finish
-        exit 0
-      fi
-      $q org.kde.KWin "/Scripting/Script''${id}" org.kde.kwin.Script.run
-    '';
-  in {
-    Unit = {
-      Description = "Enforce maximized state for REMAX app-ids at login (seance); strut-race geometry fixup";
-      After = [ "graphical-session.target" "kscreen-scale.service" ];
-    };
-    Service = {
-      Type = "oneshot";
-      ExecStart = "${runner}";
-    };
-    Install.WantedBy = [ "graphical-session.target" ];
-  };
+    ../assets/plasma/plasmoids/org.kde.mika.btbattery;
 }
