@@ -52,20 +52,29 @@
         xremap-flake,
         ...
       }:
-    {
-      nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+    let
+      # Explicit host registry: nothing auto-discovers hosts/<name>; each
+      # nixosConfigurations key points at its own host directory.
+      mkHost = name: nixpkgs.lib.nixosSystem {
         # no `system` arg: deprecated (warns as renamed to
         # stdenv.hostPlatform.system); the platform comes from
         # nixpkgs.hostPlatform in hardware-configuration.nix
         specialArgs = {
           inherit llm-agents home-manager seance nixpkgs-held;
           plasma-manager = inputs.plasma-manager;
+          hostName = name;
         };
         modules = [
-          ./hosts/nixos/default.nix
+          ./hosts/${name}/default.nix
           home-manager.nixosModules.home-manager
           xremap-flake.nixosModules.default
         ];
+      };
+    in
+    {
+      nixosConfigurations = {
+        nixos = mkHost "nixos";
+        # qwerty = mkHost "qwerty";
       };
     };
 }

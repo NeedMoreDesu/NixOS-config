@@ -94,11 +94,11 @@ keymap:
   # ignores the shebang.
   - name: screenshots (macOS Cmd+Shift+1/2/3/4/5)
     remap:
-      F13-Shift-1: { launch: ["/run/current-system/sw/bin/bash", "/home/mika/nixos_config/scripts/screenshot.sh", "current"] }
-      F13-Shift-2: { launch: ["/run/current-system/sw/bin/bash", "/home/mika/nixos_config/scripts/screenshot.sh", "window"] }
-      F13-Shift-3: { launch: ["/run/current-system/sw/bin/bash", "/home/mika/nixos_config/scripts/screenshot.sh", "full"] }
-      F13-Shift-4: { launch: ["/run/current-system/sw/bin/bash", "/home/mika/nixos_config/scripts/screenshot.sh", "region"] }
-      F13-Shift-5: { launch: ["/run/current-system/sw/bin/bash", "/home/mika/nixos_config/scripts/screenshot.sh", "gui"] }
+      F13-Shift-1: { launch: ["/run/current-system/sw/bin/bash", "@SCREENSHOT@", "current"] }
+      F13-Shift-2: { launch: ["/run/current-system/sw/bin/bash", "@SCREENSHOT@", "window"] }
+      F13-Shift-3: { launch: ["/run/current-system/sw/bin/bash", "@SCREENSHOT@", "full"] }
+      F13-Shift-4: { launch: ["/run/current-system/sw/bin/bash", "@SCREENSHOT@", "region"] }
+      F13-Shift-5: { launch: ["/run/current-system/sw/bin/bash", "@SCREENSHOT@", "gui"] }
       F13-Shift-6: []
 
   - name: emacs (F14 prefix scheme)

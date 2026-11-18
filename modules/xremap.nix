@@ -1,3 +1,12 @@
+let
+  # xremap executes the screenshot helper directly. Resolve it at eval time so
+  # no machine-specific repo path is baked into the YAML.
+  screenshot = ../scripts/screenshot.sh;
+  yamlConfig = builtins.replaceStrings
+    [ "@SCREENSHOT@" ]
+    [ "${screenshot}" ]
+    (builtins.readFile ../assets/xremap/xremap.yml);
+in
 {
   # xremap: app-aware key remapping at the evdev layer (below XKB — see
   # assets/xremap/xremap.yml for the policy + layering notes).
@@ -25,6 +34,6 @@
 
     # One file in the repo, not an attrset — easier to iterate by hand and
     # xremap can't live-reload anyway (restart the unit after edits).
-    yamlConfig = builtins.readFile ../assets/xremap/xremap.yml;
+    inherit yamlConfig;
   };
 }

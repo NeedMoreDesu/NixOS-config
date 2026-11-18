@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="/home/mika/nixos_config"
+REPO="${NYX_REPO:-$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")}"
 
 # -u: bump flake inputs and commit flake.lock before rebuilding. Inputs in
 # scripts/flake-update.sh's HOLD_INPUTS stay pinned and are printed, then
@@ -10,6 +10,8 @@ REPO="/home/mika/nixos_config"
 # with held-vs-current versions; equal = redundant, release with
 # scripts/flake-rollback.sh --release <pkg>. Runs as the invoking user
 # (git identity + flake lockfile ownership).
+# -H/--host NAME: nixosConfigurations key to build. Defaults to NYX_HOST,
+# then `hostname -s` (the per-host bashrc sets NYX_HOST).
 # -r: reboot once the switch succeeds (use after changes that only apply
 # on a fresh boot/session, e.g. xkb layout swaps).
 # -l: end the graphical session after a successful switch instead of
@@ -45,17 +47,27 @@ reboot_after=false
 logout_after=false
 kde_after=false
 KEEP_GENERATIONS=10
-for arg in "$@"; do
-  case "$arg" in
+host="${NYX_HOST:-$(hostname -s)}"
+while (($#)); do
+  case "$1" in
     -u | --update) update=true ;;
     -r | --reboot) reboot_after=true ;;
     -l | --logout) logout_after=true ;;
     -k | --kde) kde_after=true ;;
+    -H | --host)
+      if [[ -z "${2:-}" || "$2" == -* ]]; then
+        echo "error: $1 needs a host name" >&2
+        exit 2
+      fi
+      host=$2
+      shift
+      ;;
     *)
-      echo "usage: rebuild.sh [-u|--update] [-r|--reboot] [-l|--logout] [-k|--kde]" >&2
+      echo "usage: rebuild.sh [-u|--update] [-r|--reboot] [-l|--logout] [-k|--kde] [-H|--host NAME]" >&2
       exit 2
       ;;
   esac
+  shift
 done
 
 if $update; then
@@ -66,7 +78,7 @@ if $update; then
   fi
 fi
 
-nixos-rebuild switch --flake "$REPO#nixos"
+nixos-rebuild switch --flake "$REPO#$host"
 
 # xremap cannot live-reload its config: the new yamlConfig only lands on
 # disk with the switch, so bounce the user unit here (same runuser trick
