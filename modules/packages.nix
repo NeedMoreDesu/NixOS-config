@@ -4,136 +4,25 @@ let
   # flake outputs are still keyed by the plain system string.
   hostSystem = pkgs.stdenv.hostPlatform.system;
 
-  # CDP-enabled Chromium for agent-browser. Own profile dir + fixed port so
-  # the debug endpoint never exposes the normal browser's tabs. Port stays on
-  # 127.0.0.1. --no-startup-window matters: a normal launch starts with a
-  # NTP tab, and agent-browser then opens a SECOND tab on attach, so every
-  # restart left a stray about:blank. With no startup window, the first
-  # agent command creates the only tab. --auto-connect also opens its own
-  # blank tab on attach, so attach via the fixed --cdp port instead.
+  # agent-browser's dedicated CDP Chromium (see scripts/agent-chrome.sh) and
+  # its lazy front door (scripts/agent-browser.sh). substituteAll swaps the
+  # store paths into the plain shell files.
+  agentChromeScript = pkgs.substituteAll {
+    src = ../scripts/agent-chrome.sh;
+    browser = "${pkgs.agent-browser}/bin/agent-browser";
+    chromium = "${pkgs.chromium}/bin/chromium";
+    setsid = "${pkgs.util-linux}/bin/setsid";
+  };
+  agentBrowserScript = pkgs.substituteAll {
+    src = ../scripts/agent-browser.sh;
+    browser = "${pkgs.agent-browser}/bin/agent-browser";
+    agent_chrome = "${agentChrome}/bin/agent-chrome";
+  };
   agentChrome = pkgs.writeShellScriptBin "agent-chrome" ''
-    set -eu
-
-    port=9222
-    profile="$HOME/.local/share/agent-chrome"
-    state="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/agent-browser"
-    real=${pkgs.agent-browser}/bin/agent-browser
-    # `ab` sets this to attach to the host's already-running dedicated
-    # browser instead of launching one inside the box.
-    cdp="''${AGENT_BROWSER_CDP:-}"
-    started=0
-
-    # Session name: needed for the tab binding and for disabling the
-    # per-session stream server afterwards.
-    sess="''${AGENT_BROWSER_SESSION:-default}"
-    prev=0
-    for a in "$@"; do
-      if [ "$prev" -eq 1 ]; then
-        sess="$a"
-        prev=0
-        continue
-      fi
-      case "$a" in
-        --session) prev=1 ;;
-        --session=*) sess="''${a#--session=}" ;;
-      esac
-    done
-
-    if [ -z "$cdp" ]; then
-      if ! (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
-        ${pkgs.util-linux}/bin/setsid -f ${pkgs.chromium}/bin/chromium \
-          --user-data-dir="$profile" \
-          --remote-debugging-port="$port" \
-          --no-startup-window \
-          --no-first-run \
-          --no-default-browser-check \
-          >/dev/null 2>&1
-        started=1
-      fi
-
-      i=0
-      until (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; do
-        i=$((i + 1))
-        if [ "$i" -gt 100 ]; then
-          echo "agent-chrome: Chromium never opened CDP port $port" >&2
-          exit 1
-        fi
-        sleep 0.1
-      done
-
-      if [ "$started" -eq 1 ]; then
-        # Fresh browser: every previous tab binding is dead, so drop the stale
-        # target files (the live daemons fall back on their own; no pin-tab).
-        rm -f "$state"/*.target
-      fi
-    fi
-
-    target="''${cdp:-$port}"
-    if [ "$started" -eq 0 ] && [ ! -e "$state/$sess.target" ]; then
-      # Already running (or attached): a session with no binding would
-      # otherwise make `open` navigate whatever tab is active. Give it its
-      # own tab.
-      "$real" --session "$sess" --cdp "$target" tab new >/dev/null 2>&1 || true
-    fi
-
-    rc=0
-    "$real" --cdp "$target" "$@" || rc=$?
-    # Streaming only feeds the (unused) observability dashboard; disable the
-    # session's stream server after each command so no random localhost port
-    # lingers. This also re-disables daemons that restarted between commands.
-    "$real" --session "$sess" --cdp "$target" stream disable >/dev/null 2>&1 || true
-    exit "$rc"
+    exec ${pkgs.bash}/bin/bash ${agentChromeScript} "$@"
   '';
-
-  # Lazy front door: starts agent-chrome on the first browser command, then
-  # hands off. Commands that never touch a page (skills/session/dashboard/
-  # install/close/...) skip the launch; an explicit --cdp/--auto-connect/
-  # connect means the caller manages the browser. AGENT_BROWSER_CDP (set by
-  # bashrc's `ab`) is handled in agent-chrome: attach, don't launch.
   agentBrowser = pkgs.writeShellScriptBin "agent-browser" ''
-    set -eu
-
-    real=${pkgs.agent-browser}/bin/agent-browser
-
-    sub=""
-    skip_value=0
-    direct=0
-    no_browser=0
-
-    for a in "$@"; do
-      if [ "$skip_value" -eq 1 ]; then
-        skip_value=0
-        continue
-      fi
-      case "$a" in
-        --cdp|--cdp=*|--auto-connect|--no-auto-connect|connect)
-          direct=1
-          ;;
-        --help|-h|--version|-V)
-          no_browser=1
-          ;;
-        --session|--profile|--headers|--executable-path|--args|--user-agent|--proxy|--proxy-bypass|--name|-n|--color-scheme|--provider|-p|--cdp-headers)
-          skip_value=1
-          ;;
-        -*)
-          ;;
-        *)
-          [ -z "$sub" ] && sub="$a"
-          ;;
-      esac
-    done
-
-    if [ "$direct" -eq 1 ] || [ "$no_browser" -eq 1 ]; then
-      exec "$real" "$@"
-    fi
-
-    case "$sub" in
-      ""|skills|session|dashboard|install|upgrade|doctor|close|stream)
-        exec "$real" "$@"
-        ;;
-    esac
-
-    exec ${agentChrome}/bin/agent-chrome "$@"
+    exec ${pkgs.bash}/bin/bash ${agentBrowserScript} "$@"
   '';
 in
 {
