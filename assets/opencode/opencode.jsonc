@@ -1,5 +1,5 @@
 {
-  // Managed by home-manager (hosts/nixos/opencode.jsonc) — theme and
+  // Managed by home-manager (assets/opencode/opencode.jsonc) — theme and
   // permissions are Nix policy; GUI/TUI theme-picker changes are
   // re-linked on next nyx.
   "$schema": "https://opencode.ai/config.json",

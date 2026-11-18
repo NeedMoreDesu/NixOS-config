@@ -179,7 +179,7 @@ in
       }
 
       # Thin top bar: one systemmonitor widget in a custom "textonly"-style
-      # face (hosts/nixos/ksysguard/sensorfaces/org.kde.mika.mutedtextonly)
+      # face (assets/plasma/ksysguard/sensorfaces/org.kde.mika.mutedtextonly)
       # shows all stats as label:value columns, then a spacer, then the clock
       # at the right end. Why custom: the stock textonly face hard-codes the
       # theme's bright text color, and ksystemstats only publishes
@@ -270,21 +270,21 @@ in
   # Seance keyboard policy + appearance, declarative. NOTE: seance's Settings
   # window writes ~/.config/seance/config.toml via temp-file+rename, which
   # replaces this symlink with a plain file — GUI changes are NOT persistent
-  # policy; make them in seance-config.toml and nyx (seance also has
+  # policy; make them in assets/seance/config.toml and nyx (seance also has
   # Ctrl+Shift+comma to live-reload its config).
-  xdg.configFile."seance/config.toml".source = ./seance-config.toml;
+  xdg.configFile."seance/config.toml".source = ../../assets/seance/config.toml;
   # `force`: the clobbered plain file is throw-away GUI state (repo is the
   # source of truth by design), so re-link over it on every activation
   # instead of letting home-manager abort the switch with a clobber error.
   xdg.configFile."seance/config.toml".force = true;
 
   # opencode TUI theme, declarative (aura — purple, pairs with seance's
-  # Monokai Soda). opencode.jsonc is policy; the agent-browser skill copy
+  # Monokai Soda). assets/opencode/opencode.jsonc is policy; the agent-browser skill copy
   # below is the one managed exception (tracked in ~/.nix_update_paths);
   # everything else under plugins/, skills/ and node_modules/ stays
   # user-local. `force` re-links over the old unmanaged file / any
   # theme-picker writes.
-  xdg.configFile."opencode/opencode.jsonc".source = ./opencode.jsonc;
+  xdg.configFile."opencode/opencode.jsonc".source = ../../assets/opencode/opencode.jsonc;
   xdg.configFile."opencode/opencode.jsonc".force = true;
 
   # agent-browser's core SKILL.md is copied out of the CLI package on every
@@ -307,14 +307,14 @@ in
   # muted label/value text plus a 10s rolling average for the network/disk
   # rate rows (the stock textonly face can do neither).
   xdg.dataFile."ksysguard/sensorfaces/org.kde.mika.mutedtextonly".source =
-    ./ksysguard/sensorfaces/org.kde.mika.mutedtextonly;
+    ../../assets/plasma/ksysguard/sensorfaces/org.kde.mika.mutedtextonly;
 
   # Top-bar Bluetooth battery stat (org.kde.mika.btbattery). Plasma5Support's
   # executable data source runs contents/tools/bt-battery.sh, which intersects
   # the BlueZ connected set with UPower's charge levels, so only current
   # Bluetooth peripherals show up (a Magic Keyboard on USB does not).
   xdg.dataFile."plasma/plasmoids/org.kde.mika.btbattery".source =
-    ./plasmoids/org.kde.mika.btbattery;
+    ../../assets/plasma/plasmoids/org.kde.mika.btbattery;
 
 
   # Emacs config is a git repo of its own: the Prelude fork on GitHub
@@ -350,7 +350,7 @@ in
   };
 
   # Login sweep enforcing maximized state for the REMAX app-id list in
-  # kwin-remax.js (seance): Wayland session restore drops the maximize flag,
+  # remax.js (seance): Wayland session restore drops the maximize flag,
   # so seance arrives unmaximized out of place; windows that DO arrive
   # maximized may have geometry computed BEFORE the panel struts (and our
   # on-login kscreen scale change) exist, so they extend under the left dock
@@ -361,7 +361,7 @@ in
   # here, measured: plain-JS timers need the interval PROPERTY + start();
   # setInterval slot is not exposed to QJSEngine).
   systemd.user.services.kwin-remax = let
-    script = ./kwin-remax.js;
+    script = ../../assets/kwin-remax/remax.js;
     runner = pkgs.writeShellScript "kwin-remax-run" ''
       set -e
       q=${pkgs.kdePackages.qttools}/bin/qdbus

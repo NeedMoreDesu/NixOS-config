@@ -1,4 +1,4 @@
-# Managed by home-manager (hosts/nixos/seance-config.toml) — edit there,
+# Managed by home-manager (assets/seance/config.toml) — edit there,
 # not with seance's Settings window (this file is a symlink into the store).
 
 [font]

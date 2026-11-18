@@ -1,6 +1,6 @@
 {
   # xremap: app-aware key remapping at the evdev layer (below XKB — see
-  # xremap.yml for the policy + layering notes).
+  # assets/xremap/xremap.yml for the policy + layering notes).
   services.xremap = {
     enable = true;
 
@@ -25,6 +25,6 @@
 
     # One file in the repo, not an attrset — easier to iterate by hand and
     # xremap can't live-reload anyway (restart the unit after edits).
-    yamlConfig = builtins.readFile ./xremap.yml;
+    yamlConfig = builtins.readFile ../assets/xremap/xremap.yml;
   };
 }

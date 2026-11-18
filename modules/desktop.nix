@@ -18,7 +18,7 @@
     # an upstream default change couldn't silently swap us to winkeys.
     # Alt+Space cycles layouts (xkb-native, so it already works in SDDM).
     # caps:ctrl_modifier removed 2026-11-08: the whole caps/ctrl/cmd cycle now
-    # lives in xremap's modmap (modules/xremap.yml); XKB only does layout
+    # lives in xremap's modmap (assets/xremap/xremap.yml); XKB only does layout
     # symbols here. Side effect: the SDDM greeter keyboard is now vanilla
     # (xremap is a session user service).
     layout = "gb-mac-grave,ua";
@@ -34,7 +34,7 @@
     extraLayouts.gb-mac-grave = {
       description = "English (UK, Macintosh) with grave instead of section";
       languages = [ "eng" ];
-      symbolsFile = ./xkb-gb-mac-grave;
+      symbolsFile = ../assets/desktop/gb-mac-grave;
     };
   };
 }
