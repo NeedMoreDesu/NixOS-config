@@ -48,7 +48,7 @@ in
     agentBrowser
     agentChrome
     # Namespace sandboxes for agent sessions (`box`, defined in
-    # hosts/nixos/bashrc.sh): project mode mounts only runtime dirs + $PWD +
+    # shell/box.sh): project mode mounts only runtime dirs + $PWD +
     # a random /tmp; -s/--system mounts / read-only plus a home allowlist.
     # bwrap is unprivileged, so no setuid helper.
     bubblewrap

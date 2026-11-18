@@ -5,8 +5,8 @@
 # Starts agent-chrome on the first browser command, then hands off. Commands
 # that never touch a page (skills/session/dashboard/install/close/...) skip
 # the launch; an explicit --cdp/--auto-connect/connect means the caller
-# manages the browser. AGENT_BROWSER_CDP (set by bashrc's `ab`) is handled in
-# agent-chrome: attach, don't launch.
+# manages the browser. AGENT_BROWSER_CDP (set by shell/agents.sh `ab`) is
+# handled in agent-chrome: attach, don't launch.
 set -eu
 
 real=@browser@
