@@ -6,17 +6,18 @@ Mode of operations for AI assistants: commit incrementally — each finished cha
 
 ## What this system is
 
-- NixOS unstable (`nixpkgs#nixos-unstable`), host `nixos`, single machine
+- NixOS unstable (`nixpkgs#nixos-unstable`), one configured host `nixos`
+  (flake is multi-host-ready: `nixosConfigurations.<name>` via `mkHost`)
 - KDE Plasma 6 + SDDM (Wayland), PipeWire, CUPS, NetworkManager, Bluetooth
 - User `mika`; AI CLIs (`opencode`, DeepSeek `dsh`) from numtide's llm-agents.nix
 - Emacs config = its own repo: a Prelude fork in `~/.emacs.d` (GitHub,
-  auto-cloned by home.nix on first activation)
+  auto-cloned by `home/emacs.nix` on first activation)
 
 ## How to rebuild
 
 ```
-nyx    # alias -> sudo bash ~/nixos_config/rebuild.sh
-       # runs: nixos-rebuild switch --flake ~/nixos_config#nixos,
+nyx    # shell/nyx.sh -> sudo bash ~/nixos_config/rebuild.sh --host "$NYX_HOST"
+       # runs: nixos-rebuild switch --flake ~/nixos_config#$HOST,
        # then restarts the xremap user unit (no live config reload
        # there; runuser + XDG_RUNTIME_DIR so systemctl --user reaches
        # MIKA's manager, not root's — a bad yml now surfaces loudly
@@ -67,6 +68,18 @@ GC. `nix-env` alone only unlinks generations.
 
 Update pins: `nix flake update <input>` (git needed; `sudo`-free shell may lack git until systemPackages rebuild lands — `nix-shell -p git` works). Rollback selected pins: `./scripts/flake-rollback.sh [ref]` (default: parent of the last lock commit) lists changed root inputs and restores the chosen ones via `nix flake lock --override-input`; it also lists the package holds. `--hold <pkg> [ref]` is the per-package rollback (re-pin nixpkgs-held to that ref's nixpkgs + add pkg to the hold list); `--release <pkg>` drops an entry — with an empty list, retire the nixpkgs-held input from flake.nix + HOLD_INPUTS.
 
+## Hosts vs shared config
+
+- `hosts/<name>/` is machine-specific: the composition root (`default.nix`),
+  generated `hardware-configuration.nix`, per-host shell shim
+  (`bashrc.sh`), and per-host user units (`kscreen.nix`). Nothing
+  auto-discovers it: `flake.nix` explicitly maps
+  `nixosConfigurations.<name> = mkHost "<name>"`.
+- Adding a host: create `hosts/<name>/`, add its `mkHost` entry, and give
+  its `bashrc.sh` the right `NYX_HOST` (its `nyx` builds that key).
+- `home/`, `modules/`, `assets/`, `shell/`, `scripts/` are shared and
+  imported by whichever host needs them.
+
 ## Agent browser
 
 `agent-browser` (nixpkgs; dashboard + skills embedded) drives a DEDICATED
@@ -99,24 +112,25 @@ unused, and those leftover ports were pure spam, so agent-chrome runs
 a command runs, never after it. `session` is in the browser-less skip list
 so `session id`/`info` do not start Chromium at all. `dashboard start` still
 exists but nothing starts it automatically.
-`ab` (bashrc) is the agent-browser session: project-mode opencode in
+`ab` (shell/agents.sh) is the agent-browser session: project-mode opencode in
 `~/ab_workspace`, on the host network (`box -n`) so it can attach to this
 Chromium. It exports `AGENT_BROWSER_CDP=9222`; agent-chrome honors that and
 attaches instead of launching a second browser (and still disables the
 stream). Remaining `ab` args are joined into one `--prompt`; no args opens
 the TUI without one. Do NOT run `agent-browser install` (that fetches an
 unpatched Chrome for Testing); the nixpkgs version updates with `nyx -u`.
-opencode skill: home.nix copies the CLI's version-matched `core` skill into
+opencode skill: home/opencode.nix copies the CLI's version-matched `core` skill into
 `~/.config/opencode/skills/agent-browser-core` on every activation (real
 files, not store symlinks; scripts/nix-copy-tree.sh records installed paths
 in `~/.nix_update_paths` and removes stale ones first). Only `core` is
 copied — its SKILL.md lists the specialized skills, which stay runtime-only
 (`agent-browser skills get <name>`).
 
-## Agent sandboxes (`hosts/nixos/bashrc.sh`)
+## Agent sandboxes (`shell/box.sh` + per-host `hosts/nixos/bashrc.sh`)
 
-`~/.bashrc` only sources `hosts/nixos/bashrc.sh`; `nyx`, `nyvibe`, `ab`,
-and the `box` bwrap launcher live in the repo. `box [cmd]` is project mode,
+`~/.bashrc` sources `hosts/nixos/bashrc.sh`, which sets `NYX_REPO`/`NYX_HOST`
+and sources `shell/{box,nyx,agents}.sh`; `nyx`, `nyvibe`, `ab`, and the `box`
+bwrap launcher live in the repo. `box [cmd]` is project mode,
 `box -s|--system [cmd]` is system mode; `cmd` defaults to `bash -i`.
 `-n|--network` keeps the host network namespace (needed for CDP); without
 it the box gets an egress-only pasta namespace (see below). `nyvibe` =
@@ -163,7 +177,7 @@ host's dedicated Chromium (see "Agent browser").
   box fails loudly at "Failed to open /dev/net/tun" instead of running
   without the network. `ab` uses `-n`, so it works without pasta.
 - opencode's own "outside the project" folder prompts are off
-  (hosts/nixos/opencode.jsonc): `permission.external_directory = allow`
+  (assets/opencode/opencode.jsonc): `permission.external_directory = allow`
   plus explicit `/tmp/*` edit allow — the sandbox is the boundary. V1
   shape (`permission`, value strings), NOT V2's `permissions` array:
   this opencode (1.19.5) hard-errors on V2 keys. Applies to sessions
@@ -181,9 +195,15 @@ flake.nix              inputs: nixpkgs, nixpkgs-held (frozen anchor for the
                        our closure), xremap-flake (github:xremap/nix-flake:
                        NixOS/HM module + its own pinned xremap build; NOT
                        following nixpkgs — same policy as llm-agents).
-                       Passed to modules via specialArgs.
-                       nixosSystem passes inputs to modules via specialArgs
-rebuild.sh             one-liner flake rebuild; -u runs scripts/flake-update.sh
+                       mkHost builds nixosConfigurations.<name> from
+                       hosts/<name>/default.nix; specialArgs adds
+                       hostName = <name>. Nothing auto-discovers hosts.
+rebuild.sh             one-liner flake rebuild; -H/--host NAME (defaults to
+                       NYX_HOST, then hostname -s); -u runs flake-update.sh
+shell/
+  box.sh               bwrap sandbox launcher + allowlists (shared)
+  nyx.sh               nyx() -> rebuild.sh --host $NYX_HOST
+  agents.sh            nyvibe + ab
 scripts/
   flake-update.sh      `nyx -u` updater: every root input except HOLD_INPUTS
                        (now only nixpkgs-held — the package-hold anchor);
@@ -220,109 +240,131 @@ scripts/
                        because xremap's user unit has a minimal one; the
                        shebang is the absolute bash for the same reason
                        (xremap passes the script as bash's argument).
+  agent-chrome.sh      dedicated CDP Chromium launcher for agent-browser
+                       (substituteAll supplies browser/chromium/setsid paths).
+  agent-browser.sh     lazy front door: starts agent-chrome only for page
+                       commands (substituteAll supplies the store paths).
+  bluetooth-reconnect.sh   paging loop for paired BT devices (service in
+                       modules/bluetooth.nix; substituteAll supplies bluez).
 hosts/nixos/
-  default.nix          host entry: imports modules + hardware-configuration.nix,
-                       system.stateVersion = "26.05" (NEVER bump, see comment)
+  default.nix          host entry: imports hardware + kscreen + modules,
+                       networking.hostName = "nixos", system.stateVersion =
+                       "26.05" (NEVER bump, see comment)
   hardware-configuration.nix   generated at install; machine-specific mounts
-   kwin-remax.js        login sweep loaded via KWin Scripting D-Bus by the
-                        kwin-remax user unit (home.nix): touches ONLY the
-                        REMAX app-id list (currently seance), Normal windows,
-                        once each - force-maximizes arrivals (Wayland restore
-                        drops the maximize flag) and re-applies maximize so
-                        geometry is computed after struts/kscreen settle.
-                        Matches on resourceClass (this KWin build has NO
-                        appId property - reads undefined); self-unloads
-                        after ~20s. See debugging note below.
-   plasmoids/org.kde.mika.btbattery/   custom top-bar applet: asks
-                        contents/tools/bt-battery.sh for `TYPE<TAB>PCT<TAB>NAME`
-                        lines and renders them as one label per device
-                        (K/M/H/...). Installed via xdg.dataFile; the script
-                        intersects `bluetoothctl devices Connected` with
-                        UPower (`serial`/`native-path` == MAC; wired HID
-                        keyboards stay out) plus a BlueZ Battery1 fallback.
-     home.nix             home-manager user config for mika (plasma-manager;
-                        left panel: keyboardlayout is a STANDALONE panel
-                        widget with displayStyle=flag — tray-nested widgets
-                        cannot be configured, plasma-manager items.configs
-                        is dead code upstream, issue #504. The tray DUPLICATE
-                        of keyboardlayout (2026-11-09): plasmashell's
-                        PlasmoidRegistry auto-nests EVERY applet with metadata
-                        EnabledByDefault + X-Plasma-NotificationAreaCategory
-                        (keyboardlayout = Hardware) regardless of panel
-                        declarations — GUI removal never sticks; exclusion is
-                        declared via systemTray.items.extra (= the extraItems
-                        list, now a 17-item allowlist WITHOUT keyboardlayout;
-                        knownItems still lists it, which keeps the registry
-                        from re-adding it at login).
-                        also clones ~/.emacs.d from the GitHub prelude fork
-                       on first activation — one-time setup, never touches
-                       the tree afterwards; upstream remote added for pulls.
-                        The emacs keyboard elisp lives in THAT repo.
-                        xdg.configFile manages ~/.config/seance/config.toml
-                        (seance-config.toml): keybinds are Nix policy —
-                        Cmd+T = new_column (vertical split), tabs come from
-                        the tab-bar + button/palette only; Ctrl+Shift+N =
-                        new workspace, Ctrl+Alt+N = new window. Seance's
-                        Settings window REPLACES the symlink when it saves
-                        (temp+rename) — GUI edits are not persistent policy.
-                         Dock pins (iconTasks `launchers`) are declared in the
-                         panel: seance -> librewolf -> sourcegit (the
-                         preferred://browser pin failed — pin real .desktop
-                         names); the task list is global: showTasks
-                         onlyInCurrentDesktop/onlyInCurrentActivity = false,
-                         so running apps stay in the dock on every virtual
-                         desktop/activity;
-                         plasma-manager applies them via a desktop script
-                         (xdg.dataFile plasma-manager/data/*.js, run at
-                         login autostart or `nyx -k` — NOT by the switch's
-                         own activation, it has no session bus; see the
-                         -k note above. GUI pin/drag lost on next nyx.)
-                        Top bar (2026-11-14): thin (30px) panel, location
-                        top. ONE org.kde.plasma.systemmonitor widget shows
-                        all stats as label:value columns: CPU
-                        (cpu/all/usage), GPU (gpu/all/usage, both GPUs
-                        aggregated), RAM (memory/physical/usedPercent),
-                        ↓/↑ (network all download/upload), R/W (disk
-                        read/write rates), DSK (disk/all/usedPercent =
-                        root disk space used, NOT load), then the
-                        org.kde.mika.btbattery applet (connected Bluetooth
-                        charge per device as type+value, e.g. "K 100% M
-                        100% H 90%"; UPower charge intersected with the
-                        BlueZ connected set, 30s refresh — see
-                        hosts/nixos/plasmoids/org.kde.mika.btbattery),
-                        then panelSpacer
-                        + digitalClock right (custom date format
-                        "dd MMM yyyy"). displayStyle is NOT the stock
-                        ksysguard textonly face: it is the local fork
-                        hosts/nixos/ksysguard/sensorfaces/
-                        org.kde.mika.mutedtextonly (installed via
-                        xdg.dataFile) because (a) stock textonly pins
-                        label/value text to the theme's bright color and
-                        (b) ksystemstats publishes only instantaneous
-                        500ms rates. The fork draws text in muted gray
-                        (#a8a8a8) and keeps a 10s rolling average for the
-                        four network/disk RATE rows (suffixes
-                        /download,/upload,/read,/write); percentages stay
-                        live. Sensor colors are the dim indicator
-                        accents, one distinct hue per row. Sensor IDs must
-                        be the ksystemstats paths — verify live:
-                        `qdbus org.kde.ksystemstats1 /org/kde/ksystemstats1
-                        allSensors` (needs `--literal`; qdbus without it
-                        can't print the hash type). plasma-manager's
-                        systemMonitor module requires color + label on
-                        EVERY sensor (no defaults upstream).
-                        Also copies agent-browser's core SKILL.md into
-                        ~/.config/opencode/skills on every activation
-                        (manifest ~/.nix_update_paths; see "Agent browser").
+  bashrc.sh            per-host shell entry: NYX_REPO/NYX_HOST + sources
+                       shell/{box,nyx,agents}.sh (~/.bashrc sources this)
+  kscreen.nix          per-host user unit: force 200% on HDMI-A-1
+home/                  shared home-manager config, one logical unit per file
+  default.nix          mika identity + imports of the units below
+  plasma.nix           programs.plasma: left panel + top bar (details below)
+  seance.nix           ~/.config/seance/config.toml -> assets/seance/config.toml
+  opencode.nix         opencode.jsonc + nix-copy-tree + agent-browser skill copy
+  emacs.nix            clone ~/.emacs.d from the GitHub prelude fork
+  kwin-remax.nix       KWin login sweep unit -> assets/kwin-remax/remax.js
+  plasma.nix details:  left panel: keyboardlayout is a STANDALONE panel
+                       widget with displayStyle=flag — tray-nested widgets
+                       cannot be configured, plasma-manager items.configs
+                       is dead code upstream, issue #504. The tray DUPLICATE
+                       of keyboardlayout (2026-11-09): plasmashell's
+                       PlasmoidRegistry auto-nests EVERY applet with metadata
+                       EnabledByDefault + X-Plasma-NotificationAreaCategory
+                       (keyboardlayout = Hardware) regardless of panel
+                       declarations — GUI removal never sticks; exclusion is
+                       declared via systemTray.items.extra (= the extraItems
+                       list, now a 17-item allowlist WITHOUT keyboardlayout;
+                       knownItems still lists it, which keeps the registry
+                       from re-adding it at login).
+                       Dock pins (iconTasks `launchers`) are declared in the
+                       panel: seance -> librewolf -> sourcegit (the
+                       preferred://browser pin failed — pin real .desktop
+                       names); the task list is global: showTasks
+                       onlyInCurrentDesktop/onlyInCurrentActivity = false,
+                       so running apps stay in the dock on every virtual
+                       desktop/activity;
+                       plasma-manager applies them via a desktop script
+                       (xdg.dataFile plasma-manager/data/*.js, run at
+                       login autostart or `nyx -k` — NOT by the switch's
+                       own activation, it has no session bus; see the
+                       -k note above. GUI pin/drag lost on next nyx.)
+                       Top bar (2026-11-14): thin (30px) panel, location
+                       top. ONE org.kde.plasma.systemmonitor widget shows
+                       all stats as label:value columns: CPU
+                       (cpu/all/usage), GPU (gpu/all/usage, both GPUs
+                       aggregated), RAM (memory/physical/usedPercent),
+                       ↓/↑ (network all download/upload), R/W (disk
+                       read/write rates), DSK (disk/all/usedPercent =
+                       root disk space used, NOT load), then the
+                       org.kde.mika.btbattery applet (connected Bluetooth
+                       charge per device as type+value, e.g. "K 100% M
+                       100% H 90%"; UPower charge intersected with the
+                       BlueZ connected set, 30s refresh — see
+                       assets/plasma/plasmoids/org.kde.mika.btbattery),
+                       then panelSpacer
+                       + digitalClock right (custom date format
+                       "dd MMM yyyy"). displayStyle is NOT the stock
+                       ksysguard textonly face: it is the local fork
+                       assets/plasma/ksysguard/sensorfaces/
+                       org.kde.mika.mutedtextonly (installed via
+                       xdg.dataFile) because (a) stock textonly pins
+                       label/value text to the theme's bright color and
+                       (b) ksystemstats publishes only instantaneous
+                       500ms rates. The fork draws text in muted gray
+                       (#a8a8a8) and keeps a 10s rolling average for the
+                       four network/disk RATE rows (suffixes
+                       /download,/upload,/read,/write); percentages stay
+                       live. Sensor colors are the dim indicator
+                       accents, one distinct hue per row. Sensor IDs must
+                       be the ksystemstats paths — verify live:
+                       `qdbus org.kde.ksystemstats1 /org/kde/ksystemstats1
+                       allSensors` (needs `--literal`; qdbus without it
+                       can't print the hash type). plasma-manager's
+                       systemMonitor module requires color + label on
+                       EVERY sensor (no defaults upstream).
+                       Seance keybinds are Nix policy in
+                       assets/seance/config.toml — Cmd+T = new_column
+                       (vertical split), tabs come from the tab-bar +
+                       button/palette only; Ctrl+Shift+N = new workspace,
+                       Ctrl+Alt+N = new window. Seance's Settings window
+                       REPLACES the symlink when it saves (temp+rename) —
+                       GUI edits are not persistent policy.
+                       opencode.nix also copies agent-browser's core
+                       SKILL.md into ~/.config/opencode/skills on every
+                       activation (manifest ~/.nix_update_paths; see
+                       "Agent browser").
+assets/                copied payloads, one dir per consuming unit
+  seance/config.toml
+  opencode/opencode.jsonc
+  kwin-remax/remax.js  login sweep loaded via KWin Scripting D-Bus by the
+                       kwin-remax user unit (home/kwin-remax.nix): touches
+                       ONLY the REMAX app-id list (currently seance), Normal
+                       windows, once each - force-maximizes arrivals (Wayland
+                       restore drops the maximize flag) and re-applies
+                       maximize so geometry is computed after struts/kscreen
+                       settle. Matches on resourceClass (this KWin build has
+                       NO appId property - reads undefined); self-unloads
+                       after ~20s. See debugging note below.
+  plasma/ksysguard/sensorfaces/org.kde.mika.mutedtextonly   custom top-bar
+                       systemmonitor face (see home/plasma.nix details)
+  plasma/plasmoids/org.kde.mika.btbattery/   custom top-bar applet: asks
+                       contents/tools/bt-battery.sh for `TYPE<TAB>PCT<TAB>NAME`
+                       lines and renders them as one label per device
+                       (K/M/H/...). Installed via xdg.dataFile; the script
+                       intersects `bluetoothctl devices Connected` with
+                       UPower (`serial`/`native-path` == MAC; wired HID
+                       keyboards stay out) plus a BlueZ Battery1 fallback.
+  desktop/gb-mac-grave XKB symbols for modules/desktop.nix
+  xremap/xremap.yml    keyboard policy for modules/xremap.nix
+  mac-keys/keyd.conf   keyd policy for modules/mac-keys.nix
 modules/               one topic per file:
   boot.nix             systemd-boot + EFI, configurationLimit 20
-  networking.nix       hostname, NetworkManager; tun module (pasta's tap)
+  networking.nix       NetworkManager; tun module (pasta's tap). Hostname
+                       lives in hosts/<host>/default.nix.
   locale.nix           Europe/Dublin, en_IE, console keymap ie
   desktop.nix          Plasma 6, SDDM (HiDPI on), xkb layouts: gb-mac-grave +
                        ua(unicode) with Alt+Space cycling (grp:alt_space_toggle;
                         xkb-native so it works in SDDM too). KWin's per-layout
-                        actions get Meta+Alt+1/2 via home.nix `shortcuts`.
-                         home.nix `shortcuts` also owns a kwin block (2026-11-09):
+                        actions get Meta+Alt+1/2 via home/plasma.nix `shortcuts`.
+                         home/plasma.nix `shortcuts` also owns a kwin block (2026-11-09):
                          Meta+Left/Right = switch desktop, Meta+Up/Down =
                          maximize/restore, Meta+Tab = Overview (the switcher's
                          default secondary Meta+Tab/Meta+Shift+Tab bindings are
@@ -349,7 +391,7 @@ modules/               one topic per file:
                          title-bar middle button's toggle is Window Maximize
                          (MaximizeOp), which Meta+Up already carries.
                        gb-mac-grave = gb(mac) with the §/± key (left
-                       of 1) overridden to grave/asciitilde (modules/xkb-gb-mac-grave),
+                       of 1) overridden to grave/asciitilde (assets/desktop/gb-mac-grave),
                         so xremap's `F13-grave -> Alt-grave` (Cmd+`) reaches KWin as
                                                  a real grave keysym instead of typing §. gb-mac-grave
                          is otherwise plain gb(mac) again; right-cmd Hyper
@@ -361,7 +403,7 @@ modules/               one topic per file:
                        Slavic Cyrillics; key left of 1 types ' directly).
                        KWin names its per-layout switch actions from the symbols
                        name[Group1], not the evdev.xml description — keep the
-                       home.nix shortcut keys in sync with those strings.
+                       home/plasma.nix shortcut keys in sync with those strings.
   mac-keys.nix         keyd as a MINIMAL sidecar under xremap + the
                        hid_apple.fnmode=2 kernel param (top row = F keys,
                        brightness/sound on Fn). keyd keeps exactly its
@@ -415,7 +457,7 @@ modules/               one topic per file:
                        the SDDM greeter gets vanilla keys + keyd's hold-layer
                         only. No live config reload: nyx restarts the unit
                         itself after a successful switch.
-  xremap.yml           the keyboard policy, at the evdev layer BELOW XKB (see the
+  assets/xremap/xremap.yml   the keyboard policy, at the evdev layer BELOW XKB (see the
                        layering note under debugging). modmap blocks are
                         first-match per key: EMACS block first (app regex
                          MUST be (?i) — KWin reports class 'Emacs' and
@@ -487,12 +529,12 @@ modules/               one topic per file:
                        `nyx` also caps gens to the last 10 and collects after
                        each successful switch
   llm-agents.nix       numtide cache (binary substituter) + opencode + dsh
-  home-manager.nix     HM wiring: useGlobalPkgs, users.mika -> hosts/nixos/home.nix
+  home-manager.nix     HM wiring: useGlobalPkgs, users.mika -> ../home
 ```
 
 ## Things that took debugging
 
-- **4K scaling at 200%**: `kdeglobals ScaleFactor` does nothing on Wayland; kscreen owns per-output scale. `home.nix` re-asserts via on-login unit `kscreen-doctor output.HDMI-A-1.scale.2` + `kwinrc Xwayland.Scale=2`. If Display KCM shows a different %, kscreen profile is winning — adjust in GUI or the service.
+- **4K scaling at 200%**: `kdeglobals ScaleFactor` does nothing on Wayland; kscreen owns per-output scale. `hosts/nixos/kscreen.nix` re-asserts via on-login user unit `kscreen-doctor output.HDMI-A-1.scale.2` + `kwinrc Xwayland.Scale=2`. If Display KCM shows a different %, kscreen profile is winning — adjust in GUI or the service.
 - **Bluetooth peripherals dead at boot**: BlueZ doesn't page paired devices after adapter start. `bluetooth-reconnect` service pages *every* paired device until all show `Connected: yes`. Paging is async per device — one background `bluetoothctl connect` job each (BlueZ queues the pages itself), max 8 attempts per device so a powered-off one doesn't drag the loop; a serial connect would stall everything behind the first unresponsive device. Runs `Type=simple`: activation waits for oneshot start jobs, which used to block `nyx` for minutes. Devices themselves are fine — they accept paging while asleep. Caveat: in-range headphones get pulled in too.
 - **Cmd+` dead + stray § key**: gb/mac types §/± on the key left of 1 (keycode 41). keyd fired `grave = A-grave` on that *keycode*, so it sort-of worked, but only because KWin matches the combo by keysym. Fixed at the layout level: extraLayouts.gb-mac-grave includes gb(mac) and overrides <TLDE> to grave/asciitilde. Note gb/mac also has ` / ~ on the key left of Z (<LSGT>) — left alone, so ` exists twice. Verify with `xkbcli compile-keymap --layout gb-mac-grave --test` after pointing XKB_CONFIG_ROOT at xkb.dir.
 - **New group membership + the user manager**: adding mika to input/uinput groups doesn't
@@ -573,7 +615,7 @@ modules/               one topic per file:
   clients come back UNMAXIMIZED — seance arrived max=0 out of place every
   login, invisible to the original remax sweep (it only toggles windows that
   are already maximized; nothing "remembers" seance's state between logouts).
-  Fix = REMAX app-id list in kwin-remax.js: the sweep only touches listed
+  Fix = REMAX app-id list in assets/kwin-remax/remax.js: the sweep only touches listed
   windows (Normal type), force-maximizing arrivals and re-applying maximize
   where needed; everything else is left alone (blanket re-max was dropped
   2026-11-09 — unlisted windows place fine on their own). To inspect window state live: load a dump

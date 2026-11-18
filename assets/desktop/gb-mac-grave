@@ -15,5 +15,5 @@ xkb_symbols "gb-mac-grave" {
     // (2026-11-08: the right-cmd Hyper experiment lived here briefly —
     // KEY_MACRO/I120 bound to Hyper_L + modifier_map Mod3. Replaced by
     // the upstream caps:hyper XKB option; see modules/desktop.nix and
-    // the emacs block in modules/xremap.yml.)
+    // the emacs block in assets/xremap/xremap.yml.)
 };

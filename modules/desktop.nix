@@ -25,7 +25,7 @@
     variant = ",unicode";
     # caps:hyper: CapsLock keycode -> Hyper_L keysym + Hyper_L in Mod3's
     # keysym set (hyper(mod3)) — the Emacs-side half of the right-cmd
-    # Hyper; the emacs block in xremap.yml routes right cmd (arriving as
+    # Hyper; the emacs block in assets/xremap/xremap.yml routes right cmd (arriving as
     # Menu, see mac-keys.nix) to CapsLock. Replaces the key outright: no
     # caps-lock toggle survives. Side effect: in the SDDM greeter (no
     # xremap) the physical caps key is Hyper, not lock.
