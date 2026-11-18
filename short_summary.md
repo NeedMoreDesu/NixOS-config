@@ -241,11 +241,11 @@ scripts/
                        shebang is the absolute bash for the same reason
                        (xremap passes the script as bash's argument).
   agent-chrome.sh      dedicated CDP Chromium launcher for agent-browser
-                       (substituteAll supplies browser/chromium/setsid paths).
+                       (replaceVars supplies browser/chromium/setsid paths).
   agent-browser.sh     lazy front door: starts agent-chrome only for page
-                       commands (substituteAll supplies the store paths).
+                       commands (replaceVars supplies the store paths).
   bluetooth-reconnect.sh   paging loop for paired BT devices (service in
-                       modules/bluetooth.nix; substituteAll supplies bluez).
+                       modules/bluetooth.nix; replaceVars supplies bluez).
 hosts/nixos/
   default.nix          host entry: imports hardware + kscreen + modules,
                        networking.hostName = "nixos", system.stateVersion =

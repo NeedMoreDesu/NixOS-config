@@ -5,16 +5,14 @@ let
   hostSystem = pkgs.stdenv.hostPlatform.system;
 
   # agent-browser's dedicated CDP Chromium (see scripts/agent-chrome.sh) and
-  # its lazy front door (scripts/agent-browser.sh). substituteAll swaps the
+  # its lazy front door (scripts/agent-browser.sh). replaceVars swaps the
   # store paths into the plain shell files.
-  agentChromeScript = pkgs.substituteAll {
-    src = ../scripts/agent-chrome.sh;
+  agentChromeScript = pkgs.replaceVars ../scripts/agent-chrome.sh {
     browser = "${pkgs.agent-browser}/bin/agent-browser";
     chromium = "${pkgs.chromium}/bin/chromium";
     setsid = "${pkgs.util-linux}/bin/setsid";
   };
-  agentBrowserScript = pkgs.substituteAll {
-    src = ../scripts/agent-browser.sh;
+  agentBrowserScript = pkgs.replaceVars ../scripts/agent-browser.sh {
     browser = "${pkgs.agent-browser}/bin/agent-browser";
     agent_chrome = "${agentChrome}/bin/agent-chrome";
   };

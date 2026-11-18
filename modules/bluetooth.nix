@@ -1,9 +1,8 @@
 { pkgs, ... }:
 let
   # The paging loop and its rationale live in scripts/bluetooth-reconnect.sh;
-  # substituteAll only swaps in the bluez path.
-  reconnectScript = pkgs.substituteAll {
-    src = ../scripts/bluetooth-reconnect.sh;
+  # replaceVars only swaps in the bluez path.
+  reconnectScript = pkgs.replaceVars ../scripts/bluetooth-reconnect.sh {
     bluetoothctl = "${pkgs.bluez}/bin/bluetoothctl";
   };
 in
