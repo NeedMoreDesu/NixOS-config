@@ -15,6 +15,7 @@
     ../../modules/nix.nix
     ../../modules/packages.nix
     ../../modules/printing.nix
+    ../../modules/syncthing.nix
     ../../modules/users.nix
     ../../modules/xremap.nix
   ];
