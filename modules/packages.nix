@@ -40,6 +40,7 @@ in
     sourcegit
     godot
     krita
+    keepassxc
     librewolf
     # Chromium is the CDP target for agent-browser (not a daily browser).
     chromium
