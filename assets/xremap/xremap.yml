@@ -113,6 +113,11 @@ keymap:
       # keyd consumes them upstream. Arrows/home/end and space DELIBERATELY
       # absent (fall through to the generic block: Cmd+space keeps doing
       # the Alt+F2 run dialog — better than any chord).
+      # F1/F2 ALSO absent on purpose: the whole F1-F12 range would reach
+      # Emacs as s-<fN>, and s-F1/s-F2 are unbound there (Cmd+F1/F2 did
+      # nothing). They now fall through to the generic Alt-Super-1/2 =
+      # KWin layout switch, matching every other app. F3-F12 keep the
+      # s-F<n> scheme (harmless; F3+ are not layout-switch keys).
       F13-a: [F14, a]
       F13-b: [F14, b]
       F13-c: [F14, c]
@@ -149,8 +154,6 @@ keymap:
       F13-7: [F14, "7"]
       F13-8: [F14, "8"]
       F13-9: [F14, "9"]
-      F13-F1: [F14, F1]
-      F13-F2: [F14, F2]
       F13-F3: [F14, F3]
       F13-F4: [F14, F4]
       F13-F5: [F14, F5]
