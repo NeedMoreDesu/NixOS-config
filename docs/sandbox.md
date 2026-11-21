@@ -108,3 +108,19 @@ Separately, each agent-browser session daemon opened a random loopback
 WebSocket stream port for the unused dashboard; agent-chrome now disables the
 session stream after every page command (see
 [agent browser](agent-browser.md)).
+
+## Inherited seance/zmx env (2026-11-21)
+
+A box launched from a seance pane inherits `SEANCE_SOCKET_PATH`,
+`ZMX_SESSION`, the `SEANCE_*` pane vars, and (non-GUI) `DISPLAY`/
+`WAYLAND_DISPLAY`/`XAUTHORITY`. Default system mode is safe: `/run/user/$UID`
+is masked, so `seance ctl` reports "socket not found", zmx resolves to
+`/tmp/zmx-1000` while the host uses `/run/user/$UID/zmx`, and X/Wayland auth
+is unreachable. It is **not** a new hole today.
+
+It becomes one with `BOX_GUI=1`, which binds all of `/run/user/$UID` rw and
+leaves those vars intact: `seance ctl split`/`send` then drives the host
+seance (host shell), and a bare `zmx attach` uses the inherited
+`ZMX_SESSION` (host shell). `nyvibe`/`ab` never set `BOX_GUI`, so it is an
+unused opt-in — treat it as trusted-only. If hardening later: always unset
+`SEANCE_*`/`ZMX_*`, and `--tmpfs` the `seance`/`zmx` subdirs even with GUI.

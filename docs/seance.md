@@ -35,3 +35,10 @@ because 1.0.1 aborts on daemon shutdown; see [pins](pins.md#why-zmx-is-held).
 The `seance` app id is part of the REMAX login sweep
 (see [plasma](plasma.md#login-maximize-sweep-homekwin-remaxnix)) and has a
 terminal keymap block in xremap (see [keyboard](keyboard.md)).
+
+## Sandbox
+
+Boxes launched from a seance pane inherit `SEANCE_SOCKET_PATH`/`ZMX_SESSION`.
+Default mode masks the sockets (safe); `BOX_GUI=1` exposes them and lets the
+box drive the host seance/zmx. See
+[sandbox](sandbox.md#inherited-seancezmx-env-2026-11-21).
