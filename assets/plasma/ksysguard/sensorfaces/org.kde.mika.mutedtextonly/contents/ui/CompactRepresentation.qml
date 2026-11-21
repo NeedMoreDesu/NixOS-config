@@ -4,9 +4,14 @@
  * Differences from upstream:
  *  - the label/value text uses a fixed muted gray instead of the theme's
  *    bright text color;
+ *  - related sensors can be grouped into one row (CPU usage + temperature,
+ *    GPU usage + VRAM + temperature, RAM used/total, download/upload,
+ *    read/write), and used/total pairs render as one value;
+ *  - the colored indicator can be hidden; otherwise there is one indicator
+ *    per row, not one per sensor;
  *  - network and disk RATE rows (download/upload/read/write) are shown as
  *    a 10-second rolling average. ksystemstats only publishes instantaneous
- *    rates (500ms deltas), so the averaging happens here, in the delegate.
+ *    rates (500ms deltas), so the averaging happens here.
  *
  * SPDX-FileCopyrightText: 2019 Marco Martin <mart@kde.org>
  * SPDX-FileCopyrightText: 2019 David Edmundson <davidedmundson@kde.org>
@@ -15,17 +20,11 @@
  */
 
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 
 import org.kde.kirigami as Kirigami
 
-import org.kde.ksysguard.sensors as Sensors
 import org.kde.ksysguard.faces as Faces
-import org.kde.ksysguard.formatter as Formatter
-
-import org.kde.quickcharts as Charts
-import org.kde.quickcharts.controls as ChartsControls
 
 
 Faces.CompactSensorFace {
@@ -49,12 +48,62 @@ Faces.CompactSensorFace {
     readonly property bool useSmallFont: (horizontalFormFactor && height < defaultMetrics.lineSpacing + 2) || (verticalFormFactor && width < defaultMetrics.averageCharacterWidth * 6 + Kirigami.Units.smallSpacing)
     readonly property real lineHeight: useSmallFont ? smallMetrics.lineSpacing : defaultMetrics.lineSpacing
 
+    readonly property bool groupSensors: root.controller.faceConfiguration.groupSensors ?? false
+    readonly property bool showIndicators: root.controller.faceConfiguration.showIndicators ?? true
+
+    // Group consecutive sensors that belong together. The suffix rules match
+    // the ksystemstats sensor names used by the top bar; anything else (for
+    // example disk/all/usedPercent) stays in its own row.
+    function groupKey(id) {
+        if (id.endsWith("/usage") || id.endsWith("/temperature")) {
+            return id.split("/")[0]
+        }
+        if (id.endsWith("/usedVram") || id.endsWith("/totalVram")) {
+            return id.split("/")[0]
+        }
+        if (id.endsWith("/used") || id.endsWith("/total")) {
+            return id.split("/")[0]
+        }
+        if (id.endsWith("/download") || id.endsWith("/upload")) {
+            return "network"
+        }
+        if (id.endsWith("/read") || id.endsWith("/write")) {
+            return "disk"
+        }
+        return id
+    }
+
+    readonly property var sensorGroups: {
+        const ids = root.controller.highPrioritySensorIds
+        if (!root.groupSensors) {
+            const singles = []
+            for (let i = 0; i < ids.length; ++i) {
+                singles.push([ids[i]])
+            }
+            return singles
+        }
+
+        const groups = []
+        let lastKey = ""
+        for (let i = 0; i < ids.length; ++i) {
+            const id = ids[i]
+            const key = groupKey(id)
+            if (groups.length > 0 && key === lastKey && key !== id) {
+                groups[groups.length - 1].push(id)
+            } else {
+                groups.push([id])
+                lastKey = key
+            }
+        }
+        return groups
+    }
+
     clip: true
 
     contentItem: GridLayout {
         id: layout
 
-        columnSpacing: Kirigami.Units.smallSpacing
+        columnSpacing: Kirigami.Units.smallSpacing * 2
         rowSpacing: 1
 
         flow: GridLayout.TopToBottom
@@ -76,75 +125,15 @@ Faces.CompactSensorFace {
 
         Repeater {
             id: repeater
-            model: root.controller.highPrioritySensorIds
+            model: root.sensorGroups
 
-            MutedLegendDelegate {
-                id: legend
-
-                Layout.fillWidth: true
-                Layout.minimumWidth: root.horizontalFormFactor ? minimumWidth : Kirigami.Units.gridUnit
-                Layout.preferredWidth: root.horizontalFormFactor ? preferredWidth : minimumWidth
-                Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
-
-                readonly property int averageWindowMs: 10000
-                readonly property bool averaged: legend.isRateSensor(modelData)
-                property var samples: []
-                property real averageValue: NaN
-
-                function isRateSensor(id) {
-                    if (!id) {
-                        return false
-                    }
-                    return id.endsWith("/download") || id.endsWith("/upload")
-                        || id.endsWith("/read") || id.endsWith("/write")
-                }
-
-                function sample() {
-                    const v = Number(sensor.value)
-                    if (!isFinite(v)) {
-                        return
-                    }
-                    const now = Date.now()
-                    legend.samples.push({ t: now, v: v })
-                    while (legend.samples.length > 0 && now - legend.samples[0].t > legend.averageWindowMs) {
-                        legend.samples.shift()
-                    }
-                    let sum = 0
-                    for (let i = 0; i < legend.samples.length; ++i) {
-                        sum += legend.samples[i].v
-                    }
-                    legend.averageValue = sum / legend.samples.length
-                }
-
-                name: root.controller.sensorLabels[modelData] || sensor.name
-                shortName: root.controller.sensorLabels[modelData] || sensor.shortName
-                value: (legend.averaged && isFinite(legend.averageValue))
-                    ? Formatter.Formatter.formatValue(legend.averageValue, sensor.unit)
-                    : sensor.formattedValue
-                color: root.colorSource.map[modelData]
-                textColor: "#a8a8a8"
-
-                font: root.useSmallFont ? Kirigami.Theme.smallFont : Kirigami.Theme.defaultFont
-
-                maximumValueWidth: Formatter.Formatter.maximumLength(sensor.unit, root.useSmallFont ? Kirigami.Theme.smallFont : Kirigami.Theme.defaultFont)
-
-                ToolTip.visible: false
-
-                Component.onCompleted: contentItem.children[1].opacity = Qt.binding(() => contentItem.children[1].width > 0 ? 1 : 0)
-
-                Sensors.Sensor {
-                    id: sensor
-                    sensorId: modelData
-                    updateRateLimit: root.controller.updateRateLimit
-                }
-
-                Timer {
-                    interval: 500
-                    repeat: true
-                    running: legend.averaged
-                    triggeredOnStart: true
-                    onTriggered: legend.sample()
-                }
+            MutedGroupDelegate {
+                sensorIds: modelData
+                sensorLabels: root.controller.sensorLabels
+                showIndicator: root.showIndicators
+                updateRateLimit: root.controller.updateRateLimit
+                textFont: root.useSmallFont ? Kirigami.Theme.smallFont : Kirigami.Theme.defaultFont
+                indicatorColor: root.colorSource.map[modelData[0]] ?? "#a8a8a8"
             }
         }
     }

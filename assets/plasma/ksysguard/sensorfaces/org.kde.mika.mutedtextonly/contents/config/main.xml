@@ -9,5 +9,11 @@
         <entry name="groupByTotal" type="Bool">
             <default>false</default>
         </entry>
+        <entry name="groupSensors" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="showIndicators" type="Bool">
+            <default>true</default>
+        </entry>
     </group>
 </kcfg>
