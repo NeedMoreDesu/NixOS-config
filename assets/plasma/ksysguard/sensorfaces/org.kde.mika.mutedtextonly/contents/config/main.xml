@@ -10,7 +10,7 @@
             <default>false</default>
         </entry>
         <entry name="groupSensors" type="Bool">
-            <default>false</default>
+            <default>true</default>
         </entry>
         <entry name="showIndicators" type="Bool">
             <default>true</default>
