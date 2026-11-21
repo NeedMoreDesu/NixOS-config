@@ -1,18 +1,19 @@
 # Embeddings (EmbeddingGemma 2, llama.cpp ROCm)
 
-**Status: planned, not implemented** (2026-11-21). This is the handoff plan
-for a fresh session. The decision is locked: **llama.cpp + ROCm + Q8_0 now**;
+**Status: files implemented, activation pending** (2026-11-21). `nix eval`
+of the toplevel succeeds; `nyx`, the model fetch, and the smoke tests have
+not run yet. The decision is locked: **llama.cpp + ROCm + Q8_0 now**;
 vLLM/SGLang only when video embeddings are actually needed.
 
 ## TL;DR checklist
 
-- [ ] `modules/embeddings.nix` — `hardware.graphics.enable`, `rocminfo`/`rocm-smi`.
-- [ ] `hosts/nixos/default.nix` — import `../../modules/embeddings.nix`.
-- [ ] `modules/users.nix` — add `video` and `render` to `mika`'s groups.
-- [ ] `home/embeddings.nix` — ROCm llama.cpp package, fetch wrapper, user service.
-- [ ] `home/default.nix` — import `./embeddings.nix`.
-- [ ] `scripts/fetch-embeddinggemma2.sh` — pinned Q8 text + Q8 mmproj, sha256-checked.
-- [ ] `git add` the new files (the flake only sees staged/committed files), then `nyx`.
+- [x] `modules/embeddings.nix` — `hardware.graphics.enable`, `rocminfo`/`rocm-smi`.
+- [x] `hosts/nixos/default.nix` — import `../../modules/embeddings.nix`.
+- [x] `modules/users.nix` — add `video` and `render` to `mika`'s groups.
+- [x] `home/embeddings.nix` — ROCm llama.cpp package, fetch wrapper, user service.
+- [x] `home/default.nix` — import `./embeddings.nix`.
+- [x] `scripts/fetch-embeddinggemma2.sh` — pinned Q8 text + Q8 mmproj, sha256-checked.
+- [x] `git add` the new files (the flake only sees staged/committed files); `nyx` still to run.
 - [ ] Fetch the model, start `llama-embed`, smoke-test text + image + audio.
 - [ ] Only then consider vLLM/SGLang for video (deferred; see below).
 

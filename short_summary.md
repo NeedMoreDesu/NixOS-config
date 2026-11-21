@@ -44,7 +44,7 @@ live session. See [rebuild](docs/rebuild.md) and
 | [agent browser](docs/agent-browser.md) | Dedicated CDP Chromium, `ab`, skill copy. |
 | [sandbox](docs/sandbox.md) | `box` project/system modes, pasta network, secrets. |
 | [packages](docs/packages.md) | System packages, Steam, LLM CLIs, Syncthing. |
-| [embeddings](docs/embeddings.md) | Planned llama.cpp ROCm embedding server (EmbeddingGemma 2 Q8), omni input; vLLM/SGLang for video later. |
+| [embeddings](docs/embeddings.md) | llama.cpp ROCm embedding server (EmbeddingGemma 2 Q8), omni input; activation pending; vLLM/SGLang for video later. |
 
 `docs/history/` holds setups that are no longer present:
 [Bluetooth paging](docs/history/bluetooth-reconnect.md),
