@@ -362,9 +362,9 @@ box() {
       printf 'box: BOX_HOST_PORT must be a TCP port number\n' >&2
       return 2
     fi
-    # Explicit 127.0.0.1 on both sides: pasta rejects a dual-stack
-    # wildcard listener that targets an IPv4 address.
-    host_forward=(-T "127.0.0.1/${BOX_HOST_PORT}:127.0.0.1/${BOX_HOST_PORT}")
+    # -T is loopback-only by design: it takes no listening address, and
+    # the splice path preserves the guest's 127.0.0.1 destination.
+    host_forward=(-T "${BOX_HOST_PORT}")
   fi
   if [ "$network" -eq 0 ]; then
     net=(pasta -f --config-net --no-map-gw --no-splice --quiet \

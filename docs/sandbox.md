@@ -53,8 +53,8 @@ attaching to the host's dedicated Chromium (see
   configured with `--no-map-gw --no-splice -t none -u none -T none -U none`,
   so host loopback (CDP 9222, agent-browser streams, CUPS, systemd varlink)
   is unreachable while DNS/HTTPS still work. `-n` keeps the host netns for
-  the agent browser. `BOX_HOST_PORT=PORT` replaces `-T none` with
-  `-T 127.0.0.1/PORT:127.0.0.1/PORT`, a single guest→host-loopback TCP hole
+  the agent browser. `BOX_HOST_PORT=PORT` replaces `-T none` with `-T PORT`
+  (same port on host loopback), a single guest→host-loopback TCP hole
   (`nyvibe` defaults it to 8088 for llama-embed). `-n` bypasses pasta, so
   the variable has no effect there.
 - Needs the `tun` module (`modules/networking.nix`); udev already ships the
