@@ -163,15 +163,19 @@
 
       # Thin top bar: one systemmonitor widget in a custom "textonly"-style
       # face (assets/plasma/ksysguard/sensorfaces/org.kde.mika.mutedtextonly)
-      # shows all stats as label:value columns, then a spacer, then the clock
-      # at the right end. Why custom: the stock textonly face hard-codes the
-      # theme's bright text color, and ksystemstats only publishes
-      # instantaneous 500ms rates. The fork draws label+value in muted gray
-      # and rolls a 10s average for the network/disk RATE rows
-      # (download/upload/read/write); percentages stay live. Labels via
-      # SensorLabels; sensor IDs verified live against ksystemstats:
-      # `qdbus org.kde.ksystemstats1 /org/kde/ksystemstats1 allSensors`.
-      # Colors are the dim indicator accents (distinct hue per row).
+      # shows related stats as grouped rows, then a separator and the
+      # Bluetooth charge widget, then a spacer and the clock at the right
+      # end. Why custom: the stock textonly face hard-codes the theme's
+      # bright text color, and ksystemstats only publishes instantaneous
+      # 500ms rates. The fork draws label+value in muted gray, rolls a 10s
+      # average for the network/disk RATE rows (download/upload/read/write),
+      # groups related sensors into one row, and renders used/total pairs
+      # (RAM, VRAM) as "used / total". Labels via SensorLabels; sensor IDs
+      # verified live against ksystemstats:
+      # `qdbus --literal org.kde.ksystemstats1 /org/kde/ksystemstats1 allSensors`.
+      # On this host gpu0 is the discrete Navi 48 (RX 9070) and gpu1 is the
+      # Granite Ridge iGPU; the GPU row uses gpu0 so usage, VRAM and
+      # temperature all refer to the same device.
       {
         location = "top";
         height = 30;
@@ -181,6 +185,8 @@
             systemMonitor = {
               displayStyle = "org.kde.mika.mutedtextonly";
               # color is a REQUIRED submodule option here (no default).
+              # Empty labels append the value to the row without a label
+              # (temperatures, and the total half of a used/total pair).
               sensors = [
                 {
                   name = "cpu/all/usage";
@@ -188,13 +194,38 @@
                   color = "110,140,150";
                 }
                 {
-                  name = "gpu/all/usage";
+                  name = "cpu/all/maximumTemperature";
+                  label = "";
+                  color = "110,140,150";
+                }
+                {
+                  name = "gpu/gpu0/usage";
                   label = "GPU";
                   color = "130,120,150";
                 }
                 {
-                  name = "memory/physical/usedPercent";
+                  name = "gpu/gpu0/usedVram";
+                  label = "";
+                  color = "130,120,150";
+                }
+                {
+                  name = "gpu/gpu0/totalVram";
+                  label = "";
+                  color = "130,120,150";
+                }
+                {
+                  name = "gpu/gpu0/temperature";
+                  label = "";
+                  color = "130,120,150";
+                }
+                {
+                  name = "memory/physical/used";
                   label = "RAM";
+                  color = "115,145,115";
+                }
+                {
+                  name = "memory/physical/total";
+                  label = "";
                   color = "115,145,115";
                 }
                 {
@@ -223,8 +254,18 @@
                   color = "140,140,140";
                 }
               ];
+              # Face config (org.kde.mika.mutedtextonly/General): one row per
+              # related group, and no colored indicator at the row start.
+              settings = {
+                "org.kde.mika.mutedtextonly/General" = {
+                  groupSensors = true;
+                  showIndicators = false;
+                };
+              };
             };
           }
+          # Separator between the system stats and the Bluetooth charge widget.
+          "org.kde.plasma.marginsseparator"
           # Connected Bluetooth device charge, one label per device by type
           # (K keyboard, M mouse, H headphones; see the applet's
           # contents/tools/bt-battery.sh). Own applet because ksystemstats
