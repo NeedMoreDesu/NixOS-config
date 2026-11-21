@@ -10,6 +10,8 @@
 #                      lists. /dev/kfd (ROCm) is bound; ~/models is
 #                      visible read-only.
 #
+# Both modes expose ~/Pictures/Screenshots read-only.
+#
 # The command defaults to `bash -i`. The home lists are policy: add only
 # what the agent actually needs. Secrets are absent by default, which is
 # the point - no blacklist to keep in sync as tools add new files.
@@ -149,6 +151,12 @@ _BOX_PROJECT_RO=(
   .nix-profile
   .nix-defexpr
   .local/bin
+)
+
+# User data exposed read-only in BOTH modes. Screenshots are inputs for UI
+# work; the agent may read them but must not overwrite/delete them.
+_BOX_SHARED_RO=(
+  Pictures/Screenshots
 )
 
 # Opt-in only: known credential stores, read-only (BOX_SECRETS=1). Read-only
@@ -336,6 +344,11 @@ box() {
       flags+=(--ro-bind-try "$HOME/$p" "$HOME/$p")
     done
   fi
+
+  # User data shared by both modes (read-only).
+  for p in "${_BOX_SHARED_RO[@]}"; do
+    flags+=(--ro-bind-try "$HOME/$p" "$HOME/$p")
+  done
 
   if [ "${BOX_SECRETS:-0}" -eq 1 ]; then
     local p

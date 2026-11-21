@@ -30,7 +30,8 @@ attaching to the host's dedicated Chromium (see
 - `HOME` is a tmpfs rebuilt from `_BOX_SYSTEM_RW/RO`:
   - writable: opencode + nix state, `~/temp`;
   - read-only: KDE/kate/emacs/seance settings, `~/models` (local model
-    weights; the agent may load them, not replace the pins);
+    weights; the agent may load them, not replace the pins),
+    `~/Pictures/Screenshots` (UI inputs; see `_BOX_SHARED_RO`);
   - absent: everything else (`.ssh`, browsers, `.dsh`, keyrings, cloud
     credentials, histories).
 - `/run/user` (D-Bus, Wayland, SSH agent, KWallet, KWin Scripting) is masked
@@ -46,8 +47,8 @@ attaching to the host's dedicated Chromium (see
 
 - No host root or home. Only `/nix/store`, `/run/current-system`, `/etc`,
   `/usr`, `/bin`, `/lib64`, `/sys`, a fresh `/dev` + `/proc`, `$PWD` rw,
-  `~/temp` rw (shared), and ONE random `/tmp/box.*` bound to `/tmp` (deleted
-  on exit).
+  `~/temp` rw (shared), `~/Pictures/Screenshots` ro (shared with system
+  mode), and ONE random `/tmp/box.*` bound to `/tmp` (deleted on exit).
 - PID/IPC/UTS unshared; further user namespaces disabled.
 - Network is egress-only by default: `pasta` supplies a tap/NAT namespace
   configured with `--no-map-gw --no-splice -t none -u none -T none -U none`,
