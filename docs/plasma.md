@@ -35,20 +35,28 @@ lost on the next `nyx`.
 
 A thin (30px) panel at the top (2026-11-14):
 
-- **One** `org.kde.plasma.systemmonitor` widget shows all stats as
-  `label:value` columns:
+- **One** `org.kde.plasma.systemmonitor` widget shows related stats as
+  grouped rows (2026-11-21):
 
-  | Label | Sensor |
-  | --- | --- |
-  | CPU | `cpu/all/usage` |
-  | GPU | `gpu/all/usage` (both GPUs aggregated) |
-  | RAM | `memory/physical/usedPercent` |
-  | ↓/↑ | network `all` download/upload |
-  | R/W | disk read/write rates |
-  | DSK | `disk/all/usedPercent` (root disk space used, **not** load) |
+  | Row | Sensors | Example |
+  | --- | --- | --- |
+  | CPU | `cpu/all/usage` + `cpu/all/maximumTemperature` | `CPU 12% 55 °C` |
+  | GPU | `gpu/gpu0/usage` + `gpu/gpu0/usedVram` + `gpu/gpu0/totalVram` + `gpu/gpu0/temperature` | `GPU 7% 3.2 / 15.9 GiB 41 °C` |
+  | RAM | `memory/physical/used` + `memory/physical/total` | `RAM 8.7 / 30.5 GiB` |
+  | ↓/↑ | `network/all/download` + `network/all/upload` | `↓ 1.2 MiB/s ↑ 0.3 MiB/s` |
+  | R/W | `disk/all/read` + `disk/all/write` | `R 4.0 MiB/s W 2.0 MiB/s` |
+  | DSK | `disk/all/usedPercent` (root disk space used, **not** load) | `DSK 46%` |
 
-- Then the `org.kde.mika.btbattery` applet: connected Bluetooth charge per
-  device as type+value, e.g. `K 100% M 100% H 90%`. It asks
+  On this host `gpu0` is the discrete Navi 48 (RX 9070) and `gpu1` is the
+  Granite Ridge iGPU; the GPU row deliberately uses `gpu0` so usage, VRAM
+  and temperature all refer to the same device. Used/total pairs are the
+  preferred RAM/VRAM format; the face shows the single value if a total is
+  unavailable. Verify sensor IDs live:
+  `qdbus --literal org.kde.ksystemstats1 /org/kde/ksystemstats1 allSensors`.
+
+- Then `org.kde.plasma.marginsseparator` (2026-11-21), then the
+  `org.kde.mika.btbattery` applet: connected Bluetooth charge per
+  device as type+value, e.g. `Battery: K 100% M 100% H 90%`. It asks
   `contents/tools/bt-battery.sh` for `TYPE<TAB>PCT<TAB>NAME` lines and
   intersects `bluetoothctl devices Connected` with UPower
   (`serial`/`native-path` == MAC; wired HID keyboards stay out), with a
@@ -64,15 +72,21 @@ local fork `assets/plasma/ksysguard/sensorfaces/org.kde.mika.mutedtextonly`
 - stock `textonly` pins label/value text to the theme's bright color;
 - ksystemstats publishes only instantaneous 500ms rates.
 
-The fork draws text in muted gray (`#a8a8a8`) and keeps a 10s rolling
-average for the four network/disk **rate** rows (suffixes `/download`,
-`/upload`, `/read`, `/write`); percentages stay live. Sensor colors are the
-dim indicator accents, one distinct hue per row.
+The fork draws text in muted gray (`#a8a8a8`), groups related sensors into
+one row, and keeps a 10s rolling average for the four network/disk **rate**
+rows (suffixes `/download`, `/upload`, `/read`, `/write`); percentages stay
+live. Used/total pairs (`*/used` + `*/total`, `*/usedVram` + `*/totalVram`)
+render as one `used / total` value. The colored indicator is one per row and
+can be hidden; the top bar sets `showIndicators = false` and
+`groupSensors = true` in the face's `General` config group via
+plasma-manager's `systemMonitor.settings`, so metrics are separated by
+spacing only. Sensor colors are still declared (plasma-manager requires
+them) but are unused while indicators are off.
 
 Sensor IDs must be the ksystemstats paths. Verify live:
 
 ```
-qdbus org.kde.ksystemstats1 /org/kde/ksystemstats1 allSensors
+qdbus --literal org.kde.ksystemstats1 /org/kde/ksystemstats1 allSensors
 ```
 
 (needs `--literal`; qdbus without it cannot print the hash type).
