@@ -4,11 +4,12 @@
   # fallback and normal desktop acceleration do.
   hardware.graphics.enable = true;
 
-  # The agent box drops supplementary groups, so membership in render/video
-  # is not enough there. logind's uaccess ACL keeps /dev/kfd usable by the
-  # logged-in user (and the box) without making it world-writable.
+  # bwrap drops supplementary groups, so membership in render/video does not
+  # help inside the box. Give mika ownership of /dev/kfd so both the user
+  # service and the box (same host uid) can open it, without making it
+  # world-writable.
   services.udev.extraRules = ''
-    SUBSYSTEM=="kfd", KERNEL=="kfd", TAG+="uaccess"
+    SUBSYSTEM=="kfd", KERNEL=="kfd", OWNER="mika", MODE="0600"
   '';
 
   # Verification tools for the embedding service. The actual llama.cpp

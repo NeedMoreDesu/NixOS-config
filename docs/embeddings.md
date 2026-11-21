@@ -349,7 +349,7 @@ Inside the box, `llama-server --list-devices` should show `ROCm0`, and
 `curl 127.0.0.1:8088/health` should reach the host service. If the service
 is down, start a temporary in-box server on 8099 with the same arguments
 and `--n-gpu-layers 99`; remember `ffmpeg` on `PATH` for image input.
-The `SUBSYSTEM=="kfd", TAG+="uaccess"` udev rule in
+The `SUBSYSTEM=="kfd", OWNER="mika", MODE="0600"` udev rule in
 `modules/embeddings.nix` is what lets the group-dropping box open
 `/dev/kfd`. Set `BOX_HOST_PORT=` to disable the forward.
 
