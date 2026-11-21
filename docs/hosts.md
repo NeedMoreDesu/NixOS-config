@@ -6,7 +6,8 @@
   - `hardware-configuration.nix` — generated at install; machine-specific
     mounts and `nixpkgs.hostPlatform`.
   - `bashrc.sh` — per-host shell shim, sourced by `~/.bashrc`; sets
-    `NYX_REPO`/`NYX_HOST` and sources `shell/{box,nyx,agents}.sh`.
+    `NYX_REPO`/`NYX_HOST`, host box defaults such as `BOX_DEFAULT_PORTS`,
+    and sources `shell/{box,nyx,agents}.sh`.
   - per-host user units such as `kscreen.nix`.
 - Nothing auto-discovers hosts. `flake.nix` explicitly maps
   `nixosConfigurations.<name> = mkHost "<name>"`, where `mkHost` builds from

@@ -13,8 +13,10 @@
 # Both modes expose ~/Pictures/Screenshots read-only.
 #
 # -p|--port PORT may be repeated and/or given a comma-separated list; each
-# port is a host-loopback TCP hole into the egress-only pasta namespace
-# (and nothing else). `-n` bypasses pasta, so ports have no effect there.
+# port adds a host-loopback TCP hole into the egress-only pasta namespace
+# (and nothing else). BOX_DEFAULT_PORTS (host policy, comma-separated) is
+# forwarded first; `-p` appends to it. `-n` bypasses pasta, so ports have no
+# effect there.
 #
 # The command defaults to `bash -i`. The home lists are policy: add only
 # what the agent actually needs. Secrets are absent by default, which is
@@ -205,6 +207,7 @@ _box_guard_pwd() {
 box() {
   local mode=project network=0
   local -a port_specs=()
+  [ -n "${BOX_DEFAULT_PORTS:-}" ] && port_specs+=("$BOX_DEFAULT_PORTS")
   while :; do
     case "${1:-}" in
       -s|--system)
@@ -394,7 +397,11 @@ box() {
         printf 'box: %s must be a TCP port number\n' "$port" >&2
         return 2
       fi
-      port_list="${port_list:+$port_list,}$((10#$port))"
+      port=$((10#$port))
+      case ",$port_list," in
+        *",$port,"*) continue ;;
+      esac
+      port_list="${port_list:+$port_list,}$port"
     done
   done
   # -T is loopback-only by design: it takes no listening address, and the
