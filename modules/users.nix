@@ -3,7 +3,7 @@
   users.users."mika" = {
     isNormalUser = true;
     description = "mika";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [ "networkmanager" "wheel" "video" "render" ];
     packages = with pkgs; [
       kdePackages.kate
       emacs

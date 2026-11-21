@@ -5,6 +5,7 @@
     ./opencode.nix
     ./emacs.nix
     ./kwin-remax.nix
+    ./embeddings.nix
   ];
 
   home.username = "mika";

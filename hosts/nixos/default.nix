@@ -6,6 +6,7 @@
     ../../modules/bluetooth.nix
     ../../modules/boot.nix
     ../../modules/desktop.nix
+    ../../modules/embeddings.nix
     ../../modules/held-packages.nix
     ../../modules/home-manager.nix
     ../../modules/llm-agents.nix
