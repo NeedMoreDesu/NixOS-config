@@ -72,6 +72,14 @@ PlasmoidItem {
             anchors.verticalCenter: parent.verticalCenter
             spacing: Kirigami.Units.smallSpacing * 2
 
+            Label {
+                visible: root.devices.length > 0
+                text: "Battery:"
+                color: root.textColor
+                font: Kirigami.Theme.defaultFont
+                verticalAlignment: Text.AlignVCenter
+            }
+
             Repeater {
                 model: root.devices
 
