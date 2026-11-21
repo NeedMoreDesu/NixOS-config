@@ -76,12 +76,11 @@ The fork draws text in muted gray (`#a8a8a8`), groups related sensors into
 one row, and keeps a 10s rolling average for the four network/disk **rate**
 rows (suffixes `/download`, `/upload`, `/read`, `/write`); percentages stay
 live. Used/total pairs (`*/used` + `*/total`, `*/usedVram` + `*/totalVram`)
-render as one `used / total` value. The colored indicator is one per row and
-can be hidden; the face defaults `groupSensors` to true, and the top bar
-additionally sets `showIndicators = false` in the face's `General` config
-group via plasma-manager's `systemMonitor.settings`, so metrics are separated
-by spacing only. Sensor colors are still declared (plasma-manager requires
-them) but are unused while indicators are off.
+render as one `used / total` value. The colored indicator is one per row (not
+one per sensor); the face defaults `groupSensors` to true, and the top bar
+sets `groupSensors = true` and `showIndicators = true` in the face's
+`General` config group via plasma-manager's `systemMonitor.settings`. Sensor
+colors are the dim indicator accents, one distinct hue per row.
 
 Sensor IDs must be the ksystemstats paths. Verify live:
 

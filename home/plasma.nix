@@ -255,11 +255,11 @@
                 }
               ];
               # Face config (org.kde.mika.mutedtextonly/General): one row per
-              # related group, and no colored indicator at the row start.
+              # related group, with the colored indicator at the row start.
               settings = {
                 "org.kde.mika.mutedtextonly/General" = {
                   groupSensors = true;
-                  showIndicators = false;
+                  showIndicators = true;
                 };
               };
             };
