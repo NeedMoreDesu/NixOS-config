@@ -15,7 +15,11 @@ REPO="${NYX_REPO:-$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")}"
 # -r: reboot once the switch succeeds (use after changes that only apply
 # on a fresh boot/session, e.g. xkb layout swaps).
 # -l: end the graphical session after a successful switch instead of
-# rebooting (KWin re-reads kglobalshortcutsrc/xkb at session start).
+# rebooting (KWin re-reads kglobalshortcutsrc/xkb at session start). It
+# first runs the plasma-manager runner while the session is still healthy:
+# the panels script deletes appletsrc BEFORE talking to plasmashell, so
+# leaving a changed layout to the login autostart can lose the panels if
+# that autostart races plasmashell (2026-11-21: default bottom panel).
 # Plasma 6.8's ksmserver no longer exposes a logout slot on
 # org.kde.KSMServerInterface; the replacement is the activatable
 # org.kde.Shutdown service (plasma-shutdown) on the user's session bus:
@@ -144,6 +148,15 @@ fi
 # -r wins over -l (a reboot logs the session out anyway)
 if $logout_after && ! $reboot_after; then
   logout_user="${SUDO_USER:-mika}"
+
+  # Apply the new plasma-manager generation while the current session is
+  # healthy, so the next login's autostart is a no-op (the stamp is set).
+  # Non-fatal: worst case the config applies at next login.
+  runuser -u "$logout_user" -- \
+    env XDG_RUNTIME_DIR="/run/user/$(id -u "$logout_user")" \
+    sh -c '"$HOME/.local/share/plasma-manager/run_all.sh"' \
+    || echo "nyx -l: plasma-manager runner failed or absent - config applies at next login" >&2
+
   runuser -u "$logout_user" -- \
     env XDG_RUNTIME_DIR="/run/user/$(id -u "$logout_user")" \
     qdbus org.kde.Shutdown /Shutdown logout

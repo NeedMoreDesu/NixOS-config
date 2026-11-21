@@ -22,14 +22,19 @@ place.
 | --- | --- |
 | `-u`, `--update` | Run the flake update first (see [pins](pins.md)). |
 | `-r`, `--reboot` | Reboot after a successful switch. Wins if combined with `-l`. |
-| `-l`, `--logout` | End the KDE session instead of rebooting. |
+| `-l`, `--logout` | Apply the Plasma config, then end the KDE session instead of rebooting. |
 | `-k`, `--kde` | Re-apply the Plasma config to the *live* session (skipped if `-l`/`-r` is also given). |
 
 ### `-l/--logout`
 
-Runs `qdbus org.kde.Shutdown /Shutdown logout` as the user. Plasma 6.8
-dropped the old ksmserver logout slot, so `plasma-shutdown` is the supported
-path; the session ends from inside, letting SDDM return to the greeter.
+First runs `~/.local/share/plasma-manager/run_all.sh` as the user (same
+runner as `-k`), then `qdbus org.kde.Shutdown /Shutdown logout`. Applying
+the layout while the session is healthy stamps the generated scripts, so
+the next login's autostart is a no-op instead of racing plasmashell; see
+[the login autostart race](plasma.md#login-autostart-race-breaks-panels-and-apps-2026-11-21).
+Plasma 6.8 dropped the old ksmserver logout slot, so `plasma-shutdown` is
+the supported path; the session ends from inside, letting SDDM return to the
+greeter.
 
 Do **not** use `loginctl terminate-user`: with SDDM 0.21 the HUP-killed
 `sddm-helper` reads as exit 1 = `HELPER_AUTH_ERROR` and the greeter never
