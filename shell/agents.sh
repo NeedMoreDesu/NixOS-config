@@ -6,6 +6,37 @@ nyvibe() {
   ( cd "$NYX_REPO" && box -s -p 8088 opencode --prompt "read short_summary.md" "$@" )
 }
 
+# opencode in a box. Parses the box flags -s/--system, -n/--network and
+# -p/--port before the command; everything after `--` (or the first other
+# argument) goes to opencode. `oc -s` is system mode: host root read-only
+# with the system allowlists (~/models ro, /dev/kfd) plus any -p holes.
+# Use `oc -- -s SESSION` to reach opencode's own -s/--session flag.
+oc() {
+  local -a box_flags=()
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -s|--system|-n|--network)
+        box_flags+=("$1")
+        shift
+        ;;
+      -p|--port)
+        if [ "$#" -lt 2 ]; then
+          printf 'oc: %s needs a port\n' "$1" >&2
+          return 2
+        fi
+        box_flags+=("$1" "$2")
+        shift 2
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *) break ;;
+    esac
+  done
+  box "${box_flags[@]}" opencode "$@"
+}
+
 # Agent-browser session: project-mode opencode with the host network so the
 # agent-browser skill can drive the host's dedicated Chromium (CDP 9222).
 # Results live in a stable workspace outside the repo. Remaining args are the

@@ -1,8 +1,8 @@
 # Agent sandboxes (`shell/box.sh`)
 
 `~/.bashrc` sources `hosts/nixos/bashrc.sh`, which sets `NYX_REPO`/`NYX_HOST`
-and sources `shell/{box,nyx,agents}.sh`. The `nyx`, `nyvibe`, `ab` and `box`
-launchers live in the repo.
+and sources `shell/{box,nyx,agents}.sh`. The `nyx`, `nyvibe`, `oc`, `ab` and
+`box` launchers live in the repo.
 
 `box [flags] [cmd]` is **project mode**; `box -s|--system [flags] [cmd]` is
 **system mode**; `cmd` defaults to `bash -i`.
@@ -12,6 +12,8 @@ the box gets an egress-only pasta namespace. `-p|--port PORT` (repeatable, or
 comma-separated) opens that host-loopback TCP port to the box.
 
 `nyvibe` = `box -s opencode` with the short_summary prompt and `-p 8088`.
+`oc [box flags] [--] [opencode args]` runs opencode in a box on the current
+directory; `oc -s` selects system mode.
 `ab [prompt...]` = project-mode opencode in `~/ab_workspace` with `-n`,
 attaching to the host's dedicated Chromium (see
 [agent browser](agent-browser.md)).
