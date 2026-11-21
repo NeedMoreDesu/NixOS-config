@@ -1,0 +1,99 @@
+# Agent sandboxes (`shell/box.sh`)
+
+`~/.bashrc` sources `hosts/nixos/bashrc.sh`, which sets `NYX_REPO`/`NYX_HOST`
+and sources `shell/{box,nyx,agents}.sh`. The `nyx`, `nyvibe`, `ab` and `box`
+launchers live in the repo.
+
+`box [cmd]` is **project mode**; `box -s|--system [cmd]` is **system mode**;
+`cmd` defaults to `bash -i`.
+
+`-n|--network` keeps the host network namespace (needed for CDP); without it
+the box gets an egress-only pasta namespace.
+
+`nyvibe` = `box -s opencode` with the short_summary prompt.
+`ab [prompt...]` = project-mode opencode in `~/ab_workspace` with `-n`,
+attaching to the host's dedicated Chromium (see
+[agent browser](agent-browser.md)).
+
+## System mode (`box -s`)
+
+- `/` read-only.
+- Fresh minimal `/dev` (no `/dev/input`, so the input group cannot snoop).
+- Host `/tmp` read-write (shared; systemd-tmpfiles cleans it after 10 days).
+- Private `/dev/shm`.
+- PID/IPC/UTS unshared: host `/proc`, cmdlines, signals and SysV IPC are
+  invisible.
+- Host journal (`/var/log/journal`, `/run/log/journal`) masked.
+- `$PWD` writable.
+- `HOME` is a tmpfs rebuilt from `_BOX_SYSTEM_RW/RO`:
+  - writable: opencode + nix state, `~/temp`;
+  - read-only: KDE/kate/emacs/seance settings;
+  - absent: everything else (`.ssh`, browsers, `.dsh`, keyrings, cloud
+    credentials, histories).
+- `/run/user` (D-Bus, Wayland, SSH agent, KWallet, KWin Scripting) is masked
+  unless `BOX_GUI=1`.
+- Refuses a `$PWD` that is (or is an ancestor of) a special mount/masked
+  path: `$HOME`, `/tmp`, `/dev`, `/dev/shm`, `/proc`, `/sys`,
+  `/var/log/journal`, `/run/log/journal`, `/run/user/$UID` — the workspace
+  bind is last and would otherwise undo the mask.
+
+## Project mode (`box`)
+
+- No host root or home. Only `/nix/store`, `/run/current-system`, `/etc`,
+  `/usr`, `/bin`, `/lib64`, `/sys`, a fresh `/dev` + `/proc`, `$PWD` rw,
+  `~/temp` rw (shared), and ONE random `/tmp/box.*` bound to `/tmp` (deleted
+  on exit).
+- PID/IPC/UTS unshared; further user namespaces disabled.
+- Network is egress-only by default: `pasta` supplies a tap/NAT namespace
+  configured with `--no-map-gw --no-splice -t none -u none -T none -U none`,
+  so host loopback (CDP 9222, agent-browser streams, CUPS, systemd varlink)
+  is unreachable while DNS/HTTPS still work. `-n` keeps the host netns for
+  the agent browser.
+- Needs the `tun` module (`modules/networking.nix`); udev already ships the
+  `/dev/net/tun` 0666 rule.
+- Compilers come from the store. `_BOX_PROJECT_RW` whitelists per-user build
+  caches (cargo registry, go build/mod, npm/bun/pnpm/yarn, pip/uv,
+  maven/gradle, cabal, ccache/sccache, ...) and `_BOX_PROJECT_RO` toolchain
+  state. `~/temp` is the shared rw scratch/log handoff. Credential files next
+  to those caches (`.cargo/credentials.toml`, `.m2/settings.xml`, `.npmrc`,
+  ...) stay unmounted.
+- `BOX_SECRETS=1` read-only-binds `.ssh`/`.gnupg`/cloud/gh/dsh.
+
+`bubblewrap` and `passt` are in `modules/packages.nix`.
+
+opencode's own `auth.json` must stay visible for provider calls — the
+boundary covers everything outside the allowlist.
+
+After the `tun` module is added, run `nyx -r` (or `sudo modprobe tun`) once;
+before that every default-mode box fails loudly at "Failed to open
+/dev/net/tun" instead of running without the network. `ab` uses `-n`, so it
+works without pasta.
+
+## opencode permissions
+
+opencode's own "outside the project" folder prompts are off
+(`assets/opencode/opencode.jsonc`): `permission.external_directory = allow`
+plus an explicit `/tmp/*` edit allow — the sandbox is the boundary.
+
+This is the **V1** shape (`permission`, value strings), NOT V2's
+`permissions` array: opencode 1.19.5 hard-errors on V2 keys. It applies to
+sessions outside `box` too, since the config is global.
+
+## Why the namespaces (escape surface, 2026-11-15)
+
+System mode used to keep the host PID, IPC and network namespaces.
+`/proc/<host-pid>/root` (the real `$HOME`, including `.ssh`) was gated only
+by `kernel.yama.ptrace_scope=1`; host cmdlines, mountinfo, the journal and
+SysV shm were readable, and signals reached host processes. Shared localhost
+reach also exposed the dedicated Chromium's CDP (`file://` reads and download
+writes as mika).
+
+Fix: `--unshare-pid/--unshare-ipc/--unshare-uts`, private `/dev/shm`,
+journal masked, and an egress-only pasta netns (`--no-map-gw --no-splice`);
+`-n` keeps the host netns for `ab`/CDP. pasta needs the `tun` module
+(`modules/networking.nix`).
+
+Separately, each agent-browser session daemon opened a random loopback
+WebSocket stream port for the unused dashboard; agent-chrome now disables the
+session stream after every page command (see
+[agent browser](agent-browser.md)).
