@@ -229,6 +229,9 @@ in
       ];
       Restart = "on-failure";
       RestartSec = 2;
+      # llama.cpp shells out to ffprobe/ffmpeg to decode images and audio
+      # for the mmproj; without it embeddings fail with HTTP 500.
+      Environment = [ "PATH=${pkgs.lib.makeBinPath [ pkgs.ffmpeg ]}" ];
     };
 
     Install.WantedBy = [ "default.target" ];
@@ -245,6 +248,9 @@ Notes:
 - `--parallel 1` avoids splitting the context across slots. Do not raise it
   without checking memory and the bidirectional batch requirement.
 - `-ngl 99` offloads all layers. The mmproj is offloaded by default.
+- `ffmpeg` is on the service `PATH` because llama.cpp shells out to
+  `ffprobe`/`ffmpeg` to decode image and audio input. Without it, media
+  embeddings fail with HTTP 500 (`failed to launch ffprobe`).
 - The service is a **user** service and starts at login. If it never starts,
   the model files are missing (condition) or the user manager has not
   re-read the unit.

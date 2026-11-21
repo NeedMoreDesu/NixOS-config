@@ -49,6 +49,9 @@ in
       ];
       Restart = "on-failure";
       RestartSec = 2;
+      # llama.cpp shells out to ffprobe/ffmpeg to decode images and audio
+      # for the mmproj; without it embeddings fail with HTTP 500.
+      Environment = [ "PATH=${pkgs.lib.makeBinPath [ pkgs.ffmpeg ]}" ];
     };
 
     Install.WantedBy = [ "default.target" ];
