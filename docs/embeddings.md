@@ -336,6 +336,23 @@ If the service is already enabled by home-manager, `systemctl --user start
 llama-embed` is enough. `ConditionPathExists` means a missing model makes
 the unit skip; fetch first, then start.
 
+### Agent box access
+
+`nyvibe` (`box -s`) now exposes exactly what this service needs:
+
+- `/dev/kfd` bound for ROCm compute (`/dev/dri` was already there).
+- `~/models` read-only, so the pinned GGUF files are visible but cannot be
+  replaced by the agent.
+- `BOX_HOST_PORT=8088` forwarded guest→host loopback via pasta.
+
+Inside the box, `llama-server --list-devices` should show `ROCm0`, and
+`curl 127.0.0.1:8088/health` should reach the host service. If the service
+is down, start a temporary in-box server on 8099 with the same arguments
+and `--n-gpu-layers 99`; remember `ffmpeg` on `PATH` for image input.
+The `SUBSYSTEM=="kfd", TAG+="uaccess"` udev rule in
+`modules/embeddings.nix` is what lets the group-dropping box open
+`/dev/kfd`. Set `BOX_HOST_PORT=` to disable the forward.
+
 ## Smoke tests
 
 ### 1. Health and capability
