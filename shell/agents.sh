@@ -1,8 +1,10 @@
 # Agent session launchers. Shared across hosts.
 
 # System-mode opencode in the repo with the short_summary prompt.
+# BOX_HOST_PORT defaults to 8088 so the box can use the llama-embed
+# service on host loopback; set it empty to disable or to another port.
 nyvibe() {
-  ( cd "$NYX_REPO" && box -s opencode --prompt "read short_summary.md" "$@" )
+  ( cd "$NYX_REPO" && BOX_HOST_PORT="${BOX_HOST_PORT-8088}" box -s opencode --prompt "read short_summary.md" "$@" )
 }
 
 # Agent-browser session: project-mode opencode with the host network so the

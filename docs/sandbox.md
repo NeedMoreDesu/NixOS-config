@@ -18,7 +18,9 @@ attaching to the host's dedicated Chromium (see
 ## System mode (`box -s`)
 
 - `/` read-only.
-- Fresh minimal `/dev` (no `/dev/input`, so the input group cannot snoop).
+- Fresh minimal `/dev` (no `/dev/input`, so the input group cannot snoop),
+  then host `/dev/dri` (render nodes) and `/dev/kfd` (ROCm compute) are
+  bound in.
 - Host `/tmp` read-write (shared; systemd-tmpfiles cleans it after 10 days).
 - Private `/dev/shm`.
 - PID/IPC/UTS unshared: host `/proc`, cmdlines, signals and SysV IPC are
@@ -27,11 +29,14 @@ attaching to the host's dedicated Chromium (see
 - `$PWD` writable.
 - `HOME` is a tmpfs rebuilt from `_BOX_SYSTEM_RW/RO`:
   - writable: opencode + nix state, `~/temp`;
-  - read-only: KDE/kate/emacs/seance settings;
+  - read-only: KDE/kate/emacs/seance settings, `~/models` (local model
+    weights; the agent may load them, not replace the pins);
   - absent: everything else (`.ssh`, browsers, `.dsh`, keyrings, cloud
     credentials, histories).
 - `/run/user` (D-Bus, Wayland, SSH agent, KWallet, KWin Scripting) is masked
   unless `BOX_GUI=1`.
+- Network is egress-only pasta; `BOX_HOST_PORT` forwards one host-loopback
+  TCP port (`nyvibe` defaults it to 8088 for llama-embed).
 - Refuses a `$PWD` that is (or is an ancestor of) a special mount/masked
   path: `$HOME`, `/tmp`, `/dev`, `/dev/shm`, `/proc`, `/sys`,
   `/var/log/journal`, `/run/log/journal`, `/run/user/$UID` — the workspace
@@ -48,7 +53,10 @@ attaching to the host's dedicated Chromium (see
   configured with `--no-map-gw --no-splice -t none -u none -T none -U none`,
   so host loopback (CDP 9222, agent-browser streams, CUPS, systemd varlink)
   is unreachable while DNS/HTTPS still work. `-n` keeps the host netns for
-  the agent browser.
+  the agent browser. `BOX_HOST_PORT=PORT` replaces `-T none` with
+  `-T PORT:127.0.0.1/PORT`, a single guest→host-loopback TCP hole
+  (`nyvibe` defaults it to 8088 for llama-embed). `-n` bypasses pasta, so
+  the variable has no effect there.
 - Needs the `tun` module (`modules/networking.nix`); udev already ships the
   `/dev/net/tun` 0666 rule.
 - Compilers come from the store. `_BOX_PROJECT_RW` whitelists per-user build
@@ -91,7 +99,10 @@ writes as mika).
 Fix: `--unshare-pid/--unshare-ipc/--unshare-uts`, private `/dev/shm`,
 journal masked, and an egress-only pasta netns (`--no-map-gw --no-splice`);
 `-n` keeps the host netns for `ab`/CDP. pasta needs the `tun` module
-(`modules/networking.nix`).
+(`modules/networking.nix`). The deliberate exceptions are `/dev/kfd` for
+ROCm, read-only `~/models`, and the single `BOX_HOST_PORT` loopback port
+(default 8088 for llama-embed); none of those expose the host filesystem,
+D-Bus or the journal.
 
 Separately, each agent-browser session daemon opened a random loopback
 WebSocket stream port for the unused dashboard; agent-chrome now disables the

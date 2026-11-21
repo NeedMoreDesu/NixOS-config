@@ -7,13 +7,16 @@
 # box -s|--system [cmd] system mode: / read-only, $PWD + host /tmp +
 #                      ~/temp writable, HOME rebuilt from the settings
 #                      allowlist plus the project build-cache/toolchain
-#                      lists.
+#                      lists. /dev/kfd (ROCm) is bound; ~/models is
+#                      visible read-only.
 #
 # The command defaults to `bash -i`. The home lists are policy: add only
 # what the agent actually needs. Secrets are absent by default, which is
 # the point - no blacklist to keep in sync as tools add new files.
 # BOX_SECRETS=1 opts known credential paths back in read-only;
 # BOX_GUI=1 binds /run/user (+ /dev/dri in project mode).
+# BOX_HOST_PORT=PORT forwards exactly that host-loopback TCP port into
+# the egress-only pasta namespace (and nothing else).
 
 # --- system mode: settings that are useful for investigating the box -----
 
@@ -70,6 +73,9 @@ _BOX_SYSTEM_RO=(
   .local/share/wallpapers
   .emacs.d
   seance
+  # Model weights for local inference (llama.cpp/ROCm). Read-only: the
+  # agent may load them but must not replace the pinned files.
+  models
 )
 
 # --- project mode: toolchain state, never credential files ---------------
@@ -229,6 +235,9 @@ box() {
       --dev /dev
       --tmpfs /dev/shm
       --dev-bind-try /dev/dri /dev/dri
+      # AMD KFD interface for ROCm compute. /dev/dri alone only gives
+      # rendering; HIP/rocminfo need /dev/kfd.
+      --dev-bind-try /dev/kfd /dev/kfd
       --proc /proc
       # Host /tmp is rw: scratch/log files written here are visible outside
       # the box. systemd-tmpfiles cleans it after 10 days. /dev/shm stays
@@ -343,10 +352,21 @@ box() {
   # the namespace cannot reach host loopback (no gateway mapping, no local
   # splice path). -n/--network skips pasta and keeps the host netns, which is
   # what agent-browser needs to reach the dedicated Chromium on 127.0.0.1:9222.
+  # BOX_HOST_PORT punches a single guest->host-loopback TCP hole through
+  # pasta; everything else stays egress-only.
   local -a net=()
+  local -a host_forward=(-T none)
+  if [ -n "${BOX_HOST_PORT:-}" ]; then
+    if [[ ! "$BOX_HOST_PORT" =~ ^[0-9]+$ ]] ||
+       (( 10#$BOX_HOST_PORT < 1 || 10#$BOX_HOST_PORT > 65535 )); then
+      printf 'box: BOX_HOST_PORT must be a TCP port number\n' >&2
+      return 2
+    fi
+    host_forward=(-T "${BOX_HOST_PORT}:127.0.0.1/${BOX_HOST_PORT}")
+  fi
   if [ "$network" -eq 0 ]; then
     net=(pasta -f --config-net --no-map-gw --no-splice --quiet \
-         -t none -u none -T none -U none --)
+         -t none -u none "${host_forward[@]}" -U none --)
   fi
 
   if [ "$mode" = project ]; then
