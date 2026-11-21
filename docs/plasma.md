@@ -25,11 +25,30 @@ lost on the next `nyx`.
   `keyboardlayout`; `knownItems` still lists it, which keeps the registry
   from re-adding it at login.
 - Dock pins (`iconTasks` `launchers`) are declared in the panel:
-  `seance → librewolf → sourcegit`. Pin real `.desktop` names —
+  `seance → librewolf → sourcegit → emacs`. Pin real `.desktop` names —
   `preferred://browser` failed.
 - The task list is global: `showTasks.onlyInCurrentDesktop = false` and
   `onlyInCurrentActivity = false`, so running apps stay in the dock on every
   virtual desktop/activity.
+
+## Emacs launcher and single daemon
+
+`home/emacs.nix` writes an `emacs.desktop` into
+`~/.local/share/applications` (XDG_DATA_HOME, which outranks the stock entry
+from the emacs package in the per-user profile) so its Exec is
+`emacsclient -c -a "" -n %F`: one launcher, one daemon, a new frame per
+click. `-a ""` starts `emacs --daemon` on first use (no systemd unit), and
+`-n` returns immediately so the launcher does not hang.
+
+The stock `emacsclient.desktop` carries the same `StartupWMClass=Emacs`, so
+KDE could bind the frame to that entry and spawn a second task icon. It is
+shadowed in the same directory too: `NoDisplay=true` plus an impossible WM
+class (`emacsclient-hidden`), so it can never claim a window. The dock pin
+is declared last and the task manager groups by program name.
+
+KDE caches desktop entries: after a rebuild run `kbuildsycoca6` (or relogin)
+if the menu/pin still shows the old entry. Emacs is XWayland, so the frame's
+`WM_CLASS` is `emacs`/`Emacs`; verify with `xprop WM_CLASS`.
 
 ## Top bar
 

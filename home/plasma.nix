@@ -104,7 +104,12 @@
                 "applications:com.seance.app.desktop"
                 "applications:librewolf.desktop"
                 "applications:SourceGit.desktop"
+                "applications:emacs.desktop"
               ];
+              # One icon per application: Emacs frames come from the shared
+              # daemon (home/emacs.nix); grouping is required for the pin to
+              # absorb them instead of showing a second task button.
+              behavior.grouping.method = "byProgramName";
               # Global dock: running windows stay visible regardless of the
               # current virtual desktop/activity (defaults filter per desktop).
               behavior.showTasks.onlyInCurrentDesktop = false;
