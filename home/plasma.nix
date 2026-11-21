@@ -296,6 +296,18 @@
     ];
   };
 
+  # KDE 6.8's xdg-desktop-autostart.target can win the race against
+  # plasmashell. Graphical autostart apps then start without
+  # WAYLAND_DISPLAY/DISPLAY and abort ("no Qt platform plugin"), and
+  # plasma-manager's panels script deletes plasma-org.kde.plasma.desktop-appletsrc
+  # before its qdbus call fails, leaving Plasma's default bottom panel
+  # (2026-11-21, after nyx -l). Hold the whole autostart target until the
+  # compositor/session server are up.
+  home.file.".config/systemd/user/xdg-desktop-autostart.target.d/10-wait-for-plasma.conf".text = ''
+    [Unit]
+    After=plasma-kwin_wayland.service plasma-ksmserver.service plasma-plasmashell.service
+  '';
+
   # Custom ksysguard sensor face used by the top-bar systemmonitor widget:
   # muted label/value text plus a 10s rolling average for the network/disk
   # rate rows (the stock textonly face can do neither).

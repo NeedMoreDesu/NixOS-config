@@ -169,6 +169,25 @@ Use a **unique** plugin name per probe (same name twice = `loadScript -1`).
 Properties: `resourceClass`/`desktopFileName` work; `appId` reads
 `undefined` even though the docs advertise it.
 
+### Login autostart race breaks panels and apps (2026-11-21)
+
+KDE 6.8's `xdg-desktop-autostart.target` can start before plasmashell has
+published the session display environment. Symptoms: KeepassXC /
+DiscoverNotifier / `plasma-fallback-session-restore` abort with "no Qt
+platform plugin could be initialized" (their systemd units have no
+`WAYLAND_DISPLAY`/`DISPLAY`), and plasma-manager's panels script deletes
+`plasma-org.kde.plasma.desktop-appletsrc` before its qdbus call fails, so
+Plasma shows the default bottom panel. The stamp
+`~/.local/share/plasma-manager/last_run_desktop_script_panels` is absent
+when that happens.
+
+Fix: `home/plasma.nix` installs
+`~/.config/systemd/user/xdg-desktop-autostart.target.d/10-wait-for-plasma.conf`,
+ordering the whole autostart target after `plasma-plasmashell.service` (and
+KWin/ksmserver). `nyx -l` also runs the plasma-manager runner before logging
+out, so a changed layout is stamped in a healthy session. To repair a lost
+layout in a running session: `~/.local/share/plasma-manager/run_all.sh`.
+
 ### Panel applet width from a compact representation (2026-11-16)
 
 The panel sizes an applet from the Layout attached properties of the
