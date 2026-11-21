@@ -55,14 +55,18 @@ Faces.CompactSensorFace {
     // the ksystemstats sensor names used by the top bar; anything else (for
     // example disk/all/usedPercent) stays in its own row.
     function groupKey(id) {
-        if (id.endsWith("/usage") || id.endsWith("/temperature")) {
-            return id.split("/")[0]
+        const category = id.split("/")[0]
+        const lastSegment = id.split("/").pop()
+        // cpu/all/maximumTemperature has the suffix inside the last segment,
+        // so compare the segment, not the whole id.
+        if (id.endsWith("/usage") || lastSegment.toLowerCase().endsWith("temperature")) {
+            return category
         }
         if (id.endsWith("/usedVram") || id.endsWith("/totalVram")) {
-            return id.split("/")[0]
+            return category
         }
         if (id.endsWith("/used") || id.endsWith("/total")) {
-            return id.split("/")[0]
+            return category
         }
         if (id.endsWith("/download") || id.endsWith("/upload")) {
             return "network"
