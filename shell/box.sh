@@ -12,13 +12,15 @@
 #
 # Both modes expose ~/Pictures/Screenshots read-only.
 #
+# -p|--port PORT may be repeated and/or given a comma-separated list; each
+# port is a host-loopback TCP hole into the egress-only pasta namespace
+# (and nothing else). `-n` bypasses pasta, so ports have no effect there.
+#
 # The command defaults to `bash -i`. The home lists are policy: add only
 # what the agent actually needs. Secrets are absent by default, which is
 # the point - no blacklist to keep in sync as tools add new files.
 # BOX_SECRETS=1 opts known credential paths back in read-only;
 # BOX_GUI=1 binds /run/user (+ /dev/dri in project mode).
-# BOX_HOST_PORT=PORT forwards exactly that host-loopback TCP port into
-# the egress-only pasta namespace (and nothing else).
 
 # --- system mode: settings that are useful for investigating the box -----
 
@@ -202,6 +204,7 @@ _box_guard_pwd() {
 
 box() {
   local mode=project network=0
+  local -a port_specs=()
   while :; do
     case "${1:-}" in
       -s|--system)
@@ -210,6 +213,18 @@ box() {
         ;;
       -n|--network)
         network=1
+        shift
+        ;;
+      -p|--port)
+        if [ "$#" -lt 2 ]; then
+          printf 'box: %s needs a port\n' "$1" >&2
+          return 2
+        fi
+        port_specs+=("$2")
+        shift 2
+        ;;
+      --port=*)
+        port_specs+=("${1#*=}")
         shift
         ;;
       --)
@@ -365,19 +380,29 @@ box() {
   # the namespace cannot reach host loopback (no gateway mapping, no local
   # splice path). -n/--network skips pasta and keeps the host netns, which is
   # what agent-browser needs to reach the dedicated Chromium on 127.0.0.1:9222.
-  # BOX_HOST_PORT punches a single guest->host-loopback TCP hole through
-  # pasta; everything else stays egress-only.
+  # Each -p/--port punches one guest->host-loopback TCP hole through pasta;
+  # everything else stays egress-only.
   local -a net=()
-  local -a host_forward=(-T none)
-  if [ -n "${BOX_HOST_PORT:-}" ]; then
-    if [[ ! "$BOX_HOST_PORT" =~ ^[0-9]+$ ]] ||
-       (( 10#$BOX_HOST_PORT < 1 || 10#$BOX_HOST_PORT > 65535 )); then
-      printf 'box: BOX_HOST_PORT must be a TCP port number\n' >&2
-      return 2
-    fi
-    # -T is loopback-only by design: it takes no listening address, and
-    # the splice path preserves the guest's 127.0.0.1 destination.
-    host_forward=(-T "${BOX_HOST_PORT}")
+  local -a host_forward=() _box_ports=()
+  local spec port port_list=""
+  for spec in "${port_specs[@]}"; do
+    IFS=, read -ra _box_ports <<< "$spec"
+    for port in "${_box_ports[@]}"; do
+      [ -n "$port" ] || continue
+      if [[ ! "$port" =~ ^[0-9]+$ ]] ||
+         (( 10#$port < 1 || 10#$port > 65535 )); then
+        printf 'box: %s must be a TCP port number\n' "$port" >&2
+        return 2
+      fi
+      port_list="${port_list:+$port_list,}$((10#$port))"
+    done
+  done
+  # -T is loopback-only by design: it takes no listening address, and the
+  # splice path preserves the guest's 127.0.0.1 destination.
+  if [ -n "$port_list" ]; then
+    host_forward=(-T "$port_list")
+  else
+    host_forward=(-T none)
   fi
   if [ "$network" -eq 0 ]; then
     net=(pasta -f --config-net --no-map-gw --no-splice --quiet \

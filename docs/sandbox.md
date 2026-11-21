@@ -4,13 +4,14 @@
 and sources `shell/{box,nyx,agents}.sh`. The `nyx`, `nyvibe`, `ab` and `box`
 launchers live in the repo.
 
-`box [cmd]` is **project mode**; `box -s|--system [cmd]` is **system mode**;
-`cmd` defaults to `bash -i`.
+`box [flags] [cmd]` is **project mode**; `box -s|--system [flags] [cmd]` is
+**system mode**; `cmd` defaults to `bash -i`.
 
 `-n|--network` keeps the host network namespace (needed for CDP); without it
-the box gets an egress-only pasta namespace.
+the box gets an egress-only pasta namespace. `-p|--port PORT` (repeatable, or
+comma-separated) opens that host-loopback TCP port to the box.
 
-`nyvibe` = `box -s opencode` with the short_summary prompt.
+`nyvibe` = `box -s opencode` with the short_summary prompt and `-p 8088`.
 `ab [prompt...]` = project-mode opencode in `~/ab_workspace` with `-n`,
 attaching to the host's dedicated Chromium (see
 [agent browser](agent-browser.md)).
@@ -36,8 +37,9 @@ attaching to the host's dedicated Chromium (see
     credentials, histories).
 - `/run/user` (D-Bus, Wayland, SSH agent, KWallet, KWin Scripting) is masked
   unless `BOX_GUI=1`.
-- Network is egress-only pasta; `BOX_HOST_PORT` forwards one host-loopback
-  TCP port (`nyvibe` defaults it to 8088 for llama-embed).
+- Network is egress-only pasta; each `-p|--port` forwards that
+  host-loopback TCP port into the box (`nyvibe` uses `-p 8088` for
+  llama-embed).
 - Refuses a `$PWD` that is (or is an ancestor of) a special mount/masked
   path: `$HOME`, `/tmp`, `/dev`, `/dev/shm`, `/proc`, `/sys`,
   `/var/log/journal`, `/run/log/journal`, `/run/user/$UID` — the workspace
@@ -54,10 +56,10 @@ attaching to the host's dedicated Chromium (see
   configured with `--no-map-gw --no-splice -t none -u none -T none -U none`,
   so host loopback (CDP 9222, agent-browser streams, CUPS, systemd varlink)
   is unreachable while DNS/HTTPS still work. `-n` keeps the host netns for
-  the agent browser. `BOX_HOST_PORT=PORT` replaces `-T none` with `-T PORT`
-  (same port on host loopback), a single guest→host-loopback TCP hole
-  (`nyvibe` defaults it to 8088 for llama-embed). `-n` bypasses pasta, so
-  the variable has no effect there.
+  the agent browser. Each `-p|--port` replaces that port's `-T none` with a
+  single guest→host-loopback TCP hole (repeat the flag or pass a
+  comma-separated list; `nyvibe` uses `-p 8088` for llama-embed). `-n`
+  bypasses pasta, so ports have no effect there.
 - Needs the `tun` module (`modules/networking.nix`); udev already ships the
   `/dev/net/tun` 0666 rule.
 - Compilers come from the store. `_BOX_PROJECT_RW` whitelists per-user build
@@ -101,9 +103,9 @@ Fix: `--unshare-pid/--unshare-ipc/--unshare-uts`, private `/dev/shm`,
 journal masked, and an egress-only pasta netns (`--no-map-gw --no-splice`);
 `-n` keeps the host netns for `ab`/CDP. pasta needs the `tun` module
 (`modules/networking.nix`). The deliberate exceptions are `/dev/kfd` for
-ROCm, read-only `~/models`, and the single `BOX_HOST_PORT` loopback port
-(default 8088 for llama-embed); none of those expose the host filesystem,
-D-Bus or the journal.
+ROCm, read-only `~/models`, and the `-p|--port` loopback holes (default
+`-p 8088` for llama-embed via `nyvibe`); none of those expose the host
+filesystem, D-Bus or the journal.
 
 Separately, each agent-browser session daemon opened a random loopback
 WebSocket stream port for the unused dashboard; agent-chrome now disables the
