@@ -1,6 +1,6 @@
 --- a/src/keyboard.c
 +++ b/src/keyboard.c
-@@ -442,6 +442,33 @@
+@@ -442,6 +442,41 @@
  	reset_keystate(kbd);
  }
  
@@ -15,8 +15,16 @@
 +
 +	clear(kbd);
 +
-+	for (i = 0; i < ARRAY_SIZE(kbd->layer_state); i++)
++	/*
++	 * Layer 0 is the main layer and must stay active; only reset
++	 * transient layers above it.
++	 */
++	for (i = 1; i < ARRAY_SIZE(kbd->layer_state); i++)
 +		memset(&kbd->layer_state[i], 0, sizeof(kbd->layer_state[i]));
++
++	memset(&kbd->layer_state[0], 0, sizeof(kbd->layer_state[0]));
++	kbd->layer_state[0].active = 1;
++	kbd->layer_state[0].activation_time = 0;
 +
 +	memset(kbd->keystate, 0, sizeof(kbd->keystate));
 +	memset(kbd->cache, 0, sizeof(kbd->cache));

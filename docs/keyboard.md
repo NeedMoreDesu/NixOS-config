@@ -403,6 +403,18 @@ removal resets that shared state. With one BT keyboard that is exactly
 what we want; a second keyboard held at that moment would also be
 released (the physical key re-sends its down if still held).
 
+2026-11-22 regression: the first version of `kbd_reset()` zeroed
+`kbd->layer_state[0]` along with the transient layers. Layer 0 is the
+always-active main layer (`new_keyboard()` sets `active = 1`; upstream
+`clear()` starts at index 1), so after any removal keyd fell back to
+pass-through: it kept running and xremap kept its vkbd grabbed, but the
+`[main]` mappings (`meta`/`alt`/`altgr` layer activators, `rightmeta =
+menu`) and the Cmd+Tab/grave hold-layer were dead until keyd restarted.
+The patch now resets only layers above 0 and explicitly restores layer
+0's `active`/`activation_time`; the key-release logic in `clear()` and
+`clear_vkbd()` is unchanged. `scripts/keyboard_restart.sh` remains a
+recovery tool for genuinely wedged states, not the fix for this one.
+
 This only covers devices keyd **grabs**. The last logger run caught the
 Magic Keyboard's `f13` stuck on the USB interface
 `05ac:029c:cde6b8ac`, which keyd logs as `DEVICE: ignoring`; keyd never
