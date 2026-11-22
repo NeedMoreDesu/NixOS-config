@@ -1,0 +1,57 @@
+--- a/src/keyboard.c
++++ b/src/keyboard.c
+@@ -442,6 +442,33 @@
+ 	reset_keystate(kbd);
+ }
+ 
++/*
++ * Drop all transient remapper state. Called when a device disappears
++ * mid-stroke: the pending key-up will never arrive, so the keys keyd
++ * already emitted must be released and any held layers/chords cleared.
++ */
++void kbd_reset(struct keyboard *kbd)
++{
++	size_t i;
++
++	clear(kbd);
++
++	for (i = 0; i < ARRAY_SIZE(kbd->layer_state); i++)
++		memset(&kbd->layer_state[i], 0, sizeof(kbd->layer_state[i]));
++
++	memset(kbd->keystate, 0, sizeof(kbd->keystate));
++	memset(kbd->cache, 0, sizeof(kbd->cache));
++	memset(kbd->active_chords, 0, sizeof(kbd->active_chords));
++	memset(&kbd->chord, 0, sizeof(kbd->chord));
++	kbd->chord.state = CHORD_INACTIVE;
++	memset(&kbd->pending_timeout, 0, sizeof(kbd->pending_timeout));
++	memset(&kbd->pending_overload, 0, sizeof(kbd->pending_overload));
++
++	kbd->active_macro = NULL;
++	kbd->nr_timeouts = 0;
++	kbd->scroll.active = 0;
++}
++
+ static void setlayout(struct keyboard *kbd, uint8_t idx)
+ {
+ 	clear(kbd);
+--- a/src/daemon.c
++++ b/src/daemon.c
+@@ -590,6 +590,18 @@
+ 	case EV_DEV_REMOVE:
+ 		keyd_log("DEVICE: r{removed}\t%s %s\n", ev->dev->id, ev->dev->name);
+ 
++		/*
++		 * A device can vanish mid-stroke (Bluetooth link timeout, USB
++		 * unplug). Its key-up events will never arrive, so release
++		 * everything keyd emitted for it and reset the remapper state.
++		 * Otherwise the key/modifier stays held on keyd's virtual
++		 * device forever.
++		 */
++		if (ev->dev->data) {
++			kbd_reset(ev->dev->data);
++			clear_vkbd();
++		}
++
+ 		break;
+ 	case EV_FD_ACTIVITY:
+ 		if (ev->fd == ipcfd) {

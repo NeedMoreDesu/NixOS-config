@@ -1,3 +1,4 @@
+{ pkgs, ... }:
 {
   # keyd as a MINIMAL sidecar under xremap (chain: hardware -> keyd ->
   # xremap -> KWin). It exists for exactly one thing xremap cannot do:
@@ -23,6 +24,18 @@
 
   services.keyd = {
     enable = true;
+
+    # keyd 2.6.0 only logs EV_DEV_REMOVE; a key held when the Bluetooth
+    # link times out never gets its key-up, so it stays down on keyd's
+    # virtual device. The local patch implements kbd_reset() and calls it
+    # plus clear_vkbd() on removal. See docs/keyboard.md and
+    # patches/keyd-release-on-remove.patch; drop it when upstream does this.
+    package = pkgs.keyd.overrideAttrs (old: {
+      patches = (old.patches or [ ]) ++ [
+        ../patches/keyd-release-on-remove.patch
+      ];
+    });
+
     keyboards.default = {
       ids = [ "*" ];
       # Policy lives in assets/mac-keys/keyd.conf (sections must be at col 0;

@@ -8,6 +8,7 @@ This is the map. Detailed behaviour lives in the linked subject docs.
 | --- | --- |
 | `flake.nix` | Inputs and `mkHost` / `nixosConfigurations.<name>`. See [pins](pins.md) and [hosts](hosts.md). |
 | `rebuild.sh` | Flake rebuild one-liner. See [rebuild](rebuild.md). |
+| `patches/` | Local package patches. `keyd-release-on-remove.patch` releases held keys on device removal. See [keyboard](keyboard.md). |
 | `docs/` | This manual. `docs/history/` holds closed/removed setups. |
 
 ## `shell/`

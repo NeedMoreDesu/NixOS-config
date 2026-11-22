@@ -388,6 +388,28 @@ which bypasses the shebang, and make the shebang the absolute
 **General rule:** xremap launch children are not your shell — no bash in
 PATH, and their stderr is thrown away.
 
+### Stuck keys when a device disappears (2026-11-22)
+
+keyd 2.6.0's `EV_DEV_REMOVE` handler only logs the removal. A key held
+when the Bluetooth link times out never gets its key-up, so it stays down
+on keyd's virtual device forever. The local patch
+`patches/keyd-release-on-remove.patch` (applied in `modules/mac-keys.nix`)
+implements `kbd_reset()` and calls it plus `clear_vkbd()` on removal:
+release everything keyd emitted, clear held layers/chords/pending
+timeouts. Drop the patch when upstream keyd does this itself.
+
+The `[ids] *` wildcard means all keyboards share one remapper state, so a
+removal resets that shared state. With one BT keyboard that is exactly
+what we want; a second keyboard held at that moment would also be
+released (the physical key re-sends its down if still held).
+
+This only covers devices keyd **grabs**. The last logger run caught the
+Magic Keyboard's `f13` stuck on the USB interface
+`05ac:029c:cde6b8ac`, which keyd logs as `DEVICE: ignoring`; keyd never
+owns it, so it cannot release that key. That case is the keyboard's own
+reported state; unplug/replug the keyboard (or reset its USB device) is
+the practical recovery.
+
 ## Closed experiments
 
 - [Toshy](history/toshy.md) — rolled back.
