@@ -51,16 +51,17 @@ after pointing `XKB_CONFIG_ROOT` at the generated `xkb.dir`.
 
 The `shortcuts` block in `home/plasma.nix` owns a `kwin` group:
 
-- Meta+Left/Right = switch desktop.
+- Meta+Alt+Left/Right = switch desktop.
+- Meta+Left/Right = quick-tile window left/right (KWin default).
 - Meta+Up/Down = maximize / restore (`UntileOrRestoreOp`: un-fullscreen >
   un-tile > un-maximize; no-op on plain windows).
 - Meta+Tab = Overview.
 - The switcher's default secondary Meta+Tab / Meta+Shift+Tab bindings are
   stripped by re-asserting Alt+Tab[+Shift].
-- The four quick-tile actions' **default** Meta+arrow bindings are pinned to
-  `none`. KWin 6.5+ ships Quick Tile Top/Bottom/Left/Right on
-  Meta+Up/Down/Left/Right; without the pin Meta+Down fired Quick Tile
-  Bottom instead of Window Restore.
+- Only the quick-tile Top/Bottom actions' **default** Meta+Up/Down bindings
+  are pinned to `none`; KWin 6.5+ ships them on Meta+Up/Down, and without
+  the pin Meta+Down fired Quick Tile Bottom instead of Window Restore.
+  Left/Right are explicitly bound to Meta+Left/Right above.
 - All 8 `kwinrc [ElectricBorders]` entries are pinned `None` — hot corners
   are off; Overview lives on the keyboard.
 

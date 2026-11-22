@@ -18,8 +18,8 @@
       };
       # kwin section keys = kglobalshortcutsrc action names.
       "kwin" = {
-        "Switch One Desktop to the Left" = "Meta+Left";
-        "Switch One Desktop to the Right" = "Meta+Right";
+        "Switch One Desktop to the Left" = "Meta+Alt+Left";
+        "Switch One Desktop to the Right" = "Meta+Alt+Right";
         "Window Maximize" = "Meta+Up";
         "Window Restore" = "Meta+Down";
         "Overview" = "Meta+Tab";
@@ -28,14 +28,13 @@
         # Meta+Shift+Tab exclusively.
         "Walk Through Windows" = "Alt+Tab";
         "Walk Through Windows (Reverse)" = "Alt+Shift+Tab";
-        # KWin 6.5+ quick-tile actions DEFAULT-bind Meta+Up/Down/Left/Right,
-        # colliding with the four above (Meta+Down fired Quick Tile Bottom,
-        # not Window Restore). "none" in the custom field kills the default;
-        # corners/bottom-left/right have no arrow defaults.
+        # Tiling keeps the KWin-default Meta+Left/Right. Top/Bottom stay
+        # pinned "none" so they don't collide with Meta+Up/Down
+        # (maximize/restore); "none" in the custom field kills the default.
+        "Window Quick Tile Left" = "Meta+Left";
+        "Window Quick Tile Right" = "Meta+Right";
         "Window Quick Tile Top" = "none";
         "Window Quick Tile Bottom" = "none";
-        "Window Quick Tile Left" = "none";
-        "Window Quick Tile Right" = "none";
       };
     };
 
