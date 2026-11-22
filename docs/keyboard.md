@@ -410,6 +410,23 @@ owns it, so it cannot release that key. That case is the keyboard's own
 reported state; unplug/replug the keyboard (or reset its USB device) is
 the practical recovery.
 
+### Bluetooth link timeouts (2026-11-22)
+
+The Magic Keyboard is classic BR/EDR HIDP over the Realtek RTL8922AE
+combo card. The card exposes Bluetooth as a USB device (`13d3:3617`,
+`Bluetooth Radio`, USB path `1-6`) even though the antenna is external;
+the Wi-Fi half is PCIe. The `2026-11-21` logger run showed repeated
+`Disconnect Complete ... Reason: Connection Timeout (0x08)` with a 32 s
+supervision timeout and 122 HIDP `GET_REPORT` timeouts, with no A2DP
+gaps, so A2DP coexistence is not required for the failure.
+
+`modules/bluetooth.nix` sets `btusb.enable_autosuspend=0` to keep that
+controller out of USB runtime autosuspend. The adapter was already
+`active` during the captured stalls (`runtime_suspended_time` did not
+move), so this is an A/B test, not a confirmed fix. The battery still
+reads 100% with no voltage/health, so a weak cell/power problem remains
+plausible; see `~/temp/keyboard_issues/plan.md` for the capture kit.
+
 ## Closed experiments
 
 - [Toshy](history/toshy.md) — rolled back.
