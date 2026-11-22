@@ -52,6 +52,10 @@ after pointing `XKB_CONFIG_ROOT` at the generated `xkb.dir`.
 The `shortcuts` block in `home/plasma.nix` owns a `kwin` group:
 
 - Meta+Alt+Left/Right = switch desktop.
+- Meta+Alt+Up/Down = move the active window to previous/next desktop.
+- The four `Switch Window <direction>` actions' **default** Meta+Alt+arrow
+  bindings are pinned to `none` — they would collide with the desktop
+  actions above; directional focus is covered by tiling and Alt+Tab.
 - Meta+Left/Right = quick-tile window left/right (KWin default).
 - Meta+Up/Down = maximize / restore (`UntileOrRestoreOp`: un-fullscreen >
   un-tile > un-maximize; no-op on plain windows).

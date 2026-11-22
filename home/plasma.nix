@@ -20,6 +20,14 @@
       "kwin" = {
         "Switch One Desktop to the Left" = "Meta+Alt+Left";
         "Switch One Desktop to the Right" = "Meta+Alt+Right";
+        "Window to Previous Desktop" = "Meta+Alt+Up";
+        "Window to Next Desktop" = "Meta+Alt+Down";
+        # Directional focus defaults to Meta+Alt+arrows, colliding with the
+        # desktop actions above. Tiling + Alt+Tab cover focus instead.
+        "Switch Window Left" = "none";
+        "Switch Window Right" = "none";
+        "Switch Window Up" = "none";
+        "Switch Window Down" = "none";
         "Window Maximize" = "Meta+Up";
         "Window Restore" = "Meta+Down";
         "Overview" = "Meta+Tab";
