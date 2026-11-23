@@ -45,6 +45,7 @@ live session. See [rebuild](docs/rebuild.md) and
 | [sandbox](docs/sandbox.md) | `box` project/system modes, pasta network, secrets. |
 | [packages](docs/packages.md) | System packages, Steam, LLM CLIs, Syncthing. |
 | [embeddings](docs/embeddings.md) | llama.cpp ROCm embedding server (EmbeddingGemma 2 Q8), omni input; activation pending; vLLM/SGLang for video later. |
+| [inkling](docs/inkling.md) | Local Inkling 2 Mini (26B MoE Q4, Unsloth prebuilt), `ai` on/off toggle, opencode provider. |
 
 `docs/history/` holds setups that are no longer present:
 [Bluetooth paging](docs/history/bluetooth-reconnect.md),
