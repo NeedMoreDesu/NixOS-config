@@ -7,7 +7,6 @@ let
 
   modelDir = "${config.home.homeDirectory}/models/inkling-2-mini";
   model = "${modelDir}/Inkling-2-Mini-UD-Q4_K_M.gguf";
-  mmproj = "${modelDir}/mmproj-F16.gguf";
 
   fetchInkling = pkgs.writeShellScriptBin "fetch-inkling" ''
     export PATH="${pkgs.lib.makeBinPath [ pkgs.bash pkgs.curl pkgs.coreutils ]}:$PATH"
@@ -30,25 +29,23 @@ in
 
   systemd.user.services.llama-inkling = {
     Unit = {
-      Description = "Inkling 2 Mini Q4_K_M (Unsloth llama.cpp ROCm, CPU-expert offload)";
+      Description = "Inkling 2 Mini Q4_K_M text-only, 256k (Unsloth llama.cpp ROCm)";
       After = [ "network.target" ];
       # Skip the unit instead of restart-looping when the weights are absent.
-      ConditionPathExists = [ model mmproj ];
+      ConditionPathExists = [ model ];
     };
 
     Service = {
       ExecStart = builtins.concatStringsSep " " [
         "${llamaCppUnsloth}/bin/llama-server-inkling"
         "--model" model
-        "--mmproj" mmproj
         "--alias" "inkling-2-mini"
         "--jinja"
         "--n-gpu-layers" "99"
-        # Q4_K_M is 16.6 GB; the 16 GB card needs some expert layers in RAM.
-        # 10 layers is a conservative start: raise VRAM headroom by lowering
-        # it, trade speed for quality by lowering the quant instead.
-        "--n-cpu-moe" "10"
-        "--ctx-size" "32768"
+        # Text-only 256k standard: no mmproj. 16 MoE layers stay in RAM;
+        # measured ~13.3-13.7 GiB total VRAM (incl. desktop), ~2.3-2.6 GiB free.
+        "--n-cpu-moe" "16"
+        "--ctx-size" "262144"
         "--cache-type-k" "q8_0"
         "--cache-type-v" "q8_0"
         "--flash-attn" "on"

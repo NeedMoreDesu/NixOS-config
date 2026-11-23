@@ -3,16 +3,19 @@ set -euo pipefail
 
 # Root-layout GGUFs for Unsloth's llama.cpp prebuilt (not Mainline_Support).
 # Revision is pinned; every file is sha256-checked before it is moved into
-# place. DSpark is optional and only fetched with --dspark.
+# place. The standard deployment is text-only; --vision adds the projector,
+# --dspark adds the speculative-decoding drafter.
 rev="800c946d7b9c830c86290df49afbbe91db8455f5"
 base="https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/$rev"
 
 dspark=false
+vision=false
 while (($#)); do
   case "$1" in
     --dspark) dspark=true ;;
+    --vision) vision=true ;;
     -h | --help)
-      echo "usage: fetch-inkling [--dspark] [DIR]"
+      echo "usage: fetch-inkling [--vision] [--dspark] [DIR]"
       exit 0
       ;;
     --)
@@ -45,8 +48,11 @@ fetch() {
 
 fetch Inkling-2-Mini-UD-Q4_K_M.gguf \
   f90c5a4df44d335ac9f9eea2a15c31d6c5a377b1b3cd9ff7fc2cf123f3cdf7e1
-fetch mmproj-F16.gguf \
-  3bff75ffeb2d6e0371ba7bd42e30d26a7d98aea681fa44b03b5a20891cfa2c5f
+
+if $vision; then
+  fetch mmproj-F16.gguf \
+    3bff75ffeb2d6e0371ba7bd42e30d26a7d98aea681fa44b03b5a20891cfa2c5f
+fi
 
 if $dspark; then
   fetch dspark-Inkling-2-Mini-Q8_0.gguf \
