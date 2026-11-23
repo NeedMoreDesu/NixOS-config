@@ -242,6 +242,33 @@ The script is passed as an **argument** to the absolute bash, not via
 script sets its own PATH and its shebang is the absolute
 `/run/current-system/sw/bin/bash`.
 
+## Lock-screen English layout (`home/lock-layout.nix`)
+
+XKB groups are session-global, and kscreenlocker's password field inherits
+whatever group is active. Locking while `ua(unicode)` is selected therefore
+types the password in Cyrillic. There is no per-field override in Qt/KDE; the
+lock-layout user unit is a heuristic that forces English when the session
+locks.
+
+`lock-layout.service` runs `dbus-monitor` on the session bus, watching
+`org.kde.screensaver.AboutToLock` (fires before kscreenlocker blocks global
+shortcuts) and `org.freedesktop.ScreenSaver.ActiveChanged` as a fallback. It
+asks kglobalaccel for the `KDE Keyboard Layout Switcher` component
+(`org.kde.KGlobalAccel.getComponent` — the component name has spaces and is
+not a valid D-Bus object path) and calls `invokeShortcut` with the action
+`Switch keyboard layout to English (UK, Macintosh) with grave` on it. Those
+are the same action names declared in `home/plasma.nix`; renaming the layout
+description breaks the switch (the script logs and skips).
+
+Not covered: polkit dialogs and `sudo` prompts still use the active layout.
+The script is also dependent on kglobalaccel and the session bus being up; a
+failure just leaves the layout untouched. Check with:
+
+```
+systemctl --user status lock-layout
+journalctl --user -u lock-layout
+```
+
 ## Debugging notes
 
 ### Cmd+` dead + stray § key

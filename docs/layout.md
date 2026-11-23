@@ -55,6 +55,7 @@ imports the rest.
 | `home/opencode.nix` | opencode config + agent-browser skill copy. See [agent browser](agent-browser.md). |
 | `home/emacs.nix` | Clones `~/.emacs.d` from the GitHub Prelude fork on first activation. |
 | `home/kwin-remax.nix` | Login sweep user unit → `assets/kwin-remax/remax.js`. See [plasma](plasma.md). |
+| `home/lock-layout.nix` | Forces the English XKB layout when the session locks. See [keyboard](keyboard.md#lock-screen-english-layout-homelock-layoutnix). |
 
 Emacs config itself is a separate repo: a Prelude fork in `~/.emacs.d`
 (auto-cloned by `home/emacs.nix`). Emacs-side keyboard work happens there,

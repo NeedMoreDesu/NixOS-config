@@ -5,6 +5,7 @@
     ./opencode.nix
     ./emacs.nix
     ./kwin-remax.nix
+    ./lock-layout.nix
     ./embeddings.nix
   ];
 
