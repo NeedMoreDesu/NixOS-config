@@ -41,8 +41,8 @@ in
         "--alias" "lfm2.5-vl-1.6b"
         "--jinja"
         "--n-gpu-layers" "99"
-        # Small window on purpose: direct image description, not long context.
-        "--ctx-size" "3072"
+        # ~5k window: direct image description/OCR with room for a full answer.
+        "--ctx-size" "5120"
         "--parallel" "1"
         # Liquid's recommended image budget and sampling for LFM2.5-VL.
         "--image-min-tokens" "64"

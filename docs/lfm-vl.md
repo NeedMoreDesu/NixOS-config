@@ -1,6 +1,6 @@
 # LFM2.5-VL-1.6B (local, Q4_K_M, llama.cpp ROCm)
 
-**Status: service implemented 2026-11-23; Q4_K_M at 3k context manually
+**Status: service implemented 2026-11-23; Q4_K_M at 5k context manually
 smoke-tested; `nyx` + `fetch-lfm25vl` still to run.** Start it with
 `ai on lfm`; the unit has no autostart. It is a small, fast vision-language
 sidecar on port **8090**, separate from Inkling (8089) and embeddings (8088).
@@ -14,10 +14,10 @@ in, text out. It is a direct image describer/OCR model, not a knowledge,
 reasoning, or coding model.
 
 The model supports 32,768 tokens natively, but this deployment deliberately
-runs a **3,072-token window**. A full-screen screenshot after tiling can use
-~2.5k tokens, leaving roughly 500 tokens for the answer. That is enough for
-captioning/OCR; raise `--ctx-size` in `home/local-vl.nix` if longer prompts or
-multiple images are needed.
+runs a **5,120-token window**. A full-screen screenshot after tiling can use
+~2.5k tokens, leaving roughly 2.5k tokens for the answer and follow-up. Raise
+`--ctx-size` in `home/local-vl.nix` if longer prompts or multiple images are
+needed.
 
 ## Why Q4_K_M
 
@@ -63,17 +63,18 @@ disk; the service only loads the Q4_K_M path.
 ```
 --model ...Q4_K_M.gguf --mmproj ...Q8_0.gguf
 --alias lfm2.5-vl-1.6b --jinja
--ngl 99 -c 3072 --parallel 1
+-ngl 99 -c 5120 --parallel 1
 --image-min-tokens 64 --image-max-tokens 256
 --temp 0.1 --min-p 0.15 --repeat-penalty 1.05
 --host 127.0.0.1 --port 8090
 ```
 
 `--image-min-tokens`/`--image-max-tokens` mirror Liquid's recommended
-speed/quality budget. The 3k `--ctx-size` is the deliberate cap; keep
-`max_tokens` per request modest (a helper script defaults to 256). `ffmpeg` is
-on the unit `PATH` for mtmd media decoding. `TimeoutStopSec = 5s` so `ai off`
-cannot block on a loading server.
+speed/quality budget. The ~5k `--ctx-size` is the deliberate cap; keep
+`max_tokens` per request within the remaining window (the helper script takes
+the answer budget as its first argument). `ffmpeg` is on the unit `PATH` for
+mtmd media decoding. `TimeoutStopSec = 5s` so `ai off` cannot block on a
+loading server.
 
 nixpkgs' llama.cpp (v1.0.0 / b12359) already understands `LLM_ARCH_LFM2` and
 the `lfm2` projector in `tools/mtmd/models/siglip.cpp`, so no prebuilt pin is
@@ -122,13 +123,13 @@ service already defaults to `0.1`, `min-p 0.15`, `repeat-penalty 1.05`.
 ## Verified (2026-11-23)
 
 Manual smoke test with the installed nixpkgs `llama-server` (ROCm build),
-Q4_K_M decoder + Q8_0 projector, `-c 3072`:
+Q4_K_M decoder + Q8_0 projector, `-c 5120`:
 
-- load: ~0.34 s, including mmproj; `ROCm0` selected automatically.
-- 1,280×1,024 cookie-consent screenshot (2,572 prompt tokens after tiling):
-  **~2,184 tok/s prefill**, **~365 tok/s decode** for 256 output tokens.
-- OCR/transcription was accurate; the Google consent text was reproduced
-  line for line until the 256-token cap.
+- load: ~0.33 s, including mmproj; `ROCm0` selected automatically.
+- 1,796-token screenshot: **~2,838 tok/s prefill**, **~365 tok/s decode** for
+  256 output tokens.
+- A 2,572-token full-screen cookie-consent screenshot accepted a 512-token
+  answer and reproduced the consent text accurately.
 - Also spot-checked a search-results screenshot; direct captioning/OCR was
   correct.
 
@@ -149,6 +150,6 @@ Box sessions reach it at `127.0.0.1:8090` because the host exports
 
 Not wired into `opencode.jsonc` yet. If added, use the legacy `provider`
 entry with `baseURL http://127.0.0.1:8090/v1`, `attachment = true`,
-`modalities.input = [ "text" "image" ]`, context 3072. Tool calling depends on
+`modalities.input = [ "text" "image" ]`, context 5120. Tool calling depends on
 the template-fix caveat above; this model is best treated as a vision/OCR
 sidecar, not an agent.
