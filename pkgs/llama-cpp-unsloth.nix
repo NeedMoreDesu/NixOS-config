@@ -58,7 +58,7 @@ stdenv.mkDerivation (finalAttrs: {
       # bin/llama-server, bin/llama-cli, etc.
       makeWrapper "$f" "$out/bin/$name-inkling" \
         --prefix LD_LIBRARY_PATH : "$libpath" \
-        --set-default HIPBLASLT_TENSILE_LIBPATH "$bundle/hipblaslt/library"
+        --set-default HIPBLASLT_TENSILE_LIBPATH "$bundle/hipblaslt/library/gfx1201"
     done
 
     runHook postInstall
