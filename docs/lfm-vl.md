@@ -127,7 +127,8 @@ Q8_0 + projector is ~1.8 GB of weights; desktop + context easily fits in the
 16 GB card. It can run alongside `llama-embed` (~0.8 GB). Do **not** run it at
 Q8 alongside Inkling at 256k: Inkling leaves only ~2.3–2.6 GiB, so use
 `ai off -l` first (or a Q4_K_M variant later if co-residency becomes
-required).
+required). For the same reason, `ai on -a` (everything) will try to load
+Inkling and this service together; prefer explicit targets.
 
 Box sessions reach it at `127.0.0.1:8090` because the host exports
 `BOX_DEFAULT_PORTS=8088,8089,8090`.
