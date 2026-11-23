@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Local AI service toggle. The registry is intentionally plain data: keep it
-# in sync with the systemd user services in home/local-ai.nix and
-# home/embeddings.nix.
+# in sync with the systemd user services in home/local-ai.nix,
+# home/embeddings.nix and home/local-vl.nix.
 #
 #   unit|kind|rank|label|aliases|fetch-command|model-path
 #
@@ -11,6 +11,7 @@ set -euo pipefail
 # of that kind (lower wins).
 services=(
   "llama-inkling|llm|10|Inkling 2 Mini|inkling incl ink|fetch-inkling|$HOME/models/inkling-2-mini/Inkling-2-Mini-UD-Q4_K_M.gguf"
+  "llama-vl|llm|20|LFM2.5-VL 1.6B|lfm lfm25 lfm2.5vl vl vlm vision|fetch-lfm25vl|$HOME/models/lfm2.5-vl-1.6b/LFM2.5-VL-1.6B-Q8_0.gguf"
   "llama-embed|embeddings|10|EmbeddingGemma 2|embeddinggemma embedding embed emb gemma|fetch-embeddinggemma2|$HOME/models/embeddinggemma-2/embeddinggemma-2-Q8_0.gguf"
 )
 

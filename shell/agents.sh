@@ -1,8 +1,8 @@
 # Agent session launchers. Shared across hosts.
 
 # System-mode opencode in the repo with the short_summary prompt.
-# Host default ports already include 8088 (llama-embed) and 8089
-# (llama-inkling); the explicit -p 8088 is deduped.
+# Host default ports already include 8088 (llama-embed), 8089
+# (llama-inkling) and 8090 (llama-vl); the explicit -p 8088 is deduped.
 nyvibe() {
   ( cd "$NYX_REPO" && box -s -p 8088 opencode --prompt "read short_summary.md" "$@" )
 }

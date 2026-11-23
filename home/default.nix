@@ -8,6 +8,7 @@
     ./lock-layout.nix
     ./embeddings.nix
     ./local-ai.nix
+    ./local-vl.nix
   ];
 
   home.username = "mika";
