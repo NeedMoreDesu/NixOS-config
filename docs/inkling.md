@@ -85,6 +85,9 @@ no prefill: at 32k depth `pp512` was 173.1 vs 169.9 t/s for N=10 vs N=16; at
 64k it was 93.6 vs 94.5. The fit limits at N=16 are about 384k text-only
 (~0.6 GiB free); 512k OOMs. Lower N only if you also lower context.
 
+The host box defaults include **8089** (alongside 8088 for embeddings), so a
+`box` session can reach this service at `127.0.0.1:8089`.
+
 Vision is **off**: no `--mmproj`, and the unit's condition only checks the
 model. To re-enable, add `--mmproj ~/models/inkling-2-mini/mmproj-F16.gguf`
 back to `ExecStart` and the condition, fetch with `--vision`, and restore

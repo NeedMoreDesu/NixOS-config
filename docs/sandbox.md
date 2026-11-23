@@ -10,11 +10,11 @@ and sources `shell/{box,nyx,agents}.sh`. The `nyx`, `nyvibe`, `oc`, `ab` and
 `-n|--network` keeps the host network namespace (needed for CDP); without it
 the box gets an egress-only pasta namespace. `-p|--port PORT` (repeatable, or
 comma-separated) adds that host-loopback TCP port to the box. This host sets
-`BOX_DEFAULT_PORTS=8088` in `hosts/nixos/bashrc.sh`, so `-p 1234` forwards
-both 8088 and 1234.
+`BOX_DEFAULT_PORTS=8088,8089` in `hosts/nixos/bashrc.sh`, so `-p 1234`
+forwards 8088, 8089 and 1234.
 
 `nyvibe` = `box -s opencode` with the short_summary prompt and an explicit
-`-p 8088` (deduped with the host default).
+`-p 8088` (deduped with the host default; 8089 is already in the default).
 `oc [box flags] [--] [opencode args]` runs opencode in a box on the current
 directory; `oc -s` selects system mode.
 `ab [prompt...]` = project-mode opencode in `~/ab_workspace` with `-n`,
@@ -44,7 +44,7 @@ attaching to the host's dedicated Chromium (see
   unless `BOX_GUI=1`.
 - Network is egress-only pasta; each `BOX_DEFAULT_PORTS`/`-p|--port`
   entry forwards that host-loopback TCP port into the box (this host:
-  8088 for llama-embed).
+  8088 for llama-embed, 8089 for llama-inkling).
 - Refuses a `$PWD` that is (or is an ancestor of) a special mount/masked
   path: `$HOME`, `/tmp`, `/dev`, `/dev/shm`, `/proc`, `/sys`,
   `/var/log/journal`, `/run/log/journal`, `/run/user/$UID` — the workspace
@@ -63,8 +63,9 @@ attaching to the host's dedicated Chromium (see
   is unreachable while DNS/HTTPS still work. `-n` keeps the host netns for
   the agent browser. Each `BOX_DEFAULT_PORTS`/`-p|--port` entry replaces
   that port's `-T none` with a single guest→host-loopback TCP hole (repeat
-  `-p` or pass a comma-separated list; this host defaults to 8088 for
-  llama-embed). `-n` bypasses pasta, so ports have no effect there.
+  `-p` or pass a comma-separated list; this host defaults to 8088,8089 for
+  llama-embed and llama-inkling). `-n` bypasses pasta, so ports have no
+  effect there.
 - Needs the `tun` module (`modules/networking.nix`); udev already ships the
   `/dev/net/tun` 0666 rule.
 - Compilers come from the store. `_BOX_PROJECT_RW` whitelists per-user build
@@ -109,8 +110,8 @@ journal masked, and an egress-only pasta netns (`--no-map-gw --no-splice`);
 `-n` keeps the host netns for `ab`/CDP. pasta needs the `tun` module
 (`modules/networking.nix`). The deliberate exceptions are `/dev/kfd` for
 ROCm, read-only `~/models`, and the `-p|--port` loopback holes (this host
-defaults `BOX_DEFAULT_PORTS=8088` for llama-embed); none of those expose the
-host filesystem, D-Bus or the journal.
+defaults `BOX_DEFAULT_PORTS=8088,8089` for llama-embed and llama-inkling);
+none of those expose the host filesystem, D-Bus or the journal.
 
 Separately, each agent-browser session daemon opened a random loopback
 WebSocket stream port for the unused dashboard; agent-chrome now disables the

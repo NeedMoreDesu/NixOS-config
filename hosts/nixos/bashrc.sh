@@ -5,10 +5,10 @@
 NYX_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 NYX_HOST=nixos
 
-# Host policy: llama-embed runs in every session, so every terminal box gets
-# host-loopback 8088 by default. `box -p PORT` adds more; BOX_DEFAULT_PORTS=
-# (per invocation) disables the default.
-BOX_DEFAULT_PORTS=8088
+# Host policy: terminal boxes can reach the local AI services at host-loopback
+# 8088 (llama-embed) and 8089 (llama-inkling). `box -p PORT` adds more;
+# BOX_DEFAULT_PORTS= (per invocation) disables the defaults.
+BOX_DEFAULT_PORTS=8088,8089
 
 . "$NYX_REPO/shell/box.sh"
 . "$NYX_REPO/shell/nyx.sh"
