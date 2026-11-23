@@ -1,9 +1,9 @@
 # LFM2.5-VL-1.6B (local, Q8_0, llama.cpp ROCm)
 
-**Status: service implemented 2026-11-23; activation/fetch pending.** Start it
-with `ai on lfm` (or `ai on -a`); the unit has no autostart. It is a small,
-fast vision-language sidecar on port **8090**, separate from Inkling (8089)
-and embeddings (8088).
+**Status: service implemented 2026-11-23; manual smoke test passed;
+`nyx` + `fetch-lfm25vl` still to run.** Start it with `ai on lfm` (or
+`ai on -a`); the unit has no autostart. It is a small, fast vision-language
+sidecar on port **8090**, separate from Inkling (8089) and embeddings (8088).
 
 ## What it is
 
@@ -105,6 +105,21 @@ curl -sS http://127.0.0.1:8090/v1/chat/completions \
 
 The model answers directly (no reasoning trace). Keep `temperature` low; the
 service already defaults to `0.1`, `min-p 0.15`, `repeat-penalty 1.05`.
+
+## Verified (2026-11-23)
+
+Manual smoke test with the already-installed nixpkgs `llama-server` (ROCm
+build) and the pinned Q8_0 files on this host:
+
+- load: ~0.65 s, including mmproj; `ROCm0` selected automatically.
+- screenshot request (2,574 prompt tokens after tiling): **~3,301 tok/s
+  prefill**, **~290 tok/s decode**.
+- VRAM while serving: ~4.7 GB total, including the ~1.8 GB desktop session.
+- Vision/OCR output was correct; the Google cookie-consent screenshot was
+  described and transcribed accurately.
+
+Those numbers are on the RX 9070 XT (`gfx1201`); the model and projector were
+read from `/tmp` for the test, not from `~/models`.
 
 ## Room to run
 
