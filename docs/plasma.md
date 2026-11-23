@@ -35,8 +35,10 @@ lost on the next `nyx`.
 
 `home/emacs.nix` writes an `emacs.desktop` into
 `~/.local/share/applications` (XDG_DATA_HOME, which outranks the stock entry
-from the emacs package in the per-user profile) so its Exec is `emacs-gui
-%F`: one launcher, one daemon, a new frame per click. The launcher starts
+from the emacs package in the per-user profile) so its Exec is
+`/etc/profiles/per-user/mika/bin/emacs-gui %F`: one launcher, one daemon, a
+new frame per click. The Exec uses the profile path (not the store path) so
+KDE's ksycoca cache keeps working across rebuilds. The launcher starts
 `emacs --daemon` on first use (no systemd unit).
 
 The client is tracked (plain `emacsclient -c`, no `-n`), so `C-x C-c` only
@@ -50,12 +52,13 @@ It also heals a broken daemon: if a running daemon cannot create a
 window-system frame (typically one started at login before
 XWayland/Wayland was ready) or stops responding, it is killed and
 restarted from the current graphical environment, then the frame is retried
-once. A tty fallback is refused, since this machine only uses graphical
-frames. Activity and errors go to
-`${XDG_STATE_HOME:-$HOME/.local/state}/emacs-gui.log`. The launcher does
-not use `emacsclient -a ""`: Emacs 31.1's emacsclient segfaults in that
-path (`execvp(NULL)` when the alternate editor is empty and no file
-arguments are given; fixed upstream after 31.1).
+once. If an old launcher is stuck holding the launcher lock (for example
+while waiting on a wedged daemon), it is killed and replaced. A tty
+fallback is refused, since this machine only uses graphical frames. Activity
+and errors go to `${XDG_STATE_HOME:-$HOME/.local/state}/emacs-gui.log`. The
+launcher does not use `emacsclient -a ""`: Emacs 31.1's emacsclient
+segfaults in that path (`execvp(NULL)` when the alternate editor is empty
+and no file arguments are given; fixed upstream after 31.1).
 
 The stock `emacsclient.desktop` carries the same `StartupWMClass=Emacs`, so
 KDE could bind the frame to that entry and spawn a second task icon. It is
