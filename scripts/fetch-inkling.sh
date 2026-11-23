@@ -38,7 +38,7 @@ fetch() {
     return
   fi
   echo "fetching: $name"
-  curl -fL --retry 5 --retry-delay 2 -o "$dir/$name.part" "$base/$name"
+  curl -fL --retry 5 --retry-delay 2 -C - -o "$dir/$name.part" "$base/$name"
   echo "$sha  $dir/$name.part" | sha256sum -c -
   mv "$dir/$name.part" "$dir/$name"
 }
