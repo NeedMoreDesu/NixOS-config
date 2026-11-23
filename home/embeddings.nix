@@ -39,9 +39,11 @@ in
         "--alias" "embeddinggemma-2"
         "--embeddings"
         "--pooling" "mean"
-        "--ctx-size" "8192"
-        "--batch-size" "8192"
-        "--ubatch-size" "8192"
+        # 3k cap: bidirectional attention means ubatch must cover the whole
+        # input, so the longest single text/image/audio input is ~3072 tokens.
+        "--ctx-size" "3072"
+        "--batch-size" "3072"
+        "--ubatch-size" "3072"
         "--parallel" "1"
         "--n-gpu-layers" "99"
         "--host" "127.0.0.1"

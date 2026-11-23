@@ -46,7 +46,7 @@ live session. See [rebuild](docs/rebuild.md) and
 | [packages](docs/packages.md) | System packages, Steam, LLM CLIs, Syncthing. |
 | [embeddings](docs/embeddings.md) | llama.cpp ROCm embedding server (EmbeddingGemma 2 Q8), omni input; activation pending; vLLM/SGLang for video later. |
 | [inkling](docs/inkling.md) | Local Inkling 2 Mini (26B MoE Q4, text-only 256k, Unsloth prebuilt), manual `ai` toggle, opencode provider; no autostart. |
-| [lfm-vl](docs/lfm-vl.md) | Local LFM2.5-VL-1.6B Q8_0 vision-language sidecar on 8090, `ai on lfm`; no autostart. |
+| [lfm-vl](docs/lfm-vl.md) | Local LFM2.5-VL-1.6B Q4_K_M vision-language sidecar on 8090, 3k context, `ai on lfm`; no autostart. |
 
 `docs/history/` holds setups that are no longer present:
 [Bluetooth paging](docs/history/bluetooth-reconnect.md),

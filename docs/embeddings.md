@@ -25,6 +25,7 @@ vLLM/SGLang only when video embeddings are actually needed.
 | **ROCm/HIP**, not Vulkan | HIP is the upstream ROCm path; Vulkan stays as a fallback if the HIP build misbehaves. |
 | **Q8_0**, not BF16 or Q4 | 310 MB vs 558 MB; ~0.03% STS loss, ~1e-4 cosine drift, 98.7% top-1 agreement. Q4 saves only another ~135 MB on a 16 GB card. |
 | **Q8_0 mmproj** | 555 MB vs 982 MB; cosine 0.99993 image / 0.99994 audio. |
+| **3072-token cap** | Embedding inputs here are short; keeps the bidirectional batch small. Raise `--ctx-size`/`--batch-size`/`--ubatch-size` together for longer text or media. |
 | **Localhost service, port 8088** | No auth in llama.cpp; never expose it. 8088 avoids the usual 8080/8000/11434 collisions. |
 | **User service, model in `$HOME`** | Model files are user-owned; started manually with `ai on -e` (no autostart). A system-wide service would need `/var/lib` and a different ownership model. |
 
@@ -219,9 +220,9 @@ in
         "--alias" "embeddinggemma-2"
         "--embeddings"
         "--pooling" "mean"
-        "--ctx-size" "8192"
-        "--batch-size" "8192"
-        "--ubatch-size" "8192"
+        "--ctx-size" "3072"
+        "--batch-size" "3072"
+        "--ubatch-size" "3072"
         "--parallel" "1"
         "--n-gpu-layers" "99"
         "--host" "127.0.0.1"
@@ -241,8 +242,9 @@ Notes:
 
 - `--pooling mean` is explicit; EmbeddingGemma 2 uses mean pooling.
 - Bidirectional attention means `-ub/--ubatch-size` must be at least as
-  long as the longest single input. Raise `--ctx-size`, `--batch-size` and
-  `--ubatch-size` together, up to 8192.
+  long as the longest single input. The current cap is **3072** tokens;
+  raise `--ctx-size`, `--batch-size` and `--ubatch-size` together if longer
+  inputs are needed.
 - `--parallel 1` avoids splitting the context across slots. Do not raise it
   without checking memory and the bidirectional batch requirement.
 - `-ngl 99` offloads all layers. The mmproj is offloaded by default.
@@ -523,7 +525,7 @@ part and the `<|image|>` / `<|audio|>` placeholders where the media belongs.
 | `address already in use` | Another process owns 8088. Change `--port` in `home/embeddings.nix`. |
 | Image embedding is identical for different images | Wrong payload shape, no `--mmproj`, or the model is loaded without multimodal capability. Check `/v1/models` and the server log. |
 | `NaN` or invalid JSON | F16 weights or FP16 compute. Use Q8_0/BF16; never F16. |
-| `input ... longer than context` | Input exceeds 8192 tokens, or `--ubatch-size` is smaller than the input. Raise ctx/batch/ubatch together. |
+| `input ... longer than context` | Input exceeds 3072 tokens, or `--ubatch-size` is smaller than the input. Raise ctx/batch/ubatch together. |
 | `pooling type none` / no pooled vector | Use `--pooling mean`. |
 | CPU fallback despite ROCm | Device not visible; check `llama-server --list-devices`, `rocm-smi`, groups. If needed, pin the dGPU with `ROCR_VISIBLE_DEVICES` (verify with `rocminfo` first). |
 | HIP build failure | Fall back to `vulkanSupport = true; rocmSupport = false;` and keep the same arguments. Or update the nixpkgs lock. |

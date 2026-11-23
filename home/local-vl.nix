@@ -9,7 +9,7 @@ let
   };
 
   modelDir = "${config.home.homeDirectory}/models/lfm2.5-vl-1.6b";
-  model = "${modelDir}/LFM2.5-VL-1.6B-Q8_0.gguf";
+  model = "${modelDir}/LFM2.5-VL-1.6B-Q4_K_M.gguf";
   mmproj = "${modelDir}/mmproj-LFM2.5-VL-1.6b-Q8_0.gguf";
 
   fetchLfm = pkgs.writeShellScriptBin "fetch-lfm25vl" ''
@@ -27,7 +27,7 @@ in
 
   systemd.user.services.llama-vl = {
     Unit = {
-      Description = "LFM2.5-VL-1.6B Q8_0 vision-language server (llama.cpp ROCm)";
+      Description = "LFM2.5-VL-1.6B Q4_K_M vision-language server (llama.cpp ROCm)";
       After = [ "network.target" ];
       # Skip the unit instead of restart-looping when the weights are absent.
       ConditionPathExists = [ model mmproj ];
@@ -41,7 +41,8 @@ in
         "--alias" "lfm2.5-vl-1.6b"
         "--jinja"
         "--n-gpu-layers" "99"
-        "--ctx-size" "32768"
+        # Small window on purpose: direct image description, not long context.
+        "--ctx-size" "3072"
         "--parallel" "1"
         # Liquid's recommended image budget and sampling for LFM2.5-VL.
         "--image-min-tokens" "64"

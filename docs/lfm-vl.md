@@ -1,36 +1,45 @@
-# LFM2.5-VL-1.6B (local, Q8_0, llama.cpp ROCm)
+# LFM2.5-VL-1.6B (local, Q4_K_M, llama.cpp ROCm)
 
-**Status: service implemented 2026-11-23; manual smoke test passed;
-`nyx` + `fetch-lfm25vl` still to run.** Start it with `ai on lfm`; the unit
-has no autostart. It is a small, fast vision-language sidecar on port **8090**,
-separate from Inkling (8089) and embeddings (8088).
+**Status: service implemented 2026-11-23; Q4_K_M at 3k context manually
+smoke-tested; `nyx` + `fetch-lfm25vl` still to run.** Start it with
+`ai on lfm`; the unit has no autostart. It is a small, fast vision-language
+sidecar on port **8090**, separate from Inkling (8089) and embeddings (8088).
 
 ## What it is
 
 `LiquidAI/LFM2.5-VL-1.6B` — 1.6B parameter vision-language model: LFM2.5-1.2B
-language backbone + SigLIP2 NaFlex 400M vision encoder. 32,768-token context,
-eight languages, native-resolution tiling up to 512×512 per tile plus a
-thumbnail. Text + image in, text out. Good for image captioning, OCR,
-screenshots/UI text, document comprehension, and multilingual visual Q&A. It
-is not a knowledge or coding model.
+language backbone + SigLIP2 NaFlex 400M vision encoder. Eight languages,
+native-resolution tiling up to 512×512 per tile plus a thumbnail. Text + image
+in, text out. It is a direct image describer/OCR model, not a knowledge,
+reasoning, or coding model.
 
-## Why Q8_0
+The model supports 32,768 tokens natively, but this deployment deliberately
+runs a **3,072-token window**. A full-screen screenshot after tiling can use
+~2.5k tokens, leaving roughly 500 tokens for the answer. That is enough for
+captioning/OCR; raise `--ctx-size` in `home/local-vl.nix` if longer prompts or
+multiple images are needed.
 
-No official per-quant benchmark exists for this checkpoint. Q8_0 + Q8_0
-projector is ~1.83 GB and effectively lossless versus BF16; on a 16 GB card
-there is no reason to accept a measurable dropoff. `Q4_K_M` is the sensible
-fallback only if this has to co-reside with Inkling, whose 256k deployment
-leaves ~2.3–2.6 GiB free. Avoid `Q4_0` for OCR: the VL repo's Q4_0 predates
-Liquid's QAD work, so it is plain PTQ (the weakest 4-bit format).
+## Why Q4_K_M
 
-Keep the projector at Q8_0. The ONNX release recommends an FP16 vision
-encoder with a Q4 decoder, i.e. perception is the more quant-sensitive half.
+Liquid recommends `Q4_K_M` as the size/quality balance. Q8_0 is technically
+closer to BF16, but it does not fix this model's reasoning ceiling and costs
+~0.5 GB more for no practical gain here. This deployment therefore uses:
+
+| Part | File | Size |
+| --- | --- | ---: |
+| Decoder | `LFM2.5-VL-1.6B-Q4_K_M.gguf` | 730,896,256 |
+| Projector | `mmproj-LFM2.5-VL-1.6b-Q8_0.gguf` | 583,109,888 |
+
+Keep the projector at Q8_0. The ONNX release recommends an FP16 vision encoder
+with a Q4 decoder, i.e. perception is the more quant-sensitive half. Avoid
+`Q4_0` for OCR: the VL repo's Q4_0 predates Liquid's QAD work, so it is plain
+PTQ (the weakest 4-bit format).
 
 ## Files
 
 | File | Purpose |
 | --- | --- |
-| `scripts/fetch-lfm25vl.sh` | Pinned Q8_0 model + Q8_0 mmproj, sha256-checked. |
+| `scripts/fetch-lfm25vl.sh` | Pinned Q4_K_M model + Q8_0 mmproj, sha256-checked. |
 | `home/local-vl.nix` | `llama-vl` user service, fetch wrapper, ROCm llama.cpp. |
 | `home/default.nix` | Imports `./local-vl.nix`. |
 | `scripts/ai.sh` | Registry entry + `lfm` aliases. |
@@ -40,10 +49,11 @@ Pinned revision: `36fc16bc95133424921bcc3da009e83b2f23ffb5`.
 
 | File | Size (bytes) | SHA-256 |
 | --- | ---: | --- |
-| `LFM2.5-VL-1.6B-Q8_0.gguf` | 1,246,254,880 | `a34bd1506a298d7ff07902e69baeac48c7c20bb85162e61218b743dc10be7c67` |
+| `LFM2.5-VL-1.6B-Q4_K_M.gguf` | 730,896,256 | `aefc3c97c9eb30d9c0dd6af4c38250f5f5106b57c8cf92de7914c7d0a9c94da2` |
 | `mmproj-LFM2.5-VL-1.6b-Q8_0.gguf` | 583,109,888 | `2ce89e610c56f3198ece2b86cf61743a08b9307279c89125eb2412ebb908689d` |
 
-Files live in `~/models/lfm2.5-vl-1.6b/`.
+Files live in `~/models/lfm2.5-vl-1.6b/`. The old Q8_0 decoder can stay on
+disk; the service only loads the Q4_K_M path.
 
 ## Service
 
@@ -51,17 +61,19 @@ Files live in `~/models/lfm2.5-vl-1.6b/`.
 `llama-embed` (`rocmSupport = true`, `gfx1201`), loopback only:
 
 ```
---model ...Q8_0.gguf --mmproj ...Q8_0.gguf
+--model ...Q4_K_M.gguf --mmproj ...Q8_0.gguf
 --alias lfm2.5-vl-1.6b --jinja
--ngl 99 -c 32768 --parallel 1
+-ngl 99 -c 3072 --parallel 1
 --image-min-tokens 64 --image-max-tokens 256
 --temp 0.1 --min-p 0.15 --repeat-penalty 1.05
 --host 127.0.0.1 --port 8090
 ```
 
 `--image-min-tokens`/`--image-max-tokens` mirror Liquid's recommended
-speed/quality budget. `ffmpeg` is on the unit `PATH` for mtmd media decoding.
-`TimeoutStopSec = 5s` so `ai off` cannot block on a loading server.
+speed/quality budget. The 3k `--ctx-size` is the deliberate cap; keep
+`max_tokens` per request modest (a helper script defaults to 256). `ffmpeg` is
+on the unit `PATH` for mtmd media decoding. `TimeoutStopSec = 5s` so `ai off`
+cannot block on a loading server.
 
 nixpkgs' llama.cpp (v1.0.0 / b12359) already understands `LLM_ARCH_LFM2` and
 the `lfm2` projector in `tools/mtmd/models/siglip.cpp`, so no prebuilt pin is
@@ -73,7 +85,7 @@ calls misbehave, supply `--chat-template-file` with the model's
 ## Use
 
 ```bash
-fetch-lfm25vl                 # one-time, ~1.83 GB
+fetch-lfm25vl                 # one-time, ~1.31 GB
 ai on lfm                     # start this service
 ai status lfm
 curl -s http://127.0.0.1:8090/health
@@ -109,27 +121,26 @@ service already defaults to `0.1`, `min-p 0.15`, `repeat-penalty 1.05`.
 
 ## Verified (2026-11-23)
 
-Manual smoke test with the already-installed nixpkgs `llama-server` (ROCm
-build) and the pinned Q8_0 files on this host:
+Manual smoke test with the installed nixpkgs `llama-server` (ROCm build),
+Q4_K_M decoder + Q8_0 projector, `-c 3072`:
 
-- load: ~0.65 s, including mmproj; `ROCm0` selected automatically.
-- screenshot request (2,574 prompt tokens after tiling): **~3,301 tok/s
-  prefill**, **~290 tok/s decode**.
-- VRAM while serving: ~4.7 GB total, including the ~1.8 GB desktop session.
-- Vision/OCR output was correct; the Google cookie-consent screenshot was
-  described and transcribed accurately.
+- load: ~0.34 s, including mmproj; `ROCm0` selected automatically.
+- 1,280×1,024 cookie-consent screenshot (2,572 prompt tokens after tiling):
+  **~2,184 tok/s prefill**, **~365 tok/s decode** for 256 output tokens.
+- OCR/transcription was accurate; the Google consent text was reproduced
+  line for line until the 256-token cap.
+- Also spot-checked a search-results screenshot; direct captioning/OCR was
+  correct.
 
-Those numbers are on the RX 9070 XT (`gfx1201`); the model and projector were
-read from `/tmp` for the test, not from `~/models`.
+Those numbers are on the RX 9070 XT (`gfx1201`). Raising the window or
+`max_tokens` is the only reason to change the service defaults.
 
 ## Room to run
 
-Q8_0 + projector is ~1.8 GB of weights; desktop + context easily fits in the
-16 GB card. It can run alongside `llama-embed` (~0.8 GB). Do **not** run it at
-Q8 alongside Inkling at 256k: Inkling leaves only ~2.3–2.6 GiB, so use
-`ai off -l` first (or a Q4_K_M variant later if co-residency becomes
-required). Start one model at a time; `ai` no longer has a target-everything
-mode.
+Q4_K_M + Q8 projector is ~1.3 GB of weights, so it comfortably coexists with
+`llama-embed` (~0.8 GB). It is still unwise to run it alongside Inkling at
+256k, which leaves only ~2.3–2.6 GiB free; `ai off -l` first. Start one large
+model at a time; `ai` no longer has a target-everything mode.
 
 Box sessions reach it at `127.0.0.1:8090` because the host exports
 `BOX_DEFAULT_PORTS=8088,8089,8090`.
@@ -138,6 +149,6 @@ Box sessions reach it at `127.0.0.1:8090` because the host exports
 
 Not wired into `opencode.jsonc` yet. If added, use the legacy `provider`
 entry with `baseURL http://127.0.0.1:8090/v1`, `attachment = true`,
-`modalities.input = [ "text" "image" ]`, context 32768. Tool calling depends
-on the template-fix caveat above; verify before relying on it as an agent
-model.
+`modalities.input = [ "text" "image" ]`, context 3072. Tool calling depends on
+the template-fix caveat above; this model is best treated as a vision/OCR
+sidecar, not an agent.
