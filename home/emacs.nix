@@ -1,4 +1,4 @@
-{ lib, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 let
   emacs = pkgs.emacs;
 
@@ -102,7 +102,17 @@ let
 
       lock() {
         exec 9>"$lock_dir/emacs-launcher.lock"
-        flock -w 20 9
+        flock -w 10 9 && return 0
+        # A previous launcher can be stuck on a wedged daemon while still
+        # holding the lock. Kill only emacs-gui wrappers (not frames) and
+        # take the lock from the survivor.
+        log "lock timed out; killing stale emacs-gui launchers"
+        for pid in $(pgrep -f '/bin/emacs-gui' 2>/dev/null || true); do
+          [ "$pid" = "$$" ] && continue
+          kill "$pid" 2>/dev/null || true
+        done
+        sleep 0.5
+        flock -w 5 9
       }
 
       unlock() {
@@ -218,7 +228,10 @@ let
     '';
   };
 
-  clientExec = "${emacsLauncher}/bin/emacs-gui %F";
+  # Use the profile path, not the store path, so KDE's cached desktop entry
+  # keeps pointing at a stable Exec across rebuilds (the profile symlink is
+  # updated by nyx; a store path would go stale in the ksycoca cache).
+  clientExec = "${config.home.profileDirectory}/bin/emacs-gui %F";
 
   # Written to ~/.local/share/applications (XDG_DATA_HOME), which outranks
   # the stock entries from the emacs package in /etc/profiles/per-user/mika.
