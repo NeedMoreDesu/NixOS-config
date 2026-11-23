@@ -1,15 +1,16 @@
 # Inkling 2 Mini (local, Unsloth prebuilt)
 
-**Status: implemented 2026-11-23; model download not run yet.** The
-`llama-inkling` user service and the `ai` toggle exist after `nyx`; run
-`fetch-inkling` (16.6 GB) once, then `ai on -l`.
+**Status: implemented 2026-11-23; standard deployment is text-only, 256k
+context, `--n-cpu-moe 16`.** The model is downloaded. Start it with
+`ai on -l`; the unit has no autostart. Vision is off by default.
 
 ## What it is
 
 `thinkingmachines/Inkling-2-Mini` — 26.4B total / 5.4B effective-active MoE,
 24 layers with the middle 12 applied 3× (looped transformer), 128 experts
 (8/token), hybrid local/global attention, 1M context, text + image in, text
-out. Apache 2.0. Local deployment is GGUF only on this machine: the official
+out. Apache 2.0. This deployment is **text-only** (no mmproj) at **256k**
+context. Local deployment is GGUF only on this machine: the official
 NVFP4/MXFP8 checkpoint is a vLLM/SGLang path (NVIDIA-only recipe).
 
 ## Why a pinned Unsloth prebuilt
@@ -57,33 +58,38 @@ the embedding build.
 
 Root-layout files (not `Mainline_Support/`, which is for mainline builds):
 
-| File | Size | Quant |
+| File | Size | Use |
 | --- | ---: | --- |
-| `Inkling-2-Mini-UD-Q4_K_M.gguf` | 16.61 GB | recommended 4-bit |
-| `mmproj-F16.gguf` | 639 MB | vision projector |
+| `Inkling-2-Mini-UD-Q4_K_M.gguf` | 16.61 GB | required, recommended 4-bit |
+| `mmproj-F16.gguf` | 639 MB | optional vision projector |
 | `dspark-Inkling-2-Mini-Q8_0.gguf` | 402 MB | optional DSpark drafter |
 
 ```
-fetch-inkling            # model + projector
-fetch-inkling --dspark   # also the drafter
+fetch-inkling            # text-only: model only
+fetch-inkling --vision   # also fetch the projector
+fetch-inkling --dspark   # also fetch the drafter
 ```
 
 The service listens on `127.0.0.1:8089` (loopback only, no auth) with:
 
 ```
---jinja -ngl 99 --n-cpu-moe 10 -c 32768
+--jinja -ngl 99 --n-cpu-moe 16 -c 262144
 -ctk q8_0 -ctv q8_0 -fa on --parallel 1
 --temp 1.0 --top-p 1.0 --top-k 0 --min-p 0.0
 ```
 
-`--n-cpu-moe 10` keeps the first 10 weight layers' experts in system RAM so
-the 16.6 GB file fits the 16 GB card alongside a desktop. Tune it with
-`rocm-smi`:
+`--n-cpu-moe 16` keeps the first 16 weight layers' experts in system RAM.
+At 256k text-only that measured **~13.3–13.7 GiB total VRAM including the
+desktop**, leaving ~2.3–2.6 GiB. Raising N costs generation speed but almost
+no prefill: at 32k depth `pp512` was 173.1 vs 169.9 t/s for N=10 vs N=16; at
+64k it was 93.6 vs 94.5. The fit limits at N=16 are about 384k text-only
+(~0.6 GiB free); 512k OOMs. Lower N only if you also lower context.
 
-- lower N (fewer CPU experts, faster) if there is VRAM headroom;
-- raise N if the service OOMs or the desktop stutters;
-- for a fully-GPU setup, switch the model to `UD-IQ3_XXS` (11.66 GB) and set
-  `--n-cpu-moe 0`.
+Vision is **off**: no `--mmproj`, and the unit's condition only checks the
+model. To re-enable, add `--mmproj ~/models/inkling-2-mini/mmproj-F16.gguf`
+back to `ExecStart` and the condition, fetch with `--vision`, and restore
+image capability in opencode. It costs roughly 0.6–1.4 GiB of VRAM and
+lowers the practical max context.
 
 DSpark is not enabled in the unit. If it turns out to be worth the extra
 VRAM, add:
@@ -129,13 +135,13 @@ command to run.
 
 `opencode.jsonc` uses the legacy `provider`/`npm` entry for `inkling`: on
 opencode 1.19.6 the newer `providers`/`package` shape did not resolve the
-model, while this one does. The model entry sets `attachment = true` and
-`modalities.input = [ "text", "image" ]`; without those, opencode's `read`
-tool rejects image attachments before they reach the server. `tool_call` and
-`reasoning` are also enabled. `baseURL` is `http://127.0.0.1:8089/v1`,
-context 32768, output 8192, and the API key is a dummy (llama-server does not
-authenticate). Start the service with `ai on -l` before selecting the model;
-open a new opencode session after changing capabilities.
+model, while this one does. The standard deployment is text-only, so the
+model entry sets `attachment = false` and `modalities.input = [ "text" ]`;
+`tool_call` and `reasoning` stay enabled. `baseURL` is
+`http://127.0.0.1:8089/v1`, context **262144**, output 8192, and the API key
+is a dummy (llama-server does not authenticate). Start the service with
+`ai on -l` before selecting the model; open a new opencode session after
+changing capabilities/limits.
 
 ## Verify
 

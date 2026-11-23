@@ -17,8 +17,8 @@
   // (home/local-ai.nix, port 8089). No auth: host loopback only.
   // This uses opencode's legacy provider entry: `providers` with
   // package/settings failed to resolve the model on 1.19.6, while
-  // provider/npm works. `attachment`/`modalities` are what make the read
-  // tool accept images; the mmproj is already loaded by llama-server.
+  // provider/npm works. The deployment is text-only (no mmproj), so the
+  // model stays text-only here too.
   "provider": {
     "inkling": {
       "npm": "@ai-sdk/openai-compatible",
@@ -30,15 +30,15 @@
       "models": {
         "inkling-2-mini": {
           "name": "Inkling 2 Mini UD-Q4_K_M",
-          "attachment": true,
+          "attachment": false,
           "modalities": {
-            "input": [ "text", "image" ],
+            "input": [ "text" ],
             "output": [ "text" ]
           },
           "tool_call": true,
           "reasoning": true,
           "limit": {
-            "context": 32768,
+            "context": 262144,
             "output": 8192
           }
         }
