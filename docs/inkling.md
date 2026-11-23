@@ -26,6 +26,8 @@ NVFP4/MXFP8 checkpoint is a vLLM/SGLang path (NVIDIA-only recipe).
   `b12631-mix-acc0843` (ROCm gfx120X asset, sha256-checked). It is upstream
   b12631 plus Unsloth's Inkling 2 patches (root looped layout, DSpark,
   looped-layer device placement, `--moe-cache-mib auto`).
+  Asset: `app-b12631-mix-acc0843-linux-x64-rocm-gfx120X.tar.gz`
+  (`969feb895f8666921fa39305f4950d1cddb93308f42d91f8c44f8d2e691d96d1`).
 
 Do **not** replace this with an `overrideAttrs` of nixpkgs' llama-cpp; the
 layout change breaks the npm/UI build.
