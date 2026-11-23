@@ -46,14 +46,6 @@ die() {
   exit 2
 }
 
-if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
-  die "run as your user, not root/sudo (systemctl --user target)"
-fi
-
-if ! systemctl --user show-environment >/dev/null 2>&1; then
-  die "cannot reach the systemd user manager (no user session bus?)"
-fi
-
 declare -a sel=()
 
 add() {
@@ -157,6 +149,12 @@ action=${1:-}
 case "$action" in
   on | off | restart | status)
     shift
+    if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
+      die "run as your user, not root/sudo (systemctl --user target)"
+    fi
+    if ! systemctl --user show-environment >/dev/null 2>&1; then
+      die "cannot reach the systemd user manager (no user session bus?)"
+    fi
     resolve_targets "$@"
     # No target: operate on everything (status already means all).
     if ((${#sel[@]} == 0)) && [[ $action != status ]]; then add_all; fi
