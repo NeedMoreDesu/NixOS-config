@@ -107,16 +107,19 @@ ai off                # all
 ai on -e              # best embedding service
 ai on -l              # best LLM service
 ai on gemma           # case-insensitive partial match (unit/label/alias)
-ai off incl           # alias for Inkling
-ai status [target]
+ai off incl           # ...also for an Inkling alias
+ai status InCl        # status uses the same matcher
+ai status GEMMA
+ai status
 ai list
 ```
 
 `-e`/`--embeddings` and `-l`/`--llm` select by service kind, so they never
 depend on pattern matching. Named targets are partial, case-insensitive, and
-ignore `-`, `_` and spaces. `on` also enables the unit; `off` disables it so a
-new login does not start it again. Missing weights are reported with the
-`fetch-*` command to run.
+ignore `-`, `_` and spaces; this applies to `on`, `off`, `restart` and
+`status` alike. `on` also enables the unit; `off` disables it so a new login
+does not start it again. Missing weights are reported with the `fetch-*`
+command to run.
 
 ## opencode
 

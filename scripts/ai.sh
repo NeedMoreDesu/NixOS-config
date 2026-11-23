@@ -24,12 +24,12 @@ usage: ai [on|off|restart|status|list] [TARGET...]
   status [TARGET...]   show service state
   list                 list known services
 
-targets:
+targets (on/off/restart/status):
   -e, --embeddings     best embedding service
   -l, --llm            best LLM service
   -a, --all            every service
   NAME                 case-insensitive partial match on unit, label or alias
-                       (e.g. gemma, incl)
+                       (e.g. gemma, InCl, llama)
 
 examples:
   ai on
@@ -38,6 +38,8 @@ examples:
   ai on -l
   ai on gemma
   ai off incl
+  ai status InCl
+  ai status GEMMA
 EOF
 }
 
