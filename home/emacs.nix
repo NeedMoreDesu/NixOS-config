@@ -2,8 +2,7 @@
 let
   emacs = pkgs.emacs;
 
-  # One launcher: attach to the per-session daemon instead of spawning a
-  # standalone Emacs, and heal the daemon when it cannot make a GUI frame.
+  # One daemon per session, healed on demand.
   #
   # Do not use `emacsclient -a ""` here: Emacs 31.1 segfaults in fail()
   # when the alternate editor is the empty string and no file arguments
@@ -11,9 +10,16 @@ let
   # upstream after 31.1). This launcher starts/restarts the daemon itself,
   # so the empty alternate-editor path is never reached.
   #
+  # Do not use `emacsclient -n` either: a nowait frame is not tracked as a
+  # client, so `C-x C-c` on the last frame runs `save-buffers-kill-emacs`
+  # and kills the daemon (or leaves it wedged in a save prompt). A tracked
+  # client (plain `-c`) makes `C-x C-c` delete only that client frame; the
+  # daemon stays alive for the next click.
+  #
   # A daemon that cannot create a window-system frame (e.g. started at
-  # login before XWayland/Wayland was ready) is killed and restarted from
-  # the current graphical environment before retrying once.
+  # login before XWayland/Wayland was ready) or that stopped responding is
+  # killed and restarted from the current graphical environment, then the
+  # frame is retried once.
   emacsLauncher = pkgs.writeShellApplication {
     name = "emacs-gui";
     runtimeInputs = with pkgs; [
@@ -24,62 +30,113 @@ let
     text = ''
       unset ALTERNATE_EDITOR
 
+      log_dir="''${XDG_STATE_HOME:-''${HOME:-/tmp}/.local/state}"
+      log_file="$log_dir/emacs-gui.log"
+      mkdir -p "$log_dir"
+      log() {
+        printf '%s %s\n' "$(date '+%F %T')" "$*" >>"$log_file"
+      }
+
       if [ -z "''${WAYLAND_DISPLAY:-}" ] && [ -z "''${DISPLAY:-}" ]; then
-        echo "emacs-gui: no graphical display (WAYLAND_DISPLAY and DISPLAY are unset)" >&2
+        msg="no graphical display (WAYLAND_DISPLAY and DISPLAY are unset)"
+        echo "emacs-gui: $msg" >&2
+        log "error: $msg"
         exit 1
       fi
 
       emacs="${emacs}/bin/emacs"
       emacsclient="${emacs}/bin/emacsclient"
 
-      lock_dir="''${XDG_RUNTIME_DIR:-/tmp}"
-      exec 9>"$lock_dir/emacs-launcher.lock"
-      flock 9
+      if [ -n "''${XDG_RUNTIME_DIR:-}" ]; then
+        socket="$XDG_RUNTIME_DIR/emacs/server"
+        lock_dir="$XDG_RUNTIME_DIR"
+      else
+        socket="''${TMPDIR:-/tmp}/emacs$(id -u)/server"
+        lock_dir="''${TMPDIR:-/tmp}"
+      fi
 
-      have_server() {
-        "$emacsclient" -e '(emacs-pid)' >/dev/null 2>&1
+      probe() {
+        timeout 5 "$emacsclient" -w 2 -e '(emacs-pid)' >/dev/null 2>&1
       }
 
       wait_for_server() {
-        for _ in $(seq 1 100); do
-          if have_server; then
+        for _ in $(seq 1 50); do
+          if probe; then
             return 0
           fi
-          sleep 0.1
+          sleep 0.2
         done
         return 1
       }
 
       start_daemon() {
+        log "starting daemon"
         echo "emacs-gui: starting Emacs daemon" >&2
-        "$emacs" --daemon >/dev/null 2>&1 || true
+        timeout 60 "$emacs" --daemon >/dev/null 2>&1 || true
         wait_for_server
       }
 
-      restart_daemon() {
-        echo "emacs-gui: daemon cannot create a window-system frame; restarting it" >&2
-        "$emacsclient" -e '(kill-emacs)' >/dev/null 2>&1 || true
-        for _ in $(seq 1 100); do
-          if ! have_server; then
-            break
-          fi
+      kill_daemon() {
+        log "killing unresponsive daemon"
+        timeout 5 "$emacsclient" -w 2 -e '(kill-emacs)' >/dev/null 2>&1 || true
+        for _ in $(seq 1 50); do
+          [ -S "$socket" ] || return 0
           sleep 0.1
         done
-        if have_server; then
-          # Last resort; match only emacs daemons, never standalone frames.
-          pkill -f -- '(^|/)emacs[^/ ]* .*--daemon' 2>/dev/null || true
-          sleep 0.5
+        log "daemon would not exit; sending SIGTERM"
+        pkill -f -- '(^|/)emacs[^/ ]* .*--daemon' 2>/dev/null || true
+        sleep 0.5
+      }
+
+      ensure_daemon() {
+        if probe; then
+          return 0
+        fi
+        if [ -S "$socket" ]; then
+          log "daemon socket exists but no response; replacing daemon"
+          echo "emacs-gui: replacing unresponsive Emacs daemon" >&2
+          kill_daemon
         fi
         start_daemon
       }
 
-      launch() {
-        "$emacsclient" -c -n "$@"
+      lock() {
+        exec 9>"$lock_dir/emacs-launcher.lock"
+        flock -w 20 9
       }
 
-      # Capture stdout so the client sees no terminal: on a window-system
-      # failure it must report "could not get terminal name", not open a
-      # tty frame. Keep the output for classifying the failure.
+      unlock() {
+        flock -u 9 2>/dev/null || true
+        exec 9>&-
+      }
+
+      lock || {
+        msg="another launcher is still starting the daemon"
+        echo "emacs-gui: $msg" >&2
+        log "error: $msg"
+        exit 1
+      }
+
+      if ! ensure_daemon; then
+        unlock
+        msg="could not start the Emacs daemon"
+        echo "emacs-gui: $msg (log: $log_file)" >&2
+        log "error: $msg"
+        exit 1
+      fi
+
+      # Release the lock before launching: a tracked client stays in the
+      # foreground for the lifetime of its frame, and must not block later
+      # clicks while it does so.
+      unlock
+
+      launch() {
+        "$emacsclient" -c "$@"
+      }
+
+      # Capture output so the client never sees a terminal: on a
+      # window-system failure it must report "could not get terminal name"
+      # instead of opening a tty frame. Keep the text for classification.
       launch_output=""
 
       launch_once() {
@@ -95,13 +152,6 @@ let
         return "$status"
       }
 
-      if ! have_server; then
-        start_daemon || {
-          echo "emacs-gui: could not start the Emacs daemon" >&2
-          exit 1
-        }
-      fi
-
       if launch_once "$@"; then
         exit 0
       else
@@ -110,10 +160,23 @@ let
 
       case "$launch_output" in
         *"could not get terminal name"*|*"window system"*)
-          restart_daemon || {
-            echo "emacs-gui: could not restart the Emacs daemon" >&2
+          log "window-system failure; restarting daemon"
+          echo "emacs-gui: daemon cannot create a window-system frame; restarting it" >&2
+          lock || {
+            msg="another launcher is still working; not restarting the daemon"
+            echo "emacs-gui: $msg" >&2
+            log "error: $msg"
             exit 1
           }
+          kill_daemon
+          if ! start_daemon; then
+            unlock
+            msg="could not restart the Emacs daemon"
+            echo "emacs-gui: $msg (log: $log_file)" >&2
+            log "error: $msg"
+            exit 1
+          fi
+          unlock
           if ! launch_once "$@"; then
             if [ -n "$launch_output" ]; then
               printf '%s\n' "$launch_output" >&2
@@ -122,10 +185,22 @@ let
           fi
           ;;
         *"can't find socket"*|*"have you started the server"*|*"No socket or alternate editor"*)
-          start_daemon || {
-            echo "emacs-gui: could not start the Emacs daemon" >&2
+          log "lost the daemon; restarting"
+          echo "emacs-gui: daemon connection lost; restarting it" >&2
+          lock || {
+            msg="another launcher is still working; not starting the daemon"
+            echo "emacs-gui: $msg" >&2
+            log "error: $msg"
             exit 1
           }
+          if ! ensure_daemon; then
+            unlock
+            msg="could not start the Emacs daemon"
+            echo "emacs-gui: $msg (log: $log_file)" >&2
+            log "error: $msg"
+            exit 1
+          fi
+          unlock
           if ! launch_once "$@"; then
             if [ -n "$launch_output" ]; then
               printf '%s\n' "$launch_output" >&2
