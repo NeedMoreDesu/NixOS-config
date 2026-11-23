@@ -251,18 +251,22 @@ lock-layout user unit is a heuristic that forces English when the session
 locks.
 
 `lock-layout.service` runs `dbus-monitor` on the session bus, watching
-`org.kde.screensaver.AboutToLock` (fires before kscreenlocker blocks global
-shortcuts) and `org.freedesktop.ScreenSaver.ActiveChanged` as a fallback. It
-asks kglobalaccel for the `KDE Keyboard Layout Switcher` component
-(`org.kde.KGlobalAccel.getComponent` — the component name has spaces and is
-not a valid D-Bus object path) and calls `invokeShortcut` with the action
-`Switch keyboard layout to English (UK, Macintosh) with grave` on it. Those
-are the same action names declared in `home/plasma.nix`; renaming the layout
-description breaks the switch (the script logs and skips).
+`org.kde.screensaver.AboutToLock` (fires before kscreenlocker starts the
+greeter) and `org.freedesktop.ScreenSaver.ActiveChanged` as a fallback. It
+calls KWin's `KeyboardLayouts` D-Bus interface directly:
+
+```
+qdbus org.kde.keyboard /Layouts org.kde.KeyboardLayouts.setLayout 0
+```
+
+`setLayout()` switches the compositor's XKB group unconditionally, unlike
+invoking the `KDE Keyboard Layout Switcher` global-shortcut action (which
+depends on KWin's shortcut plumbing being up). The layout order is pinned in
+`modules/desktop.nix` as `gb-mac-grave,ua`, so index 0 is the English layout.
 
 Not covered: polkit dialogs and `sudo` prompts still use the active layout.
-The script is also dependent on kglobalaccel and the session bus being up; a
-failure just leaves the layout untouched. Check with:
+The script is also dependent on KWin's D-Bus interface and the session bus
+being up; a failure just leaves the layout untouched. Check with:
 
 ```
 systemctl --user status lock-layout

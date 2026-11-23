@@ -4,25 +4,15 @@ let
   # active layout, so locking while ua(unicode) is selected types the password
   # in Cyrillic. Force the English layout when the session locks. This is a
   # heuristic: polkit/sudo prompts are not covered. See docs/keyboard.md.
+  #
+  # Use KWin's KeyboardLayouts D-Bus interface directly instead of invoking the
+  # KGlobalAccel action: the action lives in KWin and only fires while its
+  # shortcut plumbing is up. setLayout() switches the compositor's XKB group
+  # unconditionally. The layout order is pinned in modules/desktop.nix as
+  # "gb-mac-grave,ua", so index 0 is the English layout.
   forceEnglish = pkgs.writeShellScript "lock-layout-force-english" ''
     set -eu
-
-    # The component name contains spaces, so it is not a valid D-Bus object
-    # path; ask kglobalaccel for the real path instead of guessing
-    # /component/<name>.
-    path=$(qdbus org.kde.kglobalaccel /kglobalaccel \
-      org.kde.KGlobalAccel.getComponent "KDE Keyboard Layout Switcher") || exit 0
-    case "$path" in
-      /component/*) ;;
-      *)
-        echo "lock-layout: unexpected component path: $path" >&2
-        exit 0
-        ;;
-    esac
-
-    qdbus org.kde.kglobalaccel "$path" \
-      org.kde.kglobalaccel.Component.invokeShortcut \
-      "Switch keyboard layout to English (UK, Macintosh) with grave"
+    qdbus org.kde.keyboard /Layouts org.kde.KeyboardLayouts.setLayout 0
   '';
 
   runner = pkgs.writeShellScript "lock-layout-watch" ''
@@ -31,9 +21,9 @@ let
     # stdbuf: dbus-monitor block-buffers stdout when piped, which would delay
     # the signal until the pipe fills.
     #
-    # AboutToLock fires before kscreenlocker blocks global shortcuts, so the
-    # invokeShortcut below still lands; ActiveChanged(true) is the fallback if
-    # that race is lost (the call is then a no-op rather than a failure).
+    # AboutToLock fires before kscreenlocker starts the greeter, so the
+    # setLayout() call lands early; ActiveChanged(true) is the fallback for
+    # lock paths that only emit the freedesktop signal.
     stdbuf -oL -eL dbus-monitor --session \
       "type='signal',interface='org.kde.screensaver',member='AboutToLock'" \
       "type='signal',interface='org.freedesktop.ScreenSaver',member='ActiveChanged'" \
