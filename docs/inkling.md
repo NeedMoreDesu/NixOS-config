@@ -127,14 +127,15 @@ command to run.
 
 ## opencode
 
-`opencode.jsonc` gets a local provider `inkling` (the `providers` catalog,
-not the deprecated `provider` alias) with model `inkling-2-mini`,
-`baseURL http://127.0.0.1:8089/v1`, context 32768 and output 8192. The API key
-is a dummy; llama-server does not authenticate. The model entry must declare
-`capabilities.input = [ "text", "image" ]`: llama-server already has the F16
-mmproj loaded, but without the explicit capability opencode's `read` tool
-rejects image attachments before they reach the server. Keep `tools = true`.
-Start the service with `ai on -l` before selecting the model.
+`opencode.jsonc` uses the legacy `provider`/`npm` entry for `inkling`: on
+opencode 1.19.6 the newer `providers`/`package` shape did not resolve the
+model, while this one does. The model entry sets `attachment = true` and
+`modalities.input = [ "text", "image" ]`; without those, opencode's `read`
+tool rejects image attachments before they reach the server. `tool_call` and
+`reasoning` are also enabled. `baseURL` is `http://127.0.0.1:8089/v1`,
+context 32768, output 8192, and the API key is a dummy (llama-server does not
+authenticate). Start the service with `ai on -l` before selecting the model;
+open a new opencode session after changing capabilities.
 
 ## Verify
 

@@ -15,26 +15,28 @@
   },
   // Local Inkling 2 Mini, served by the llama-inkling user service
   // (home/local-ai.nix, port 8089). No auth: host loopback only.
-  "providers": {
+  // This uses opencode's legacy provider entry: `providers` with
+  // package/settings failed to resolve the model on 1.19.6, while
+  // provider/npm works. `attachment`/`modalities` are what make the read
+  // tool accept images; the mmproj is already loaded by llama-server.
+  "provider": {
     "inkling": {
+      "npm": "@ai-sdk/openai-compatible",
       "name": "Inkling 2 Mini (local)",
-      "package": "@opencode/ai/providers/openai-compatible",
-      "settings": {
+      "options": {
         "baseURL": "http://127.0.0.1:8089/v1",
         "apiKey": "local"
       },
       "models": {
         "inkling-2-mini": {
-          "modelID": "inkling-2-mini",
           "name": "Inkling 2 Mini UD-Q4_K_M",
-          // llama-server has the F16 mmproj loaded; without the explicit
-          // image capability opencode's read tool rejects attachments
-          // before they ever reach the server.
-          "capabilities": {
-            "tools": true,
+          "attachment": true,
+          "modalities": {
             "input": [ "text", "image" ],
             "output": [ "text" ]
           },
+          "tool_call": true,
+          "reasoning": true,
           "limit": {
             "context": 32768,
             "output": 8192
