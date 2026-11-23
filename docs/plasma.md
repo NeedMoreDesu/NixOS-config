@@ -37,14 +37,22 @@ lost on the next `nyx`.
 `~/.local/share/applications` (XDG_DATA_HOME, which outranks the stock entry
 from the emacs package in the per-user profile) so its Exec is `emacs-gui
 %F`: one launcher, one daemon, a new frame per click. The launcher starts
-`emacs --daemon` on first use (no systemd unit) and `-n` returns
-immediately so it does not hang.
+`emacs --daemon` on first use (no systemd unit).
+
+The client is tracked (plain `emacsclient -c`, no `-n`), so `C-x C-c` only
+deletes that client frame and the daemon stays alive for the next click.
+With `-n` the nowait frame is not tracked as a client and `C-x C-c` on the
+last frame kills the daemon (or wedges it in a save prompt). The client
+process stays in the foreground for its frame's lifetime; that is normal
+and does not hold the launcher lock.
 
 It also heals a broken daemon: if a running daemon cannot create a
 window-system frame (typically one started at login before
-XWayland/Wayland was ready), it is killed and restarted from the current
-graphical environment, then the frame is retried once. A tty fallback is
-refused, since this machine only uses graphical frames. The launcher does
+XWayland/Wayland was ready) or stops responding, it is killed and
+restarted from the current graphical environment, then the frame is retried
+once. A tty fallback is refused, since this machine only uses graphical
+frames. Activity and errors go to
+`${XDG_STATE_HOME:-$HOME/.local/state}/emacs-gui.log`. The launcher does
 not use `emacsclient -a ""`: Emacs 31.1's emacsclient segfaults in that
 path (`execvp(NULL)` when the alternate editor is empty and no file
 arguments are given; fixed upstream after 31.1).
