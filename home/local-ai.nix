@@ -38,7 +38,7 @@ in
 
     Service = {
       ExecStart = builtins.concatStringsSep " " [
-        "${llamaCppUnsloth}/bin/llama-server"
+        "${llamaCppUnsloth}/bin/llama-server-inkling"
         "--model" model
         "--mmproj" mmproj
         "--alias" "inkling-2-mini"

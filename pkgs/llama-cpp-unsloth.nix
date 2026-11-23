@@ -53,7 +53,10 @@ stdenv.mkDerivation (finalAttrs: {
       patchelf --print-interpreter "$f" >/dev/null 2>&1 || continue
       patchelf --set-interpreter "$interp" --set-rpath '$ORIGIN' "$f"
       name="$(basename "$f")"
-      makeWrapper "$f" "$out/bin/$name" \
+      # Prefix the wrappers so this package can coexist in the profile with
+      # nixpkgs' llama-cpp (used by llama-embed) without colliding on
+      # bin/llama-server, bin/llama-cli, etc.
+      makeWrapper "$f" "$out/bin/$name-inkling" \
         --prefix LD_LIBRARY_PATH : "$libpath" \
         --set-default HIPBLASLT_TENSILE_LIBPATH "$bundle/hipblaslt/library"
     done
@@ -66,6 +69,6 @@ stdenv.mkDerivation (finalAttrs: {
     homepage = "https://github.com/unslothai/llama.cpp";
     license = lib.licenses.mit;
     platforms = [ "x86_64-linux" ];
-    mainProgram = "llama-server";
+    mainProgram = "llama-server-inkling";
   };
 })

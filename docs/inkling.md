@@ -46,7 +46,10 @@ bundled ROCm libraries makes the HIP backend segfault while loading
 `librocblas`; the derivation patches only the executables' interpreter and
 keeps the libs byte-identical. The wrapper puts the bundle and nixpkgs'
 libstdc++ on `LD_LIBRARY_PATH`, and sets `HIPBLASLT_TENSILE_LIBPATH` to the
-bundled gfx1201 tuning data.
+bundled gfx1201 tuning data. Binaries are installed with an `-inkling`
+suffix (`llama-server-inkling`, `llama-cli-inkling`, …) so the profile can
+keep nixpkgs' `llama-cpp` for `llama-embed`; plain `llama-server` is still
+the embedding build.
 
 ## Model and service
 
@@ -123,8 +126,8 @@ service with `ai on -l` before selecting the model.
 ## Verify
 
 ```
-llama-server --version        # build 12631 (the pinned wrapper)
-llama-server --list-devices   # ROCm0: RX 9070 XT
+llama-server-inkling --version        # build 12631 (the pinned wrapper)
+llama-server-inkling --list-devices   # ROCm0: RX 9070 XT
 ai on -l
 curl -s http://127.0.0.1:8089/health
 curl -s http://127.0.0.1:8089/v1/models | jq .
