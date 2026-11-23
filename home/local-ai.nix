@@ -59,6 +59,10 @@ in
       ];
       Restart = "on-failure";
       RestartSec = 5;
+      # `ai off` must not block for systemd's 90s default while the server is
+      # still loading the 16 GB model (or a client holds a stream). There is
+      # nothing to flush, so let systemd SIGKILL shortly after SIGTERM.
+      TimeoutStopSec = "5s";
     };
   };
 }

@@ -49,6 +49,8 @@ in
       ];
       Restart = "on-failure";
       RestartSec = 2;
+      # Bound `ai off` the same way as llama-inkling: no long graceful wait.
+      TimeoutStopSec = "5s";
       # llama.cpp shells out to ffprobe/ffmpeg to decode images and audio
       # for the mmproj; without it embeddings fail with HTTP 500.
       Environment = [ "PATH=${pkgs.lib.makeBinPath [ pkgs.ffmpeg ]}" ];

@@ -128,7 +128,9 @@ depend on pattern matching. Named targets are partial, case-insensitive, and
 ignore `-`, `_` and spaces; this applies to `on`, `off`, `restart` and
 `status` alike. `on` only starts the unit for the current session; the units
 have no `[Install]`/`WantedBy`, so **nothing autostarts at login or boot**.
-`off` just stops them. To restore autostart later, add
+`off` just stops them. Both units set `TimeoutStopSec = 5s`, so a stop that
+lands while the server is still loading weights (or with a stream attached)
+escalates to SIGKILL instead of blocking for systemd's 90s default. To restore autostart later, add
 `Install.WantedBy = [ "default.target" ]` back in `home/local-ai.nix` (and
 `home/embeddings.nix` for `llama-embed`). If `ai` reports a unit as missing,
 run `nyx` to relink it. Missing weights are reported with the `fetch-*`
