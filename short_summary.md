@@ -59,6 +59,6 @@ live session. See [rebuild](docs/rebuild.md) and
   Keyboard KCM. See [keyboard](docs/keyboard.md#kde-keyboard-kcm-hijacks-xkb-options-2026-11-08).
 - Don't run `agent-browser install`. See [agent browser](docs/agent-browser.md#do-not-run-agent-browser-install).
 - Local AI services (`llama-inkling`, `llama-embed`, `llama-vl`) have **no
-  autostart**; start/stop them explicitly with `ai on -l`/`ai off` (or
-  `ai on -a` for all). See [inkling](docs/inkling.md).
+  autostart**; start them by name with `ai on -l` / `ai on lfm`, stop with
+  `ai off`. See [inkling](docs/inkling.md).
 - `stateVersion` is pinned in `hosts/nixos/default.nix` — never bump it.

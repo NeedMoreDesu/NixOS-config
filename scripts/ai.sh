@@ -19,24 +19,22 @@ usage() {
   cat <<'EOF'
 usage: ai [on|off|restart|status|list] [TARGET...]
 
-  on TARGET...         start for this session (target required; -a for all)
+  on TARGET...         start for this session (target required)
   off [TARGET...]      stop (no target = all)
-  restart TARGET...    restart (target required; -a for all)
+  restart TARGET...    restart (target required)
   status [TARGET...]   show service state
   list                 list known services
 
 targets (on/off/restart/status):
   -e, --embeddings     best embedding service
   -l, --llm            best LLM service
-  -a, --all            every service
   NAME                 case-insensitive partial match on unit, label or alias
-                       (e.g. gemma, InCl, llama)
+                       (e.g. gemma, InCl, lfm)
 
 examples:
   ai on -e
   ai on -l
   ai on lfm
-  ai on -a
   ai off
   ai on gemma
   ai off incl
@@ -83,17 +81,29 @@ add_all() {
 # Partial, case-insensitive match on unit + label + aliases. Hyphens,
 # underscores and spaces are ignored so "embeddinggemma" also matches
 # "embedding-gemma". Too-short names are rejected: use -e/-l instead of a
-# one-letter pattern that would match half the registry.
+# one-letter pattern that would match half the registry. `on`/`restart` also
+# reject an ambiguous match, so a broad name cannot accidentally start every
+# model.
 add_name() {
   local q=${1,,} entry unit kind rank label aliases hint model hay compact
+  local -a matches=()
   if [[ ${#q} -gt 1 ]]; then
     while IFS='|' read -r unit kind rank label aliases hint model; do
       hay="${unit,,} ${label,,} ${aliases,,}"
       compact=${hay//[-_ ]/}
       if [[ $hay == *"$q"* || $compact == *"${q//[-_ ]/}"* ]]; then
-        add "$unit"
+        matches+=("$unit")
       fi
     done <<<"$(printf '%s\n' "${services[@]}")"
+    if ((${#matches[@]} == 0)); then
+      die "no service matches '$1'"
+    fi
+    if ((${#matches[@]} > 1)) && [[ $action == on || $action == restart ]]; then
+      printf "ai: '$1' matches multiple services:\n" >&2
+      do_list >&2
+      die "choose one target"
+    fi
+    for unit in "${matches[@]}"; do add "$unit"; done
   else
     die "target '$1' is too short; use -e/--embeddings or -l/--llm"
   fi
@@ -105,7 +115,9 @@ resolve_targets() {
     case "$t" in
       -e | --embedding | --embeddings) best_of_kind embeddings ;;
       -l | --llm | --llms) best_of_kind llm ;;
-      -a | --all | all | everything | '*') add_all ;;
+      -a | --all | all | everything | '*')
+        die "targeting every service was removed; name one service (see 'ai list')"
+        ;;
       *) add_name "$t" ;;
     esac
   done
@@ -160,11 +172,13 @@ case "$action" in
       die "cannot reach the systemd user manager (no user session bus?)"
     fi
     resolve_targets "$@"
-    # No target: `on` and `restart` must be explicit (use -a for all); `off`
-    # without a target still means everything.
+    # No target: `on` and `restart` must name a service; show the registry so
+    # the choice is obvious. `off` without a target still means everything.
     if ((${#sel[@]} == 0)) && [[ $action != status ]]; then
       if [[ $action == on || $action == restart ]]; then
-        die "'$action' needs a target (use -a/--all to act on every service)"
+        printf "ai: '%s' needs a target; choose one of:\n" "$action" >&2
+        do_list >&2
+        exit 2
       fi
       add_all
     fi

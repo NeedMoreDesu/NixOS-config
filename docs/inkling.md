@@ -111,7 +111,6 @@ drafter also competes for the same 16 GB.
 lives in `hosts/nixos/bashrc.sh`).
 
 ```
-ai on -a              # all local AI services
 ai off                # all
 ai on -e              # best embedding service
 ai on -l              # best LLM service
@@ -126,8 +125,9 @@ ai list
 `-e`/`--embeddings` and `-l`/`--llm` select by service kind, so they never
 depend on pattern matching. Named targets are partial, case-insensitive, and
 ignore `-`, `_` and spaces; this applies to `on`, `off`, `restart` and
-`status` alike. `on` and `restart` require an explicit target (use `-a` for
-everything); `off` without a target stops everything. `on` only starts the
+`status` alike. `on` and `restart` require an explicit target and print the
+service list when omitted; an ambiguous name is rejected instead of starting
+several models. `off` without a target stops everything. `on` only starts the
 unit for the current session; the units have no `[Install]`/`WantedBy`, so
 **nothing autostarts at login or boot**. `off` just stops them. The units set
 `TimeoutStopSec = 5s`, so a stop that lands while the server is still loading

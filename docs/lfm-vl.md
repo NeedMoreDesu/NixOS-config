@@ -1,9 +1,9 @@
 # LFM2.5-VL-1.6B (local, Q8_0, llama.cpp ROCm)
 
 **Status: service implemented 2026-11-23; manual smoke test passed;
-`nyx` + `fetch-lfm25vl` still to run.** Start it with `ai on lfm` (or
-`ai on -a`); the unit has no autostart. It is a small, fast vision-language
-sidecar on port **8090**, separate from Inkling (8089) and embeddings (8088).
+`nyx` + `fetch-lfm25vl` still to run.** Start it with `ai on lfm`; the unit
+has no autostart. It is a small, fast vision-language sidecar on port **8090**,
+separate from Inkling (8089) and embeddings (8088).
 
 ## What it is
 
@@ -81,8 +81,9 @@ curl -s http://127.0.0.1:8090/v1/models | jq .
 journalctl --user -u llama-vl -f
 ```
 
-`ai on`/`ai restart` now require an explicit target; `-a` means every
-service. `ai off` with no target still stops everything.
+`ai on`/`ai restart` require an explicit target and print the service list
+when omitted; an ambiguous name is rejected. There is no target-everything
+flag. `ai off` with no target still stops everything.
 
 Minimal vision request:
 
@@ -127,8 +128,8 @@ Q8_0 + projector is ~1.8 GB of weights; desktop + context easily fits in the
 16 GB card. It can run alongside `llama-embed` (~0.8 GB). Do **not** run it at
 Q8 alongside Inkling at 256k: Inkling leaves only ~2.3–2.6 GiB, so use
 `ai off -l` first (or a Q4_K_M variant later if co-residency becomes
-required). For the same reason, `ai on -a` (everything) will try to load
-Inkling and this service together; prefer explicit targets.
+required). Start one model at a time; `ai` no longer has a target-everything
+mode.
 
 Box sessions reach it at `127.0.0.1:8090` because the host exports
 `BOX_DEFAULT_PORTS=8088,8089,8090`.
