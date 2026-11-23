@@ -12,5 +12,26 @@
     "edit": {
       "/tmp/*": "allow"
     }
+  },
+  // Local Inkling 2 Mini, served by the llama-inkling user service
+  // (home/local-ai.nix, port 8089). No auth: host loopback only.
+  "provider": {
+    "inkling": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Inkling 2 Mini (local)",
+      "options": {
+        "baseURL": "http://127.0.0.1:8089/v1",
+        "apiKey": "local"
+      },
+      "models": {
+        "inkling-2-mini": {
+          "name": "Inkling 2 Mini UD-Q4_K_M",
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          }
+        }
+      }
+    }
   }
 }

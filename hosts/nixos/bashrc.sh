@@ -13,3 +13,7 @@ BOX_DEFAULT_PORTS=8088
 . "$NYX_REPO/shell/box.sh"
 . "$NYX_REPO/shell/nyx.sh"
 . "$NYX_REPO/shell/agents.sh"
+
+# Toggle the local llama.cpp services (llama-inkling, llama-embed); the
+# command is installed by home/local-ai.nix.
+alias ai='ai-toggle'

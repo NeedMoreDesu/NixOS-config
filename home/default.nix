@@ -7,6 +7,7 @@
     ./kwin-remax.nix
     ./lock-layout.nix
     ./embeddings.nix
+    ./local-ai.nix
   ];
 
   home.username = "mika";
