@@ -15,17 +15,26 @@
   },
   // Local Inkling 2 Mini, served by the llama-inkling user service
   // (home/local-ai.nix, port 8089). No auth: host loopback only.
-  "provider": {
+  "providers": {
     "inkling": {
-      "npm": "@ai-sdk/openai-compatible",
       "name": "Inkling 2 Mini (local)",
-      "options": {
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": {
         "baseURL": "http://127.0.0.1:8089/v1",
         "apiKey": "local"
       },
       "models": {
         "inkling-2-mini": {
+          "modelID": "inkling-2-mini",
           "name": "Inkling 2 Mini UD-Q4_K_M",
+          // llama-server has the F16 mmproj loaded; without the explicit
+          // image capability opencode's read tool rejects attachments
+          // before they ever reach the server.
+          "capabilities": {
+            "tools": true,
+            "input": [ "text", "image" ],
+            "output": [ "text" ]
+          },
           "limit": {
             "context": 32768,
             "output": 8192
