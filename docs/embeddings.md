@@ -26,7 +26,7 @@ vLLM/SGLang only when video embeddings are actually needed.
 | **Q8_0**, not BF16 or Q4 | 310 MB vs 558 MB; ~0.03% STS loss, ~1e-4 cosine drift, 98.7% top-1 agreement. Q4 saves only another ~135 MB on a 16 GB card. |
 | **Q8_0 mmproj** | 555 MB vs 982 MB; cosine 0.99993 image / 0.99994 audio. |
 | **Localhost service, port 8088** | No auth in llama.cpp; never expose it. 8088 avoids the usual 8080/8000/11434 collisions. |
-| **User service, model in `$HOME`** | Model files are user-owned; service starts at login. A system-wide service would need `/var/lib` and a different ownership model. |
+| **User service, model in `$HOME`** | Model files are user-owned; started manually with `ai on -e` (no autostart). A system-wide service would need `/var/lib` and a different ownership model. |
 
 ## Hardware and baseline
 
@@ -233,8 +233,6 @@ in
       # for the mmproj; without it embeddings fail with HTTP 500.
       Environment = [ "PATH=${pkgs.lib.makeBinPath [ pkgs.ffmpeg ]}" ];
     };
-
-    Install.WantedBy = [ "default.target" ];
   };
 }
 ```
@@ -251,7 +249,8 @@ Notes:
 - `ffmpeg` is on the service `PATH` because llama.cpp shells out to
   `ffprobe`/`ffmpeg` to decode image and audio input. Without it, media
   embeddings fail with HTTP 500 (`failed to launch ffprobe`).
-- The service is a **user** service and starts at login. If it never starts,
+- The service is a **user** service with **no autostart**. Start it with
+  `ai on -e` or `systemctl --user start llama-embed`. If it never starts,
   the model files are missing (condition) or the user manager has not
   re-read the unit.
 - If the HIP build fails or misbehaves, switch the override to
@@ -332,9 +331,9 @@ systemctl --user status llama-embed
 journalctl --user -u llama-embed -f
 ```
 
-If the service is already enabled by home-manager, `systemctl --user start
-llama-embed` is enough. `ConditionPathExists` means a missing model makes
-the unit skip; fetch first, then start.
+The unit is not enabled by home-manager, so start it explicitly.
+`ConditionPathExists` means a missing model makes the unit skip; fetch
+first, then start.
 
 ### Agent box access
 

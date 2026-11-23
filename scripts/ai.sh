@@ -18,8 +18,8 @@ usage() {
   cat <<'EOF'
 usage: ai [on|off|restart|status|list] [TARGET...]
 
-  on [TARGET...]       start and enable (no target: all services)
-  off [TARGET...]      stop and disable
+  on [TARGET...]       start for this session (no autostart at login)
+  off [TARGET...]      stop
   restart [TARGET...]  restart
   status [TARGET...]   show service state
   list                 list known services
@@ -194,7 +194,7 @@ for unit in "${sel[@]}"; do
         continue
       fi
       systemctl --user daemon-reload
-      if systemctl --user enable --now "$unit"; then
+      if systemctl --user start "$unit"; then
         if ! systemctl --user is-active --quiet "$unit"; then
           echo "ai: $unit did not become active (missing model? see hint above)" >&2
           failed=1
@@ -204,12 +204,10 @@ for unit in "${sel[@]}"; do
       fi
       ;;
     off)
-      # Do NOT use `systemctl disable`: home-manager installs the unit as a
-      # symlink into /nix/store, and disable removes that symlink, making the
-      # unit disappear until the next home-manager activation. Stop it and
-      # only drop the default.target wants link so the next login stays off.
+      # The units have no [Install] section, so they never autostart. Just
+      # stop the running process; never `systemctl disable` a home-manager
+      # unit symlink (it removes the unit file and breaks the next `ai on`).
       systemctl --user stop "$unit" || failed=1
-      rm -f "$HOME/.config/systemd/user/default.target.wants/$unit.service"
       ;;
     restart)
       if [[ ! -e $unit_file ]]; then

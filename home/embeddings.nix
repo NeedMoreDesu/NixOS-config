@@ -53,7 +53,5 @@ in
       # for the mmproj; without it embeddings fail with HTTP 500.
       Environment = [ "PATH=${pkgs.lib.makeBinPath [ pkgs.ffmpeg ]}" ];
     };
-
-    Install.WantedBy = [ "default.target" ];
   };
 }

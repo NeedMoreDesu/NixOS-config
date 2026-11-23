@@ -45,7 +45,7 @@ live session. See [rebuild](docs/rebuild.md) and
 | [sandbox](docs/sandbox.md) | `box` project/system modes, pasta network, secrets. |
 | [packages](docs/packages.md) | System packages, Steam, LLM CLIs, Syncthing. |
 | [embeddings](docs/embeddings.md) | llama.cpp ROCm embedding server (EmbeddingGemma 2 Q8), omni input; activation pending; vLLM/SGLang for video later. |
-| [inkling](docs/inkling.md) | Local Inkling 2 Mini (26B MoE Q4, Unsloth prebuilt), `ai` on/off toggle, opencode provider. |
+| [inkling](docs/inkling.md) | Local Inkling 2 Mini (26B MoE Q4, Unsloth prebuilt), manual `ai` toggle, opencode provider; no autostart. |
 
 `docs/history/` holds setups that are no longer present:
 [Bluetooth paging](docs/history/bluetooth-reconnect.md),
@@ -57,4 +57,6 @@ live session. See [rebuild](docs/rebuild.md) and
 - XKB options are NixOS-managed (`modules/desktop.nix`) — don't use the
   Keyboard KCM. See [keyboard](docs/keyboard.md#kde-keyboard-kcm-hijacks-xkb-options-2026-11-08).
 - Don't run `agent-browser install`. See [agent browser](docs/agent-browser.md#do-not-run-agent-browser-install).
+- Local AI services (`llama-inkling`, `llama-embed`) have **no autostart**;
+  start/stop them with `ai on`/`ai off`. See [inkling](docs/inkling.md).
 - `stateVersion` is pinned in `hosts/nixos/default.nix` — never bump it.
