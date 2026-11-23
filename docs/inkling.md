@@ -117,8 +117,12 @@ ai list
 `-e`/`--embeddings` and `-l`/`--llm` select by service kind, so they never
 depend on pattern matching. Named targets are partial, case-insensitive, and
 ignore `-`, `_` and spaces; this applies to `on`, `off`, `restart` and
-`status` alike. `on` also enables the unit; `off` disables it so a new login
-does not start it again. Missing weights are reported with the `fetch-*`
+`status` alike. `on` also enables the unit; `off` stops it and removes only
+its `default.target.wants` link so the next login stays off. `off` does
+**not** call `systemctl disable`: home-manager installs the unit file as a
+symlink into `/nix/store`, and `disable` removes that symlink, making the
+unit vanish until the next activation. If `ai` reports a unit as missing,
+run `nyx` to relink it. Missing weights are reported with the `fetch-*`
 command to run.
 
 ## opencode

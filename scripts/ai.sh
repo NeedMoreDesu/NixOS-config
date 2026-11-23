@@ -184,8 +184,16 @@ failed=0
 for unit in "${sel[@]}"; do
   echo "== $unit"
   info "$unit"
+  unit_file="$HOME/.config/systemd/user/$unit.service"
   case "$action" in
     on)
+      if [[ ! -e $unit_file ]]; then
+        echo "ai: $unit is not installed at $unit_file" >&2
+        echo "ai: run 'nyx' to relink the home-manager unit" >&2
+        failed=1
+        continue
+      fi
+      systemctl --user daemon-reload
       if systemctl --user enable --now "$unit"; then
         if ! systemctl --user is-active --quiet "$unit"; then
           echo "ai: $unit did not become active (missing model? see hint above)" >&2
@@ -196,9 +204,21 @@ for unit in "${sel[@]}"; do
       fi
       ;;
     off)
-      systemctl --user disable --now "$unit" || failed=1
+      # Do NOT use `systemctl disable`: home-manager installs the unit as a
+      # symlink into /nix/store, and disable removes that symlink, making the
+      # unit disappear until the next home-manager activation. Stop it and
+      # only drop the default.target wants link so the next login stays off.
+      systemctl --user stop "$unit" || failed=1
+      rm -f "$HOME/.config/systemd/user/default.target.wants/$unit.service"
       ;;
     restart)
+      if [[ ! -e $unit_file ]]; then
+        echo "ai: $unit is not installed at $unit_file" >&2
+        echo "ai: run 'nyx' to relink the home-manager unit" >&2
+        failed=1
+        continue
+      fi
+      systemctl --user daemon-reload
       if systemctl --user restart "$unit"; then
         if ! systemctl --user is-active --quiet "$unit"; then
           echo "ai: $unit did not become active (missing model? see hint above)" >&2
@@ -209,6 +229,10 @@ for unit in "${sel[@]}"; do
       fi
       ;;
     status)
+      if [[ ! -e $unit_file ]]; then
+        printf '%-14s %-9s %-9s\n' "$unit" "missing" "missing"
+        continue
+      fi
       state "$unit"
       ;;
   esac
