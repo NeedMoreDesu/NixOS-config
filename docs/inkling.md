@@ -111,7 +111,7 @@ drafter also competes for the same 16 GB.
 lives in `hosts/nixos/bashrc.sh`).
 
 ```
-ai on                 # all local AI services
+ai on -a              # all local AI services
 ai off                # all
 ai on -e              # best embedding service
 ai on -l              # best LLM service
@@ -126,11 +126,13 @@ ai list
 `-e`/`--embeddings` and `-l`/`--llm` select by service kind, so they never
 depend on pattern matching. Named targets are partial, case-insensitive, and
 ignore `-`, `_` and spaces; this applies to `on`, `off`, `restart` and
-`status` alike. `on` only starts the unit for the current session; the units
-have no `[Install]`/`WantedBy`, so **nothing autostarts at login or boot**.
-`off` just stops them. Both units set `TimeoutStopSec = 5s`, so a stop that
-lands while the server is still loading weights (or with a stream attached)
-escalates to SIGKILL instead of blocking for systemd's 90s default. To restore autostart later, add
+`status` alike. `on` and `restart` require an explicit target (use `-a` for
+everything); `off` without a target stops everything. `on` only starts the
+unit for the current session; the units have no `[Install]`/`WantedBy`, so
+**nothing autostarts at login or boot**. `off` just stops them. The units set
+`TimeoutStopSec = 5s`, so a stop that lands while the server is still loading
+weights (or with a stream attached) escalates to SIGKILL instead of blocking
+for systemd's 90s default. To restore autostart later, add
 `Install.WantedBy = [ "default.target" ]` back in `home/local-ai.nix` (and
 `home/embeddings.nix` for `llama-embed`). If `ai` reports a unit as missing,
 run `nyx` to relink it. Missing weights are reported with the `fetch-*`

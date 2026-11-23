@@ -18,9 +18,9 @@ usage() {
   cat <<'EOF'
 usage: ai [on|off|restart|status|list] [TARGET...]
 
-  on [TARGET...]       start for this session (no autostart at login)
-  off [TARGET...]      stop
-  restart [TARGET...]  restart
+  on TARGET...         start for this session (target required; -a for all)
+  off [TARGET...]      stop (no target = all)
+  restart TARGET...    restart (target required; -a for all)
   status [TARGET...]   show service state
   list                 list known services
 
@@ -32,10 +32,11 @@ targets (on/off/restart/status):
                        (e.g. gemma, InCl, llama)
 
 examples:
-  ai on
-  ai off
   ai on -e
   ai on -l
+  ai on lfm
+  ai on -a
+  ai off
   ai on gemma
   ai off incl
   ai status InCl
@@ -158,8 +159,14 @@ case "$action" in
       die "cannot reach the systemd user manager (no user session bus?)"
     fi
     resolve_targets "$@"
-    # No target: operate on everything (status already means all).
-    if ((${#sel[@]} == 0)) && [[ $action != status ]]; then add_all; fi
+    # No target: `on` and `restart` must be explicit (use -a for all); `off`
+    # without a target still means everything.
+    if ((${#sel[@]} == 0)) && [[ $action != status ]]; then
+      if [[ $action == on || $action == restart ]]; then
+        die "'$action' needs a target (use -a/--all to act on every service)"
+      fi
+      add_all
+    fi
     ;;
   list)
     do_list
