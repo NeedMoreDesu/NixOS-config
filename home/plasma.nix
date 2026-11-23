@@ -18,10 +18,10 @@
       };
       # kwin section keys = kglobalshortcutsrc action names.
       "kwin" = {
-        "Switch One Desktop to the Left" = "Meta+Alt+Left";
-        "Switch One Desktop to the Right" = "Meta+Alt+Right";
-        "Window to Previous Desktop" = "Meta+Alt+Up";
-        "Window to Next Desktop" = "Meta+Alt+Down";
+        "Switch One Desktop to the Left" = "Meta+Left";
+        "Switch One Desktop to the Right" = "Meta+Right";
+        "Window to Previous Desktop" = "Meta+Ctrl+Left";
+        "Window to Next Desktop" = "Meta+Ctrl+Right";
         # Directional focus defaults to Meta+Alt+arrows, colliding with the
         # desktop actions above. Tiling + Alt+Tab cover focus instead.
         "Switch Window Left" = "none";
@@ -39,8 +39,8 @@
         # Tiling keeps the KWin-default Meta+Left/Right. Top/Bottom stay
         # pinned "none" so they don't collide with Meta+Up/Down
         # (maximize/restore); "none" in the custom field kills the default.
-        "Window Quick Tile Left" = "Meta+Left";
-        "Window Quick Tile Right" = "Meta+Right";
+        "Window Quick Tile Left" = "Meta+Alt+Left";
+        "Window Quick Tile Right" = "Meta+Alt+Right";
         "Window Quick Tile Top" = "none";
         "Window Quick Tile Bottom" = "none";
       };
