@@ -517,6 +517,9 @@ was stopped afterwards.
 
 ## Takeaways
 
+- Why VRAM climbs during long prefill: the ggml HIP buffer-pool cache, not
+  the prompt or KV cache. See
+  [inkling_vram_cluttering_issue](inkling_vram_cluttering_issue.md).
 - Deployed service: 256k context, `-cmoe` with a 2048 MiB cache, share 0.45,
   ub512 and q4_0/q4_0 KV → ~455 read t/s and ~19.4 write t/s at ~10.2 GiB
   loaded / 10.4 GiB peak VRAM (~5.5 GiB free).

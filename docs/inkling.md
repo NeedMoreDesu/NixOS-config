@@ -103,7 +103,10 @@ f16 attention. Long-context PPL could not be measured.
 The mmproj is not in that VRAM figure: `--no-mmproj-offload` keeps the F16
 projector (~610 MB) in host RAM. Text speed and VRAM are unchanged; only
 image requests are affected, and their encoding runs on the CPU (slow).
-Full measurements: [inkling_bench](locallama/inkling_bench.md).
+Full measurements: [inkling_bench](locallama/inkling_bench.md). VRAM deliberately
+climbs during long prefills: it is the reclaimable HIP buffer-pool cache, not
+the context. See
+[inkling_vram_cluttering_issue](locallama/inkling_vram_cluttering_issue.md).
 
 The host box defaults include **8089** (alongside 8088 for embeddings), so a
 `box` session can reach this service at `127.0.0.1:8089`.
