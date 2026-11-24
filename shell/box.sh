@@ -35,6 +35,10 @@ _BOX_SYSTEM_RW=(
   # Shared scratch/log handoff. Host rw in both modes; do not put
   # credentials here.
   temp
+  # The config repo itself: system mode hides HOME behind a tmpfs, so
+  # without this only the $PWD workspace bind (e.g. nyvibe) exposes it.
+  # rw so an agent can edit and commit from any cwd.
+  nixos_config
 )
 
 _BOX_SYSTEM_RO=(

@@ -37,7 +37,8 @@ attaching to the host's dedicated Chromium (see
 - Host journal (`/var/log/journal`, `/run/log/journal`) masked.
 - `$PWD` writable.
 - `HOME` is a tmpfs rebuilt from `_BOX_SYSTEM_RW/RO`:
-  - writable: opencode + nix state, `~/temp`;
+  - writable: opencode + nix state, `~/temp`, `~/nixos_config` (the repo is
+    the source of truth, so agents can edit/commit from any cwd);
   - read-only: KDE/kate/emacs/seance settings, `~/models` (local model
     weights; the agent may load them, not replace the pins),
     `~/Pictures/Screenshots` (UI inputs; see `_BOX_SHARED_RO`);
