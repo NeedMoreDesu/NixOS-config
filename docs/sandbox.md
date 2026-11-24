@@ -16,8 +16,10 @@ forwards 8088, 8089, 8090 and 1234.
 `nyvibe` = `box -s opencode` with the short_summary prompt and an explicit
 `-p 8088` (deduped with the host default; 8089 and 8090 are already in the
 default).
-`oc [box flags] [--] [opencode args]` runs opencode in a box on the current
-directory; `oc -s` selects system mode.
+`oc [box flags] [-l] [--] [opencode args]` runs opencode in a box on the
+current directory; `oc -s` selects system mode, `oc -l` selects the local
+Inkling model (`-m inkling/inkling-2-mini`), and `oc -h` prints `oc`'s help
+followed by opencode's help.
 `ab [prompt...]` = project-mode opencode in `~/ab_workspace` with `-n`,
 attaching to the host's dedicated Chromium (see
 [agent browser](agent-browser.md)).

@@ -8,12 +8,34 @@ nyvibe() {
 }
 
 # opencode in a box. Parses the box flags -s/--system, -n/--network and
-# -p/--port before the command; everything after `--` (or the first other
-# argument) goes to opencode. `oc -s` is system mode: host root read-only
-# with the system allowlists (~/models ro, /dev/kfd) plus any -p holes.
-# Use `oc -- -s SESSION` to reach opencode's own -s/--session flag.
+# -p/--port, plus oc's -l/--local and -h/--help, before the command;
+# everything after `--` (or the first other argument) goes to opencode.
+# `oc -s` is system mode: host root read-only with the system allowlists
+# (~/models ro, /dev/kfd) plus any -p holes. `oc -l` selects the local
+# Inkling model. Use `oc -- -s SESSION` to reach opencode's own
+# -s/--session flag.
+oc_help() {
+  cat <<'EOF'
+oc: opencode in a box (project mode by default)
+
+Usage: oc [box flags] [-l] [--] [opencode args]
+
+Box flags:
+  -s, --system     system mode (host root read-only, ~/models ro, /dev/kfd)
+  -n, --network    keep the host network namespace (agent-browser CDP)
+  -p, --port PORT  forward host-loopback TCP PORT (repeatable)
+
+oc flags:
+  -l, --local      use the local Inkling model (-m inkling/inkling-2-mini)
+  -h, --help       show this help and opencode's help
+
+Everything after -- (or the first unrecognised argument) goes to opencode,
+e.g. `oc -- -s SESSION`.
+EOF
+}
+
 oc() {
-  local -a box_flags=()
+  local -a box_flags=() oc_flags=()
   while [ "$#" -gt 0 ]; do
     case "$1" in
       -s|--system|-n|--network)
@@ -28,6 +50,16 @@ oc() {
         box_flags+=("$1" "$2")
         shift 2
         ;;
+      -l|--local)
+        oc_flags+=(-m inkling/inkling-2-mini)
+        shift
+        ;;
+      -h|--help)
+        oc_help
+        printf '\n'
+        opencode --help
+        return
+        ;;
       --)
         shift
         break
@@ -35,7 +67,7 @@ oc() {
       *) break ;;
     esac
   done
-  box "${box_flags[@]}" opencode "$@"
+  box "${box_flags[@]}" opencode "${oc_flags[@]}" "$@"
 }
 
 # Agent-browser session: project-mode opencode with the host network so the
