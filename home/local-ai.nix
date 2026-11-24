@@ -42,9 +42,16 @@ in
         "--alias" "inkling-2-mini"
         "--jinja"
         "--n-gpu-layers" "99"
-        # Text-only 256k standard: no mmproj. 16 MoE layers stay in RAM;
-        # measured ~13.3-13.7 GiB total VRAM (incl. desktop), ~2.3-2.6 GiB free.
-        "--n-cpu-moe" "16"
+        # Text-only 256k standard: no mmproj. All MoE experts live in host RAM;
+        # a fixed 2 GiB expert cache keeps writes fast without the tight VRAM
+        # of the 4-6 GiB caches, and share 0.45 is the write sweet spot.
+        # ubatch stays at the 512 default: 2048 adds ~1.3 GiB and cannot fit
+        # the 256k budget once the cache grows. See docs/inkling.md and
+        # docs/locallama/inkling_bench.md.
+        "--cpu-moe"
+        "--moe-cache-mib" "2048"
+        "--moe-cache-cpu-share" "0.45"
+        "--ubatch-size" "512"
         "--ctx-size" "262144"
         "--cache-type-k" "q8_0"
         "--cache-type-v" "q8_0"
