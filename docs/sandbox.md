@@ -77,7 +77,7 @@ attaching to the host's dedicated Chromium (see
   ...) stay unmounted.
 - `BOX_SECRETS=1` read-only-binds `.ssh`/`.gnupg`/cloud/gh/dsh.
 
-`bubblewrap` and `passt` are in `modules/packages.nix`.
+`bubblewrap`, `passt` and `box-tty-watch` are in `modules/packages.nix`.
 
 opencode's own `auth.json` must stay visible for provider calls — the
 boundary covers everything outside the allowlist.
@@ -135,20 +135,27 @@ seance (host shell), and a bare `zmx attach` uses the inherited
 unused opt-in — treat it as trusted-only. If hardening later: always unset
 `SEANCE_*`/`ZMX_*`, and `--tmpfs` the `seance`/`zmx` subdirs even with GUI.
 
-## No SIGWINCH for boxed TUIs (2026-11-24)
+## TTY resize in boxes (`box-tty-watch`, 2026-11-24)
 
-`box` runs bwrap with `--new-session` (`shell/box.sh:380`), so the sandboxed
-command is in a new session/process group, detached from the pane's controlling
-terminal. Resizing the pane changes the PTY (`TIOCSWINSZ`) but the kernel sends
-`SIGWINCH` to the terminal's foreground pgrp — the outer shell — not to the
-boxed app. A TUI that only learns its size from `SIGWINCH` stays at its startup
-size: boxed opencode 1.19.6 does not reflow when a seance split opens/closes,
-while plain opencode in the same pane does. The PTY itself is resized correctly
-(observed `88x52` -> `179x52`); only the notification is missing. Sending
-`SIGWINCH` directly to the boxed process (`pkill -WINCH -f '<command>'`) makes
-it reflow immediately.
+`box` keeps bwrap's `--new-session` (`shell/box.sh:391`), so the boxed
+command is in its own session/process group and never receives the kernel's
+pane-resize `SIGWINCH` (that goes to the outer terminal's foreground pgrp).
+Rather than weaken the isolation, interactive boxes wrap the command with
+`box-tty-watch` (`pkgs/box-tty-watch.c`, installed by
+`modules/packages.nix`). Inside the sandbox it polls the inherited stdin
+PTY's `TIOCGWINSZ` every 100 ms and, on a rows/cols change, calls
+`kill(-1, SIGWINCH)`.
 
-This is the intentional `--new-session` isolation, not a seance/zmx defect. The
-fix is an in-box TTY-size watcher; the working plan is
-[plans/box-tty-resize.md](../plans/box-tty-resize.md). Replace this section with
-the implemented behavior when it lands.
+Because the helper runs inside the box PID namespace, `kill(-1)` only reaches
+sandbox processes — the kernel skips PID 1 (bwrap) and the caller — so it
+covers directly-run TUIs and nested shells/jobs without `/proc` walking, and
+cannot signal the host. SIGWINCH's default action is ignore, so non-TUIs are
+unaffected. The helper never reads stdin; stdio and exit status are
+inherited, and SIGTERM/SIGINT/SIGHUP are forwarded to the command.
+
+`shell/box.sh` resolves the helper on the host and passes its absolute
+`/nix/store` path into bwrap in both project and system modes. Non-TTY boxes
+(`printf x | box ...`) fall back to the bare command, as does a missing
+helper. `BOX_NO_TTY_WATCH=1` disables the wrapper (useful for reproducing the
+original behaviour). The PTY itself was always resized correctly (observed
+`88x52` -> `179x52`); only the notification was missing.

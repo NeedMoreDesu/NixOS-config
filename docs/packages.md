@@ -27,6 +27,7 @@ program modules whose setup matters.
 | `chromium` | The CDP target for agent-browser, **not** a daily browser. |
 | `agent-browser` + `agent-chrome` | Wrappers built with `replaceVars`. See [agent browser](agent-browser.md). |
 | `bubblewrap`, `passt` | `box` sandbox. See [sandbox](sandbox.md). |
+| `box-tty-watch` | In-box TTY resize watcher for `box` (`BOX_NO_TTY_WATCH=1` opts out). See [sandbox](sandbox.md). |
 | `kdePackages.partitionmanager` | View the 1G EFI + rest ext4 layout graphically. nixpkgs-only, no flake input. |
 | `zmx` | Session attach/detach (tmux-lite, Zig). Served at the held version while listed in `scripts/held-packages.nix`. See [pins](pins.md). |
 | `seance` | From the seance flake input, not nixpkgs. See [seance](seance.md). |

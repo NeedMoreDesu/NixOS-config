@@ -35,6 +35,13 @@ This is the map. Detailed behaviour lives in the linked subject docs.
 | `agent-browser.sh` | Lazy front door for page commands. See [agent browser](agent-browser.md). |
 | `kde_restart.sh` | Re-apply Plasma config to the live session (`kde-restart`). See [rebuild](rebuild.md). |
 
+## `pkgs/`
+
+| Path | Purpose |
+| --- | --- |
+| `box-tty-watch.c` / `.nix` | In-box TTY resize watcher. See [sandbox](sandbox.md). |
+| `llama-cpp-unsloth.nix` | Unsloth llama.cpp build for Inkling. See [inkling](inkling.md). |
+
 ## `hosts/`
 
 | Path | Purpose |

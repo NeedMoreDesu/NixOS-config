@@ -58,7 +58,7 @@ live session. See [rebuild](docs/rebuild.md) and
 unfinished change (problem/evidence, chosen design, exact files, checklist).
 When a plan lands, move the durable behavior and current state into the matching
 `docs/` page and delete the plan file. Don't link plans as long-term docs.
-Current: [box TTY resize watcher](plans/box-tty-resize.md).
+No plan is currently open.
 
 ## Ground rules
 
