@@ -134,3 +134,21 @@ seance (host shell), and a bare `zmx attach` uses the inherited
 `ZMX_SESSION` (host shell). `nyvibe`/`ab` never set `BOX_GUI`, so it is an
 unused opt-in — treat it as trusted-only. If hardening later: always unset
 `SEANCE_*`/`ZMX_*`, and `--tmpfs` the `seance`/`zmx` subdirs even with GUI.
+
+## No SIGWINCH for boxed TUIs (2026-11-24)
+
+`box` runs bwrap with `--new-session` (`shell/box.sh:380`), so the sandboxed
+command is in a new session/process group, detached from the pane's controlling
+terminal. Resizing the pane changes the PTY (`TIOCSWINSZ`) but the kernel sends
+`SIGWINCH` to the terminal's foreground pgrp — the outer shell — not to the
+boxed app. A TUI that only learns its size from `SIGWINCH` stays at its startup
+size: boxed opencode 1.19.6 does not reflow when a seance split opens/closes,
+while plain opencode in the same pane does. The PTY itself is resized correctly
+(observed `88x52` -> `179x52`); only the notification is missing. Sending
+`SIGWINCH` directly to the boxed process (`pkill -WINCH -f '<command>'`) makes
+it reflow immediately.
+
+This is the intentional `--new-session` isolation, not a seance/zmx defect. The
+fix is an in-box TTY-size watcher; the working plan is
+[plans/box-tty-resize.md](../plans/box-tty-resize.md). Replace this section with
+the implemented behavior when it lands.
