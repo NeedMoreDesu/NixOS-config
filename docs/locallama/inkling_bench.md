@@ -42,7 +42,8 @@ Every speed is labelled **read** or **write**: read = prefill/input processing
     `--moe-cache-mib auto` (size from free VRAM after fit).
   - `share F` = `--moe-cache-cpu-share F` (fraction of cache misses computed
     on the CPU instead of uploaded).
-  - `ubN` = `--ubatch-size N` (prefill chunk; write speed is unaffected).
+  - `ubN` = `--ubatch-size N` (prefill chunk; write speed was unchanged where
+    measured).
 - Write (decode) metric: 8-token warmup, then 128 greedy tokens
   (`temperature 0`) for the prompt "Write a short paragraph about the sea."
 - Read (prefill, 6.3k) metric: a repeated-sentence prompt of 6301 tokens with
@@ -151,8 +152,9 @@ prompt is cold for every run. VRAM after load.
   - write (decode): 20.74 t/s
   - read (prefill, 6.3k): 170.68 t/s
   - VRAM: 15.82 GiB
-  - in words: past the useful point; both speeds collapse, consistent with
-    host-RAM/page-cache pressure (16.6 GiB of experts plus a 7 GiB cache).
+  - in words: past the useful point; both read and write speeds collapse,
+    consistent with host-RAM/page-cache pressure (16.6 GiB of experts plus a
+    7 GiB cache).
 - **`--n-cpu-moe 16 --moe-cache-mib 2048 --moe-cache-cpu-share 0.8 --ubatch-size 2048`**
   - changed: `ncmoe16` combined with an expert cache
   - write (decode): 4.88 t/s
@@ -210,7 +212,8 @@ request; the two share groups ran at different times, with ~1.4 GiB and
   - read (cold 64k): 178.00 t/s (67201 tokens, +8.3 %)
   - VRAM: 9.36 GiB after load, 12.49 GiB peak
   - in words: ubatch gives ~8 % read speed here for ~1.3 GiB extra; write
-    speed is unchanged by ubatch in every run.
+    speed was not measured in this pair (it was unchanged by ubatch in the
+    256k matrix).
 - **share 0.8, `--cpu-moe --moe-cache-mib 2048 --moe-cache-cpu-share 0.8 --ubatch-size 512`**
   - changed: share 0.8, ubatch 512
   - read (cold 64k): 164.73 t/s (67201 tokens)
@@ -234,25 +237,25 @@ Read is a cold 6.3k prompt; write is the mean of three 128-token runs after a
 - **`--moe-cache-cpu-share 0.5`**
   - changed: share 0.5
   - read (prefill, 6.3k): 464.66 t/s
-  - write (decode, mean of 3): 19.53 t/s (19.19, 19.68, 19.72)
+  - write (decode, mean of 3): 19.53 t/s (runs, write t/s: 19.19, 19.68, 19.72)
   - VRAM: 9.32 GiB
   - in words: fastest writes in this sweep.
 - **`--moe-cache-cpu-share 0.6`**
   - changed: share 0.6
   - read (prefill, 6.3k): 465.70 t/s
-  - write (decode, mean of 3): 18.89 t/s (18.59, 19.41, 18.67)
+  - write (decode, mean of 3): 18.89 t/s (runs, write t/s: 18.59, 19.41, 18.67)
   - VRAM: 9.34 GiB
   - in words: statistically tied with 0.5.
 - **`--moe-cache-cpu-share 0.7`**
   - changed: share 0.7
   - read (prefill, 6.3k): 464.44 t/s
-  - write (decode, mean of 3): 14.22 t/s (14.24, 14.21, 14.21)
+  - write (decode, mean of 3): 14.22 t/s (runs, write t/s: 14.24, 14.21, 14.21)
   - VRAM: 9.31 GiB
   - in words: writes drop ~25 % versus 0.5–0.6; read is unchanged.
 - **`--moe-cache-cpu-share 0.8`**
   - changed: share 0.8
   - read (prefill, 6.3k): 423.38 t/s
-  - write (decode, mean of 3): 14.39 t/s (14.24, 14.45, 14.47)
+  - write (decode, mean of 3): 14.39 t/s (runs, write t/s: 14.24, 14.45, 14.47)
   - VRAM: 9.18 GiB
   - in words: writes stay slow and this was the only run with a visibly lower
     read speed (single sample).
@@ -271,7 +274,7 @@ Read is a cold 6.3k prompt; write is the mean of three 128-token runs after a
   KV budget, ~3 % with a big expert cache, and ~13 % in `ncmoe` mode. It also
   needs a ~2.4 GiB prefill graph, which does not fit with 256k context plus a
   4096–6144 MiB expert cache (OOM at 64k depth), so keep 512 for the current
-  256k service. Write speed is unchanged by ubatch.
+  256k service. Write speed was unchanged by ubatch in the 256k matrix.
 - `--moe-cache-cpu-share` is irrelevant with the tiny `auto` cache, but with a
   2048 MiB cache shares 0.5–0.6 are ~36 % faster to write than 0.7–0.8
   (19.5 write t/s vs 14.2 write t/s) at identical read speed; 0.5 is the pick.
