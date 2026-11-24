@@ -379,6 +379,45 @@ Against Q4_K_M at the same cache size and settings:
 - write is ~2.6–4.5 % faster with Q3 (20.2–27.7 vs 19.4–27.0 write t/s).
 - VRAM is ~0.1–0.2 GiB lower with Q3 at every cache size.
 
+## VRAM budget of the deployed config
+
+Measured 2026-11-24 with the shipped unit running (Q4_K_M, 256k, `cmoe`,
+`--moe-cache-mib 2048`, share 0.45, ub512). GPU0 has 15.92 GiB;
+`rocm-smi --showpids` attributed 9.15 GiB to `llama-server`, 11.76 GiB was
+used overall and 4.16 GiB was free. Per-item sizes come from the verbose
+loader log of the same build/flags.
+
+- `llama-server` total: 9.15 GiB.
+  - KV cache, non-SWA: 4.25 GiB (8 layers × 262144 cells, K 2176 + V 2176 MiB,
+    q8_0). Biggest single item; fixed by the 256k context.
+  - KV cache, SWA: 0.25 GiB (40 layers × 3072 cells, K 127.5 + V 127.5 MiB,
+    q8_0).
+  - expert cache: 2.00 GiB (the explicit `--moe-cache-mib 2048` VRAM copy).
+  - non-expert GPU weights: 1.24 GiB (1266.34 MiB: attention, norms,
+    embedding, output; the ~15 GiB of expert weights stay in host RAM).
+  - rotation + recurrent state buffers: 0.01 GiB (7.4 MiB).
+  - compute graph + ROCm/HIP context: ~1.41 GiB residual (ub512 graph plus
+    driver context; for comparison, the ub2048 graph alone logged 2.34 GiB).
+- desktop, compositor and driver: ~2.61 GiB.
+- free: 4.16 GiB (11.76 used of 15.92).
+- levers, in size order: 128k context frees ~2.25 GiB; every extra 1024 MiB of
+  expert cache costs ~1.02 GiB; ub2048 costs ~1.3 GiB; q4_0 KV roughly halves
+  the KV cache (~2 GiB saving) at a quality risk.
+- the 8 GiB prompt cache is host RAM, not VRAM.
+
+KV cache type notes:
+
+- allowed types: `f32, f16, bf16, f8_e4m3, q8_0, q4_0, q4_1, iq4_nl, q5_0,
+  q5_1`; the server default is `f16`.
+- the deployed `q8_0` is ~8.5 bits/element, already half of f16 and
+  effectively lossless for this use.
+- `q4_0` is ~4.5 bits/element, so KV shrinks to ~53 % (~2.0 GiB saving here);
+  `q5_0` (~5.5 bits) is a middle ground (~1.5 GiB saving).
+- K quantization is usually more sensitive than V; mixed `-ctk q8_0 -ctv
+  q4_0` saves ~1.0 GiB with less risk than quantizing both.
+- quantized KV needs `-fa on` (already set) and should be checked with
+  perplexity/long-context quality tests before deploying.
+
 ## Takeaways
 
 - Deployed service: 256k context, `-cmoe` with a 2048 MiB cache, share 0.45
@@ -387,6 +426,8 @@ Against Q4_K_M at the same cache size and settings:
 - Q3_K_XL is ~3–4 % faster to read and ~3–5 % faster to write than Q4_K_M at
   the shipped settings, for ~0.15 GiB less VRAM; Q4 remains the shipped model
   until the quality trade-off is settled.
+- The KV cache is the largest VRAM item (~4.5 GiB at 256k with q8_0); q4_0
+  would halve it but needs a quality check, and K is more sensitive than V.
 - Expert-cache size dominates write speed at 256k. At the shipped share 0.45 /
   ub512, 2048, 3072, 4096, 5120 and 6144 MiB give ~19.4, 21.6, 23.3, 25.4 and
   27.0 write t/s for ~11.7, 12.8, 14.2, 14.8 and 15.8 GiB peak: roughly each
