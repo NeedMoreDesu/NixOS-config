@@ -22,6 +22,10 @@ let
   agentBrowser = pkgs.writeShellScriptBin "agent-browser" ''
     exec ${pkgs.bash}/bin/bash ${agentBrowserScript} "$@"
   '';
+  # In-box TTY resize watcher. bwrap --new-session detaches the boxed
+  # command from the PTY's foreground pgrp, so TUIs miss SIGWINCH; box.sh
+  # wraps interactive commands with this helper.
+  boxTtyWatch = pkgs.callPackage ../pkgs/box-tty-watch.nix { };
 in
 {
   # Steam ships unfree deps; scoped by name prefix so nothing else silently
@@ -51,6 +55,9 @@ in
     # a random /tmp; -s/--system mounts / read-only plus a home allowlist.
     # bwrap is unprivileged, so no setuid helper.
     bubblewrap
+    # In-box SIGWINCH watcher (shell/box.sh wraps interactive commands;
+    # BOX_NO_TTY_WATCH=1 opts out). See docs/sandbox.md.
+    boxTtyWatch
     # pasta supplies the egress-only network namespace for `box` (host
     # loopback unreachable). `box -n/--network` opts back into the host netns
     # for agent-browser/CDP work. Needs the tun module (see networking.nix).
