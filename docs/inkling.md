@@ -1,9 +1,9 @@
 # Inkling 2 Mini (local, Unsloth prebuilt)
 
 **Status: implemented 2026-11-23; standard deployment is text-only, 256k
-context, `--cpu-moe` with a 2 GiB expert cache.** The model is downloaded.
-Start it with `ai on -l`; the unit has no autostart. Vision is off by
-default.
+context, `--cpu-moe` with a 2 GiB expert cache and q4_0 KV.** The model is
+downloaded. Start it with `ai on -l`; the unit has no autostart. Vision is off
+by default.
 
 ## What it is
 
@@ -76,23 +76,27 @@ The service listens on `127.0.0.1:8089` (loopback only, no auth) with:
 ```
 --jinja -ngl 99 --cpu-moe --moe-cache-mib 2048 --moe-cache-cpu-share 0.45
 -ub 512 -c 262144
--ctk q8_0 -ctv q8_0 -fa on --parallel 1
+-ctk q4_0 -ctv q4_0 -fa on --parallel 1
 --temp 1.0 --top-p 1.0 --top-k 0 --min-p 0.0
 ```
 
 All MoE experts stay in host RAM (~16.6 GB), with a fixed 2 GiB expert cache
 in VRAM and 45 % of cache misses computed on the CPU. At 256k text-only with
-a 6.3k prompt this measured **~11.6 GiB total VRAM including the desktop**
-(~4.2 GiB free at peak), **~465 t/s read** (prefill) and **~19.3 t/s write**
-(decode) — about 2 GiB less VRAM than the old `--n-cpu-moe 16` setup, and
+a 6.3k prompt this measured **~10.2 GiB total VRAM including the desktop**
+(~5.5 GiB free at peak), **~455 t/s read** (prefill) and **~19.4 t/s write**
+(decode) — about 3.5 GiB less VRAM than the old `--n-cpu-moe 16` setup, and
 faster.
-Bigger caches trade the headroom for write speed at the same share: 3072 MiB
-reaches ~21.6 write t/s at ~12.8 GiB peak, 4096 MiB ~23.3 write t/s at
-~14.2 GiB, 5120 MiB ~25.4 write t/s at ~14.8 GiB, and 6144 MiB ~27.0 write
-t/s at ~15.8 GiB (only ~0.1 GiB free — too tight). `auto` is far too
+Bigger caches trade the headroom for write speed at the same share and KV
+type: 3072 MiB reaches ~21.6 write t/s at ~11.4 GiB peak, 4096 MiB ~22.7
+write t/s at ~12.4 GiB, 5120 MiB ~25.2 write t/s at ~13.4 GiB, and 6144 MiB
+~26.7 write t/s at ~14.4 GiB (~1.5 GiB free). `auto` is far too
 conservative (~1.3 GiB) and slow. Keep the share in 0.3–0.6 (there is
 a cliff at 0.7) and ubatch at 512: 2048 buys ~8 % read speed in a smaller KV
 budget but adds ~1.3 GiB and is unsafe at 256k once the cache grows.
+q4_0 KV is the only quantized pair with a native FlashAttention kernel in
+this build and saved ~1.9 GiB over q8_0 with PPL +0.33 % at 4k, KL RMS
+Δp 2.17 %, and 3/3 passkeys at 16.6k; q5_0 and mixed q8_0/q4_0 fall back to
+f16 attention. Long-context PPL could not be measured.
 Full measurements: [inkling_bench](locallama/inkling_bench.md).
 
 The host box defaults include **8089** (alongside 8088 for embeddings), so a

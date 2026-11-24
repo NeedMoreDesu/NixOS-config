@@ -278,12 +278,13 @@ Read is a cold 6.3k prompt; write is the mean of three 128-token runs after a
   - in words: writes stay slow and this was the only run with a visibly lower
     read speed (single sample).
 
-## Deployed config validation: 256k, 2k cache, share 0.45, ub512
+## Deployed config validation before the q4_0 switch: 256k, 2k cache, ub512
 
 Fixed: context 262144, `cmoe`, `--moe-cache-mib 2048`, share 0.45,
-`--ubatch-size 512` — the settings used by `home/local-ai.nix`. Read is a
-cold 6.3k prompt; write is the mean of three 128-token runs after a 256-token
-warmup. Desktop baseline ~2.4 GiB; the server was stopped afterwards.
+`--ubatch-size 512` — the pre-q4_0 settings used by `home/local-ai.nix`. Read
+is a cold 6.3k prompt; write is the mean of three 128-token runs after a
+256-token warmup. Desktop baseline ~2.4 GiB; the server was stopped
+afterwards. This point was measured with q8_0 KV, before the q4_0 switch.
 
 - **`--cpu-moe --moe-cache-mib 2048 --moe-cache-cpu-share 0.45 --ubatch-size 512`**
   - changed: context 262144 instead of 128k; otherwise the shipped flags
@@ -382,10 +383,12 @@ Against Q4_K_M at the same cache size and settings:
 ## VRAM budget of the deployed config
 
 Measured 2026-11-24 with the shipped unit running (Q4_K_M, 256k, `cmoe`,
-`--moe-cache-mib 2048`, share 0.45, ub512). GPU0 has 15.92 GiB;
-`rocm-smi --showpids` attributed 9.15 GiB to `llama-server`, 11.76 GiB was
-used overall and 4.16 GiB was free. Per-item sizes come from the verbose
-loader log of the same build/flags.
+`--moe-cache-mib 2048`, share 0.45, ub512), **with q8_0 KV, before the q4_0
+switch**. GPU0 has 15.92 GiB; `rocm-smi --showpids` attributed 9.15 GiB to
+`llama-server`, 11.76 GiB was used overall and 4.16 GiB was free. Per-item
+sizes come from the verbose loader log of the same build/flags. With
+q4_0/q4_0 the KV lines below drop from 4.50 to ~2.4 GiB, so `llama-server` is
+~7.1 GiB and total ~10.2 GiB.
 
 - `llama-server` total: 9.15 GiB.
   - KV cache, non-SWA: 4.25 GiB (8 layers × 262144 cells, K 2176 + V 2176 MiB,
@@ -409,7 +412,7 @@ KV cache type notes:
 
 - allowed types: `f32, f16, bf16, f8_e4m3, q8_0, q4_0, q4_1, iq4_nl, q5_0,
   q5_1`; the server default is `f16`.
-- the deployed `q8_0` is ~8.5 bits/element, already half of f16 and
+- the previous `q8_0` is ~8.5 bits/element, already half of f16 and
   effectively lossless for this use.
 - `q4_0` is ~4.5 bits/element, so KV shrinks to ~53 %; `q5_0` (~5.5 bits) is
   a middle ground.
@@ -473,30 +476,68 @@ Long-context checks:
   because of the FA fallback. Very long or adversarial retrieval is still
   unvalidated.
 
+## Cache sweep with the shipped q4_0 KV
+
+Same harness as the other cache sweeps (256k context, `cmoe`, share 0.45,
+ub512), now with `-ctk q4_0 -ctv q4_0`. Desktop baseline ~3.1 GiB; the server
+was stopped afterwards.
+
+- **`--moe-cache-mib 2048`** (shipped)
+  - changed: cache 2048
+  - read (prefill, 6.3k): 454.34 t/s
+  - write (decode, mean of 3): 19.44 t/s (runs, write t/s: 19.18, 19.52, 19.62)
+  - VRAM: 10.23 GiB after load, 10.40 GiB peak (~5.5 GiB free)
+  - in words: the shipped combo.
+- **`--moe-cache-mib 3072`**
+  - changed: cache 3072
+  - read (prefill, 6.3k): 461.29 t/s
+  - write (decode, mean of 3): 21.57 t/s (runs, write t/s: 21.13, 21.82, 21.77)
+  - VRAM: 11.26 GiB after load, 11.42 GiB peak (~4.5 GiB free)
+  - in words: +11 % write for ~1 GiB.
+- **`--moe-cache-mib 4096`**
+  - changed: cache 4096
+  - read (prefill, 6.3k): 456.65 t/s
+  - write (decode, mean of 3): 22.70 t/s (runs, write t/s: 22.81, 22.64, 22.65)
+  - VRAM: 12.23 GiB after load, 12.39 GiB peak (~3.5 GiB free)
+  - in words: +17 % write; still plenty of headroom.
+- **`--moe-cache-mib 5120`**
+  - changed: cache 5120
+  - read (prefill, 6.3k): 463.38 t/s
+  - write (decode, mean of 3): 25.15 t/s (runs, write t/s: 24.71, 25.41, 25.32)
+  - VRAM: 13.20 GiB after load, 13.37 GiB peak (~2.5 GiB free)
+  - in words: +29 % write.
+- **`--moe-cache-mib 6144`**
+  - changed: cache 6144
+  - read (prefill, 6.3k): 458.91 t/s
+  - write (decode, mean of 3): 26.69 t/s (runs, write t/s: 26.22, 27.09, 26.74)
+  - VRAM: 14.20 GiB after load, 14.37 GiB peak (~1.5 GiB free)
+  - in words: +37 % write; with q4_0 KV this no longer sits at the edge, but
+    the desktop can still consume the last 1.5 GiB under load.
+
 ## Takeaways
 
-- Deployed service: 256k context, `-cmoe` with a 2048 MiB cache, share 0.45
-  and ub512 → ~465 read t/s and ~19.3 write t/s at ~11.6 GiB loaded / 11.7 GiB
-  peak VRAM (~4.2 GiB free).
-- Q3_K_XL is ~3–4 % faster to read and ~3–5 % faster to write than Q4_K_M at
-  the shipped settings, for ~0.15 GiB less VRAM; Q4 remains the shipped model
-  until the quality trade-off is settled.
-- KV `q4_0/q4_0` is the only native-FA quantized combo in this build: it
-  saves ~1.9 GiB peak VRAM with no write-speed loss, +0.33 % PPL at 4k, KL RMS
+- Deployed service: 256k context, `-cmoe` with a 2048 MiB cache, share 0.45,
+  ub512 and q4_0/q4_0 KV → ~455 read t/s and ~19.4 write t/s at ~10.2 GiB
+  loaded / 10.4 GiB peak VRAM (~5.5 GiB free).
+- Q3_K_XL measured ~3–4 % faster to read and ~3–5 % faster to write than
+  Q4_K_M for ~0.15 GiB less VRAM, but the gain was small and quality was
+  untested; the Q3 weights were deleted and Q4 stays shipped.
+- Shipped KV is `q4_0/q4_0`, the only native-FA quantized combo in this build:
+  it saves ~1.9 GiB peak VRAM with no write-speed loss, +0.33 % PPL at 4k, KL RMS
   2.17 % / 96.5 % same top-p, and 3/3 passkeys at 16.6k. Mixed q8_0/q4_0 and
   q5_0/q5_0 fall back to f16 attention, so they are slower to write and save
   less at peak. Long-context PPL could not be measured.
-- Expert-cache size dominates write speed at 256k. At the shipped share 0.45 /
-  ub512, 2048, 3072, 4096, 5120 and 6144 MiB give ~19.4, 21.6, 23.3, 25.4 and
-  27.0 write t/s for ~11.7, 12.8, 14.2, 14.8 and 15.8 GiB peak: roughly each
-  extra GiB of cache buys +2 write t/s for ~1 GiB of VRAM. 6144 leaves only
-  ~0.14 GiB free, and `auto` is far too conservative (~1.3 GiB); neither is a
-  good deployment point.
+- Expert-cache size dominates write speed at 256k. At the shipped share 0.45,
+  ub512 and q4_0 KV, 2048, 3072, 4096, 5120 and 6144 MiB give ~19.4, 21.6, 22.7,
+  25.2 and 26.7 write t/s for ~10.4, 11.4, 12.4, 13.4 and 14.4 GiB peak: about
+  +2 write t/s per extra GiB for ~1 GiB of VRAM. 6144 now leaves ~1.5 GiB free,
+  but with q8_0 KV it left only ~0.14 GiB. `auto` is far too conservative
+  (~1.3 GiB) and not a good deployment point.
 - `-cmoe` plus an explicit cache beats `--n-cpu-moe 16`: at similar VRAM it is
   30–44 % faster to write, and it lets VRAM be dialled with one number.
 - Do not combine `--n-cpu-moe` with `--moe-cache-mib`; write speed collapses.
 - 7168 MiB of cache is past the useful point on a 30 GiB host with all experts
-  in RAM.
+  in RAM (measured with q8_0 KV).
 - `--ubatch-size 2048` costs ~1.3–1.4 GiB and buys ~8 % read speed in a smaller
   KV budget, ~3 % with a big expert cache, and ~13 % in `ncmoe` mode. It also
   needs a ~2.4 GiB prefill graph, which does not fit with 256k context plus a
