@@ -333,11 +333,60 @@ the server was stopped afterwards.
   - VRAM: 15.64 GiB after load, 15.78 GiB peak (~0.14 GiB free)
   - in words: fastest, but one desktop spike away from OOM; do not deploy.
 
+## Q3_K_XL cache sweep at the deployed settings
+
+Same harness and fixed settings as the previous campaign (256k context,
+`cmoe`, share 0.45, ub512), but with `Inkling-2-Mini-UD-Q3_K_XL.gguf`
+(13.63 GB) instead of Q4_K_M (16.61 GB). Desktop baseline ~2.6–2.7 GiB; the
+server was stopped afterwards.
+
+- **`--moe-cache-mib 2048`**
+  - changed: cache 2048
+  - read (prefill, 6.3k): 478.66 t/s
+  - write (decode, mean of 3): 20.23 t/s (runs, write t/s: 19.81, 20.37, 20.52)
+  - VRAM: 11.42 GiB after load, 11.57 GiB peak (~4.35 GiB free)
+  - in words: the first 2048 read was 404.97 t/s on the cold first load; the
+    rerun above is the repeat and is the number to use.
+- **`--moe-cache-mib 3072`**
+  - changed: cache 3072
+  - read (prefill, 6.3k): 484.63 t/s
+  - write (decode, mean of 3): 22.34 t/s (runs, write t/s: 21.98, 22.48, 22.57)
+  - VRAM: 12.37 GiB after load, 12.53 GiB peak (~3.39 GiB free)
+  - in words: +10 % write over its 2048 point for ~1 GiB.
+- **`--moe-cache-mib 4096`**
+  - changed: cache 4096
+  - read (prefill, 6.3k): 484.67 t/s
+  - write (decode, mean of 3): 24.36 t/s (runs, write t/s: 23.90, 24.69, 24.50)
+  - VRAM: 13.48 GiB after load, 13.63 GiB peak (~2.29 GiB free)
+  - in words: +20 % write over its 2048 point.
+- **`--moe-cache-mib 5120`**
+  - changed: cache 5120
+  - read (prefill, 6.3k): 484.56 t/s
+  - write (decode, mean of 3): 26.23 t/s (runs, write t/s: 25.60, 26.46, 26.63)
+  - VRAM: 14.45 GiB after load, 14.63 GiB peak (~1.29 GiB free)
+  - in words: +30 % write over its 2048 point.
+- **`--moe-cache-mib 6144`**
+  - changed: cache 6144
+  - read (prefill, 6.3k): 484.79 t/s
+  - write (decode, mean of 3): 27.67 t/s (runs, write t/s: 27.35, 27.88, 27.77)
+  - VRAM: 15.49 GiB after load, 15.64 GiB peak (~0.28 GiB free)
+  - in words: fastest, but only ~0.3 GiB of headroom; still not a safe
+    deployment point.
+
+Against Q4_K_M at the same cache size and settings:
+
+- read is ~2.6–3.9 % faster with Q3 (478.7–484.8 vs 460.7–472.4 read t/s).
+- write is ~2.6–4.5 % faster with Q3 (20.2–27.7 vs 19.4–27.0 write t/s).
+- VRAM is ~0.1–0.2 GiB lower with Q3 at every cache size.
+
 ## Takeaways
 
 - Deployed service: 256k context, `-cmoe` with a 2048 MiB cache, share 0.45
   and ub512 → ~465 read t/s and ~19.3 write t/s at ~11.6 GiB loaded / 11.7 GiB
   peak VRAM (~4.2 GiB free).
+- Q3_K_XL is ~3–4 % faster to read and ~3–5 % faster to write than Q4_K_M at
+  the shipped settings, for ~0.15 GiB less VRAM; Q4 remains the shipped model
+  until the quality trade-off is settled.
 - Expert-cache size dominates write speed at 256k. At the shipped share 0.45 /
   ub512, 2048, 3072, 4096, 5120 and 6144 MiB give ~19.4, 21.6, 23.3, 25.4 and
   27.0 write t/s for ~11.7, 12.8, 14.2, 14.8 and 15.8 GiB peak: roughly each
