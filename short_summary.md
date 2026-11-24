@@ -52,6 +52,14 @@ live session. See [rebuild](docs/rebuild.md) and
 [Bluetooth paging](docs/history/bluetooth-reconnect.md),
 [Toshy](docs/history/toshy.md), [pasteboard](docs/history/pasteboard.md).
 
+## Plans
+
+`plans/` is transient implementation state, not documentation: one `.md` per
+unfinished change (problem/evidence, chosen design, exact files, checklist).
+When a plan lands, move the durable behavior and current state into the matching
+`docs/` page and delete the plan file. Don't link plans as long-term docs.
+Current: [box TTY resize watcher](plans/box-tty-resize.md).
+
 ## Ground rules
 
 - Git repo is the source of truth; `/etc/nixos/` is obsolete.
