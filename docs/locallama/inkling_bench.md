@@ -294,14 +294,56 @@ warmup. Desktop baseline ~2.4 GiB; the server was stopped afterwards.
     256k / 2k cache (16.59 → 19.28, same VRAM class), and the 256k KV costs
     ~2.3 GiB over the 128k sweep runs without hurting either speed much.
 
+## Cache sweep at the deployed settings: 256k, share 0.45, ub512
+
+Fixed: context 262144, `cmoe`, `--moe-cache-cpu-share 0.45`,
+`--ubatch-size 512`. Read is a cold 6.3k prompt; write is the mean of three
+128-token runs after a 256-token warmup. VRAM is after load plus a 0.5 s
+sampled peak across the read and write requests. Desktop baseline ~2.4 GiB;
+the server was stopped afterwards.
+
+- **`--moe-cache-mib 2048`** (shipped)
+  - changed: cache 2048
+  - read (prefill, 6.3k): 460.68 t/s
+  - write (decode, mean of 3): 19.35 t/s (runs, write t/s: 19.14, 19.39, 19.52)
+  - VRAM: 11.57 GiB after load, 11.73 GiB peak (~4.2 GiB free)
+  - in words: the safe point; this is what `home/local-ai.nix` runs.
+- **`--moe-cache-mib 3072`**
+  - changed: cache 3072
+  - read (prefill, 6.3k): 466.91 t/s
+  - write (decode, mean of 3): 21.59 t/s (runs, write t/s: 21.29, 21.75, 21.73)
+  - VRAM: 12.60 GiB after load, 12.79 GiB peak (~3.1 GiB free)
+  - in words: +12 % write for ~1.1 GiB.
+- **`--moe-cache-mib 4096`**
+  - changed: cache 4096
+  - read (prefill, 6.3k): 472.34 t/s
+  - write (decode, mean of 3): 23.34 t/s (runs, write t/s: 22.99, 23.44, 23.58)
+  - VRAM: 13.61 GiB after load, 14.21 GiB peak (~1.7 GiB free)
+  - in words: +21 % write over shipped for ~2 GiB more VRAM.
+- **`--moe-cache-mib 5120`**
+  - changed: cache 5120
+  - read (prefill, 6.3k): 467.23 t/s
+  - write (decode, mean of 3): 25.37 t/s (runs, write t/s: 24.68, 25.67, 25.77)
+  - VRAM: 14.61 GiB after load, 14.78 GiB peak (~1.1 GiB free)
+  - in words: +31 % write over shipped; desktop headroom is getting thin.
+- **`--moe-cache-mib 6144`**
+  - changed: cache 6144
+  - read (prefill, 6.3k): 472.44 t/s
+  - write (decode, mean of 3): 26.96 t/s (runs, write t/s: 26.29, 27.40, 27.19)
+  - VRAM: 15.64 GiB after load, 15.78 GiB peak (~0.14 GiB free)
+  - in words: fastest, but one desktop spike away from OOM; do not deploy.
+
 ## Takeaways
 
 - Deployed service: 256k context, `-cmoe` with a 2048 MiB cache, share 0.45
-  and ub512 → ~465 read t/s and ~19.3 write t/s at ~11.5 GiB VRAM (~3.4 GiB
-  free).
-- Expert-cache size dominates write speed at 256k: ~16.5 write t/s at 2048 MiB,
-  ~21.4 write t/s at 4096, ~23.6 write t/s at 6144; `auto` is far too
-  conservative and should not be used as the deployed setting.
+  and ub512 → ~465 read t/s and ~19.3 write t/s at ~11.6 GiB loaded / 11.7 GiB
+  peak VRAM (~4.2 GiB free).
+- Expert-cache size dominates write speed at 256k. At the shipped share 0.45 /
+  ub512, 2048, 3072, 4096, 5120 and 6144 MiB give ~19.4, 21.6, 23.3, 25.4 and
+  27.0 write t/s for ~11.7, 12.8, 14.2, 14.8 and 15.8 GiB peak: roughly each
+  extra GiB of cache buys +2 write t/s for ~1 GiB of VRAM. 6144 leaves only
+  ~0.14 GiB free, and `auto` is far too conservative (~1.3 GiB); neither is a
+  good deployment point.
 - `-cmoe` plus an explicit cache beats `--n-cpu-moe 16`: at similar VRAM it is
   30–44 % faster to write, and it lets VRAM be dialled with one number.
 - Do not combine `--n-cpu-moe` with `--moe-cache-mib`; write speed collapses.

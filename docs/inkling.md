@@ -82,12 +82,15 @@ The service listens on `127.0.0.1:8089` (loopback only, no auth) with:
 
 All MoE experts stay in host RAM (~16.6 GB), with a fixed 2 GiB expert cache
 in VRAM and 45 % of cache misses computed on the CPU. At 256k text-only with
-a 6.3k prompt this measured **~11.5 GiB total VRAM including the desktop**
-(~3.4 GiB free), **~465 t/s read** (prefill) and **~19.3 t/s write** (decode)
-— about 2 GiB less VRAM than the old `--n-cpu-moe 16` setup, and faster.
-Bigger caches trade the headroom for write speed: 4096 MiB reaches ~21.4
-write t/s at ~14.7 GiB and 6144 MiB ~23.6 write t/s at ~14.6 GiB. `auto` is
-far too conservative (~1.3 GiB) and slow. Keep the share in 0.3–0.6 (there is
+a 6.3k prompt this measured **~11.6 GiB total VRAM including the desktop**
+(~4.2 GiB free at peak), **~465 t/s read** (prefill) and **~19.3 t/s write**
+(decode) — about 2 GiB less VRAM than the old `--n-cpu-moe 16` setup, and
+faster.
+Bigger caches trade the headroom for write speed at the same share: 3072 MiB
+reaches ~21.6 write t/s at ~12.8 GiB peak, 4096 MiB ~23.3 write t/s at
+~14.2 GiB, 5120 MiB ~25.4 write t/s at ~14.8 GiB, and 6144 MiB ~27.0 write
+t/s at ~15.8 GiB (only ~0.1 GiB free — too tight). `auto` is far too
+conservative (~1.3 GiB) and slow. Keep the share in 0.3–0.6 (there is
 a cliff at 0.7) and ubatch at 512: 2048 buys ~8 % read speed in a smaller KV
 budget but adds ~1.3 GiB and is unsafe at 256k once the cache grows.
 Full measurements: [inkling_bench](locallama/inkling_bench.md).
