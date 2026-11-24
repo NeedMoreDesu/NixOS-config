@@ -241,6 +241,17 @@ box() {
   local -a flags cmd=("$@")
   [ "${#cmd[@]}" -eq 0 ] && cmd=(bash -i)
 
+  # --new-session detaches the boxed command from the PTY's foreground
+  # process group, so resize SIGWINCH never reaches TUIs. Wrap interactive
+  # commands with the in-box watcher (resolved on the host; its absolute
+  # /nix/store path is passed into the sandbox). BOX_NO_TTY_WATCH=1 opts out.
+  local -a run_cmd=("${cmd[@]}")
+  local tty_watch=""
+  if [ "${BOX_NO_TTY_WATCH:-0}" != 1 ] && [ -t 0 ]; then
+    tty_watch=$(command -v box-tty-watch 2>/dev/null) || tty_watch=""
+  fi
+  [ -n "$tty_watch" ] && run_cmd=("$tty_watch" -- "${cmd[@]}")
+
   _box_guard_pwd || return 1
 
   # Shared scratch/log handoff in both modes. Create it on the host so the
@@ -418,8 +429,8 @@ box() {
 
   if [ "$mode" = project ]; then
     # The single random /tmp directory dies with the session.
-    ( trap 'rm -rf -- "$tmp"' EXIT; "${net[@]}" bwrap "${flags[@]}" -- "${cmd[@]}" )
+    ( trap 'rm -rf -- "$tmp"' EXIT; "${net[@]}" bwrap "${flags[@]}" -- "${run_cmd[@]}" )
   else
-    "${net[@]}" bwrap "${flags[@]}" -- "${cmd[@]}"
+    "${net[@]}" bwrap "${flags[@]}" -- "${run_cmd[@]}"
   fi
 }
