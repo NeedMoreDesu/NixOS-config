@@ -61,7 +61,11 @@ until login.
 To do the same without a rebuild, run `kde-restart` (a function in
 `shell/nyx.sh` calling `scripts/kde_restart.sh`). It needs no sudo and is
 useful after editing the config and switching by other means, or to repair
-a session whose layout got lost.
+a session whose layout got lost. Unlike a bare `run_all.sh` with unchanged
+generations (which is generation-gated and only prints
+`script_reset_lastrun_desktopscripts`), it drops the `last_run_*` stamps so
+the panels script really re-runs. If the apply times out because plasmashell
+is wedged, it restarts `plasma-plasmashell.service` and applies again.
 
 ## Generations and GC
 
