@@ -123,7 +123,7 @@ drafter also competes for the same 16 GB.
 ## Toggle
 
 `ai` is an alias for `ai-toggle` (installed by `home/local-ai.nix`; the alias
-lives in `hosts/nixos/bashrc.sh`).
+lives in `shell/aliases.sh`).
 
 ```
 ai off                # all

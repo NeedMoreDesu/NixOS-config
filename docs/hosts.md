@@ -7,7 +7,7 @@
     mounts and `nixpkgs.hostPlatform`.
   - `bashrc.sh` — per-host shell shim, sourced by `~/.bashrc`; sets
     `NYX_REPO`/`NYX_HOST`, host box defaults such as `BOX_DEFAULT_PORTS`,
-    and sources `shell/{box,nyx,agents}.sh`.
+    and sources `shell/{box,nyx,agents,aliases}.sh`.
   - per-host user units such as `kscreen.nix`.
 - Nothing auto-discovers hosts. `flake.nix` explicitly maps
   `nixosConfigurations.<name> = mkHost "<name>"`, where `mkHost` builds from

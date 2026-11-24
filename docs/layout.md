@@ -18,6 +18,7 @@ This is the map. Detailed behaviour lives in the linked subject docs.
 | `box.sh` | `bwrap` sandbox launcher + allowlists (shared). See [sandbox](sandbox.md). |
 | `nyx.sh` | `nyx()` → `rebuild.sh --host $NYX_HOST`, `kde-restart()`. See [rebuild](rebuild.md). |
 | `agents.sh` | `nyvibe`, `oc` + `ab`. See [agent browser](agent-browser.md) and [sandbox](sandbox.md). |
+| `aliases.sh` | Host-independent aliases (`ai`, `caffeinate`). |
 
 ## `scripts/`
 
