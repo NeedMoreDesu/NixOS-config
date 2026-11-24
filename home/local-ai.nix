@@ -46,15 +46,17 @@ in
         # a fixed 2 GiB expert cache keeps writes fast without the tight VRAM
         # of the 4-6 GiB caches, and share 0.45 is the write sweet spot.
         # ubatch stays at the 512 default: 2048 adds ~1.3 GiB and cannot fit
-        # the 256k budget once the cache grows. See docs/inkling.md and
+        # the 256k budget once the cache grows. q4_0 KV is the only quantized
+        # pair with a native FA kernel here and saves ~1.9 GiB over q8_0 with
+        # a small quality delta. See docs/inkling.md and
         # docs/locallama/inkling_bench.md.
         "--cpu-moe"
         "--moe-cache-mib" "2048"
         "--moe-cache-cpu-share" "0.45"
         "--ubatch-size" "512"
         "--ctx-size" "262144"
-        "--cache-type-k" "q8_0"
-        "--cache-type-v" "q8_0"
+        "--cache-type-k" "q4_0"
+        "--cache-type-v" "q4_0"
         "--flash-attn" "on"
         "--parallel" "1"
         "--temp" "1.0"
