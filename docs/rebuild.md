@@ -58,6 +58,11 @@ next session; the 2026-11-14 symptom was a top bar that ignored clicks after
 saving. Otherwise a kwinrc change such as a disabled hot corner survives
 until login.
 
+To do the same without a rebuild, run `kde-restart` (a function in
+`shell/nyx.sh` calling `scripts/kde_restart.sh`). It needs no sudo and is
+useful after editing the config and switching by other means, or to repair
+a session whose layout got lost.
+
 ## Generations and GC
 
 After every successful switch, `nyx` caps system and home-manager generations

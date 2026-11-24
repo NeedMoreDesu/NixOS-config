@@ -16,7 +16,7 @@ This is the map. Detailed behaviour lives in the linked subject docs.
 | Path | Purpose |
 | --- | --- |
 | `box.sh` | `bwrap` sandbox launcher + allowlists (shared). See [sandbox](sandbox.md). |
-| `nyx.sh` | `nyx()` → `rebuild.sh --host $NYX_HOST`. See [rebuild](rebuild.md). |
+| `nyx.sh` | `nyx()` → `rebuild.sh --host $NYX_HOST`, `kde-restart()`. See [rebuild](rebuild.md). |
 | `agents.sh` | `nyvibe`, `oc` + `ab`. See [agent browser](agent-browser.md) and [sandbox](sandbox.md). |
 
 ## `scripts/`
@@ -33,6 +33,7 @@ This is the map. Detailed behaviour lives in the linked subject docs.
 | `screenshot.sh` | macOS-style screenshot bindings. See [keyboard](keyboard.md). |
 | `agent-chrome.sh` | Dedicated CDP Chromium launcher. See [agent browser](agent-browser.md). |
 | `agent-browser.sh` | Lazy front door for page commands. See [agent browser](agent-browser.md). |
+| `kde_restart.sh` | Re-apply Plasma config to the live session (`kde-restart`). See [rebuild](rebuild.md). |
 
 ## `hosts/`
 
