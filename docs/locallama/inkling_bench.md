@@ -232,26 +232,38 @@ request; the two share groups ran at different times, with ~1.4 GiB and
 Fixed: context 131072, `cmoe`, `--moe-cache-mib 2048`, `--ubatch-size 512`.
 Read is a cold 6.3k prompt; write is the mean of three 128-token runs after a
 256-token warmup (individual runs given). VRAM after load; desktop baseline
-~2.7 GiB.
+~2.5–2.7 GiB.
 
+- **`--moe-cache-cpu-share 0.3`**
+  - changed: share 0.3
+  - read (prefill, 6.3k): 465.34 t/s
+  - write (decode, mean of 3): 19.43 t/s (runs, write t/s: 19.17, 19.60, 19.51)
+  - VRAM: 9.09 GiB
+  - in words: fast writes, tied with 0.4–0.6 within noise.
+- **`--moe-cache-cpu-share 0.4`**
+  - changed: share 0.4
+  - read (prefill, 6.3k): 466.01 t/s
+  - write (decode, mean of 3): 19.56 t/s (runs, write t/s: 19.24, 19.68, 19.76)
+  - VRAM: 9.09 GiB
+  - in words: highest mean, but only by noise over 0.3 and 0.5–0.6.
 - **`--moe-cache-cpu-share 0.5`**
   - changed: share 0.5
   - read (prefill, 6.3k): 464.66 t/s
   - write (decode, mean of 3): 19.53 t/s (runs, write t/s: 19.19, 19.68, 19.72)
   - VRAM: 9.32 GiB
-  - in words: fastest writes in this sweep.
+  - in words: tied with 0.3–0.4 and 0.6; the curve is flat through here.
 - **`--moe-cache-cpu-share 0.6`**
   - changed: share 0.6
   - read (prefill, 6.3k): 465.70 t/s
   - write (decode, mean of 3): 18.89 t/s (runs, write t/s: 18.59, 19.41, 18.67)
   - VRAM: 9.34 GiB
-  - in words: statistically tied with 0.5.
+  - in words: tied with 0.3–0.5; last point before the cliff.
 - **`--moe-cache-cpu-share 0.7`**
   - changed: share 0.7
   - read (prefill, 6.3k): 464.44 t/s
   - write (decode, mean of 3): 14.22 t/s (runs, write t/s: 14.24, 14.21, 14.21)
   - VRAM: 9.31 GiB
-  - in words: writes drop ~25 % versus 0.5–0.6; read is unchanged.
+  - in words: writes drop ~25 % versus 0.6 and ~27 % versus 0.3–0.5; read is unchanged.
 - **`--moe-cache-cpu-share 0.8`**
   - changed: share 0.8
   - read (prefill, 6.3k): 423.38 t/s
@@ -276,5 +288,6 @@ Read is a cold 6.3k prompt; write is the mean of three 128-token runs after a
   4096–6144 MiB expert cache (OOM at 64k depth), so keep 512 for the current
   256k service. Write speed was unchanged by ubatch in the 256k matrix.
 - `--moe-cache-cpu-share` is irrelevant with the tiny `auto` cache, but with a
-  2048 MiB cache shares 0.5–0.6 are ~36 % faster to write than 0.7–0.8
-  (19.5 write t/s vs 14.2 write t/s) at identical read speed; 0.5 is the pick.
+  2048 MiB cache shares 0.3–0.6 are ~36 % faster to write than 0.7–0.8
+  (19.4–19.6 write t/s vs 14.2–14.4 write t/s) at identical read speed. The
+  plateau is flat from 0.3 to 0.6, with a cliff at 0.7; 0.5 is a fine pick.
