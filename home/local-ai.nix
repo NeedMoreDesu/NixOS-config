@@ -7,6 +7,7 @@ let
 
   modelDir = "${config.home.homeDirectory}/models/inkling-2-mini";
   model = "${modelDir}/Inkling-2-Mini-UD-Q4_K_M.gguf";
+  mmproj = "${modelDir}/mmproj-F16.gguf";
 
   fetchInkling = pkgs.writeShellScriptBin "fetch-inkling" ''
     export PATH="${pkgs.lib.makeBinPath [ pkgs.bash pkgs.curl pkgs.coreutils ]}:$PATH"
@@ -29,20 +30,25 @@ in
 
   systemd.user.services.llama-inkling = {
     Unit = {
-      Description = "Inkling 2 Mini Q4_K_M text-only, 256k (Unsloth llama.cpp ROCm)";
+      Description = "Inkling 2 Mini Q4_K_M vision, 256k (Unsloth llama.cpp ROCm)";
       After = [ "network.target" ];
       # Skip the unit instead of restart-looping when the weights are absent.
-      ConditionPathExists = [ model ];
+      ConditionPathExists = [ model mmproj ];
     };
 
     Service = {
       ExecStart = builtins.concatStringsSep " " [
         "${llamaCppUnsloth}/bin/llama-server-inkling"
         "--model" model
+        # Vision: the F16 projector stays in host RAM (`--no-mmproj-offload`),
+        # so text-only VRAM is unchanged; image encoding runs on the CPU and is
+        # slow, which is fine because images are rare here.
+        "--mmproj" mmproj
+        "--no-mmproj-offload"
         "--alias" "inkling-2-mini"
         "--jinja"
         "--n-gpu-layers" "99"
-        # Text-only 256k standard: no mmproj. All MoE experts live in host RAM;
+        # 256k standard with vision. All MoE experts live in host RAM;
         # a fixed 2 GiB expert cache keeps writes fast without the tight VRAM
         # of the 4-6 GiB caches, and share 0.45 is the write sweet spot.
         # ubatch stays at the 512 default: 2048 adds ~1.3 GiB and cannot fit

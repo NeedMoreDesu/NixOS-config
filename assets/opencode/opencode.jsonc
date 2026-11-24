@@ -17,8 +17,8 @@
   // (home/local-ai.nix, port 8089). No auth: host loopback only.
   // This uses opencode's legacy provider entry: `providers` with
   // package/settings failed to resolve the model on 1.19.6, while
-  // provider/npm works. The deployment is text-only (no mmproj), so the
-  // model stays text-only here too.
+  // provider/npm works. Vision is enabled through the mmproj, which stays
+  // in host RAM; image inputs are accepted but slow.
   "provider": {
     "inkling": {
       "npm": "@ai-sdk/openai-compatible",
@@ -30,9 +30,9 @@
       "models": {
         "inkling-2-mini": {
           "name": "Inkling 2 Mini UD-Q4_K_M",
-          "attachment": false,
+          "attachment": true,
           "modalities": {
-            "input": [ "text" ],
+            "input": [ "text", "image" ],
             "output": [ "text" ]
           },
           "tool_call": true,
