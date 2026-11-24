@@ -29,9 +29,10 @@
     # FORK (github.com/NeedMoreDesu/seance, branch zmx): per-terminal UUIDs
     # persisted in session.json, [hooks] on-tab-open/close, [behavior]
     # zmx-attach (each pane exec's `zmx attach seance-<pane-uuid>`). Until
-    # the fork is pushed, pinned to the local clone at ~/seance.
+    # the fork is pushed, pinned to the local clone at
+    # ~/Documents/code/opensource/seance.
     seance = {
-      url = "git+file:///home/mika/seance?submodules=1";
+      url = "git+file:///home/mika/Documents/code/opensource/seance?submodules=1";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     # Key remapper for X11/Wayland with app-specific rules (evdev level —

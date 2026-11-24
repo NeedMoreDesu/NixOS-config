@@ -274,12 +274,12 @@
         "revCount": 84,
         "submodules": true,
         "type": "git",
-        "url": "file:///home/mika/seance"
+        "url": "file:///home/mika/Documents/code/opensource/seance"
       },
       "original": {
         "submodules": true,
         "type": "git",
-        "url": "file:///home/mika/seance"
+        "url": "file:///home/mika/Documents/code/opensource/seance"
       }
     },
     "systems": {
