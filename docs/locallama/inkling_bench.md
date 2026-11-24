@@ -11,8 +11,9 @@ Every speed is labelled **read** or **write**: read = prefill/input processing
 
 ## Inputs
 
-- Model: `Inkling-2-Mini-UD-Q4_K_M.gguf` (16.61 GB, Unsloth root layout,
-  text-only, no mmproj).
+- Model: `Inkling-2-Mini-UD-Q4_K_M.gguf` (16.61 GB, Unsloth root layout).
+  Bench runs were text-only, no mmproj; the deployed unit now loads the
+  projector with `--no-mmproj-offload`.
 - Server: `llama-server-inkling` from `pkgs/llama-cpp-unsloth.nix`, build
   `b12631-mix-acc0843` (upstream b12631 + Unsloth Inkling patches).
 - GPU: RX 9070 XT, 15.92 GiB VRAM, PCIe 5.0 x16.

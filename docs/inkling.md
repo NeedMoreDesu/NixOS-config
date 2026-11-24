@@ -1,18 +1,19 @@
 # Inkling 2 Mini (local, Unsloth prebuilt)
 
-**Status: implemented 2026-11-23; standard deployment is text-only, 256k
-context, `--cpu-moe` with a 2 GiB expert cache and q4_0 KV.** The model is
-downloaded. Start it with `ai on -l`; the unit has no autostart. Vision is off
-by default.
+**Status: implemented 2026-11-23; standard deployment is 256k context with
+vision (projector kept in host RAM), `--cpu-moe` with a 2 GiB expert cache and
+q4_0 KV.** The model and projector are downloaded. Start it with `ai on -l`;
+the unit has no autostart.
 
 ## What it is
 
 `thinkingmachines/Inkling-2-Mini` — 26.4B total / 5.4B effective-active MoE,
 24 layers with the middle 12 applied 3× (looped transformer), 128 experts
 (8/token), hybrid local/global attention, 1M context, text + image in, text
-out. Apache 2.0. This deployment is **text-only** (no mmproj) at **256k**
-context. Local deployment is GGUF only on this machine: the official
-NVFP4/MXFP8 checkpoint is a vLLM/SGLang path (NVIDIA-only recipe).
+out. Apache 2.0. This deployment is **text+image** (the F16 mmproj stays in
+host RAM) at **256k** context. Local deployment is GGUF only on this machine:
+the official NVFP4/MXFP8 checkpoint is a vLLM/SGLang path (NVIDIA-only
+recipe).
 
 ## Why a pinned Unsloth prebuilt
 
@@ -62,18 +63,19 @@ Root-layout files (not `Mainline_Support/`, which is for mainline builds):
 | File | Size | Use |
 | --- | ---: | --- |
 | `Inkling-2-Mini-UD-Q4_K_M.gguf` | 16.61 GB | required, recommended 4-bit |
-| `mmproj-F16.gguf` | 639 MB | optional vision projector |
+| `mmproj-F16.gguf` | 639 MB | vision projector (loaded, not offloaded) |
 | `dspark-Inkling-2-Mini-Q8_0.gguf` | 402 MB | optional DSpark drafter |
 
 ```
+fetch-inkling --vision   # model + projector (standard)
 fetch-inkling            # text-only: model only
-fetch-inkling --vision   # also fetch the projector
 fetch-inkling --dspark   # also fetch the drafter
 ```
 
 The service listens on `127.0.0.1:8089` (loopback only, no auth) with:
 
 ```
+--mmproj ~/models/inkling-2-mini/mmproj-F16.gguf --no-mmproj-offload
 --jinja -ngl 99 --cpu-moe --moe-cache-mib 2048 --moe-cache-cpu-share 0.45
 -ub 512 -c 262144
 -ctk q4_0 -ctv q4_0 -fa on --parallel 1
@@ -81,8 +83,9 @@ The service listens on `127.0.0.1:8089` (loopback only, no auth) with:
 ```
 
 All MoE experts stay in host RAM (~16.6 GB), with a fixed 2 GiB expert cache
-in VRAM and 45 % of cache misses computed on the CPU. At 256k text-only with
-a 6.3k prompt this measured **~10.2 GiB total VRAM including the desktop**
+in VRAM and 45 % of cache misses computed on the CPU. The F16 projector also
+stays in host RAM (see below), so it adds no persistent VRAM. At 256k with a
+6.3k text prompt this measured **~10.2 GiB total VRAM including the desktop**
 (~5.5 GiB free at peak), **~455 t/s read** (prefill) and **~19.4 t/s write**
 (decode) — about 3.5 GiB less VRAM than the old `--n-cpu-moe 16` setup, and
 faster.
@@ -97,17 +100,24 @@ q4_0 KV is the only quantized pair with a native FlashAttention kernel in
 this build and saved ~1.9 GiB over q8_0 with PPL +0.33 % at 4k, KL RMS
 Δp 2.17 %, and 3/3 passkeys at 16.6k; q5_0 and mixed q8_0/q4_0 fall back to
 f16 attention. Long-context PPL could not be measured.
+The mmproj is not in that VRAM figure: `--no-mmproj-offload` keeps the F16
+projector (~610 MB) in host RAM. Text speed and VRAM are unchanged; only
+image requests are affected, and their encoding runs on the CPU (slow).
 Full measurements: [inkling_bench](locallama/inkling_bench.md).
 
 The host box defaults include **8089** (alongside 8088 for embeddings), so a
 `box` session can reach this service at `127.0.0.1:8089`.
 
-Vision is **off**: no `--mmproj`, and the unit's condition only checks the
-model. To re-enable, add `--mmproj ~/models/inkling-2-mini/mmproj-F16.gguf`
-(plus `--no-mmproj-offload` to keep the projector in RAM) back to `ExecStart`
-and the condition, fetch with `--vision`, and restore image capability in
-opencode. It costs roughly 0.6–1.4 GiB of VRAM and lowers the practical max
-context.
+Vision is **on** but not offloaded: `--mmproj .../mmproj-F16.gguf` with
+`--no-mmproj-offload`. The unit's condition checks both the model and the
+projector; if it is skipped, run `fetch-inkling --vision` to fetch the
+projector. This keeps the ~610 MB projector in host RAM, so text-only VRAM is
+unchanged; image encoding is CPU-bound and slow, which is deliberate because
+images are rare. If you prefer fast images and have the VRAM, drop
+`--no-mmproj-offload`: offloading costs ~0.6–1.4 GiB and lowers the practical
+max context. To disable vision entirely, remove `--mmproj` and
+`--no-mmproj-offload` from `ExecStart`, drop the mmproj from the condition,
+and set `attachment = false` plus a text-only `modalities.input` in opencode.
 
 DSpark is not enabled in the unit. If it turns out to be worth the extra
 VRAM, add:
@@ -157,9 +167,10 @@ command to run.
 
 `opencode.jsonc` uses the legacy `provider`/`npm` entry for `inkling`: on
 opencode 1.19.6 the newer `providers`/`package` shape did not resolve the
-model, while this one does. The standard deployment is text-only, so the
-model entry sets `attachment = false` and `modalities.input = [ "text" ]`;
-`tool_call` and `reasoning` stay enabled. `baseURL` is
+model, while this one does. Vision is enabled, so the model entry sets
+`attachment = true` and `modalities.input = [ "text", "image" ]`; image
+requests are accepted but the projector runs on the CPU, so expect them to be
+slow. `tool_call` and `reasoning` stay enabled. `baseURL` is
 `http://127.0.0.1:8089/v1`, context **262144**, output 8192, and the API key
 is a dummy (llama-server does not authenticate). Start the service with
 `ai on -l` before selecting the model; open a new opencode session after
