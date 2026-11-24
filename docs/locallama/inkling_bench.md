@@ -401,8 +401,8 @@ loader log of the same build/flags.
 - desktop, compositor and driver: ~2.61 GiB.
 - free: 4.16 GiB (11.76 used of 15.92).
 - levers, in size order: 128k context frees ~2.25 GiB; every extra 1024 MiB of
-  expert cache costs ~1.02 GiB; ub2048 costs ~1.3 GiB; q4_0 KV roughly halves
-  the KV cache (~2 GiB saving) at a quality risk.
+  expert cache costs ~1.02 GiB; ub2048 costs ~1.3 GiB; q4_0/q4_0 KV saves
+  ~1.9 GiB (measured; see the KV section below).
 - the 8 GiB prompt cache is host RAM, not VRAM.
 
 KV cache type notes:
@@ -411,12 +411,67 @@ KV cache type notes:
   q5_1`; the server default is `f16`.
 - the deployed `q8_0` is ~8.5 bits/element, already half of f16 and
   effectively lossless for this use.
-- `q4_0` is ~4.5 bits/element, so KV shrinks to ~53 % (~2.0 GiB saving here);
-  `q5_0` (~5.5 bits) is a middle ground (~1.5 GiB saving).
-- K quantization is usually more sensitive than V; mixed `-ctk q8_0 -ctv
-  q4_0` saves ~1.0 GiB with less risk than quantizing both.
-- quantized KV needs `-fa on` (already set) and should be checked with
-  perplexity/long-context quality tests before deploying.
+- `q4_0` is ~4.5 bits/element, so KV shrinks to ~53 %; `q5_0` (~5.5 bits) is
+  a middle ground.
+- native FlashAttention kernels exist only for `q4_0-q4_0`, `q8_0-q8_0` and
+  the f16/bf16/f8_e4m3 pairs. `q5_0` and mixed `q8_0/q4_0` log "no
+  FlashAttention vector kernel compiled ... converting K and V to f16 instead
+  (slow)", so they lose the fast path and need a growing transient buffer.
+- quantified speed/VRAM/PPL/KL numbers are in the next section.
+
+## KV cache quantization: speed, VRAM and quality
+
+Tested 2026-11-24 on Q4_K_M with the shipped settings (256k context, `cmoe`,
+cache 2048, share 0.45, ub512, `-fa on`). Desktop baseline ~2.65 GiB. Write is
+the mean of five runs, read is one 6.3k prefill, VRAM is after load and the
+0.5 s-sampled peak. PPL is WikiText-2 raw test with `-c 4096 --chunks 8`
+(~32k tokens). KL is against q8_0/q8_0 logits at `-c 1024 --chunks 2`.
+
+- **`-ctk q8_0 -ctv q8_0`** (baseline)
+  - read (prefill, 6.3k): 467.91 t/s
+  - write (decode, mean of 5): 19.51 t/s
+  - VRAM: 11.78 GiB after load, 11.94 GiB peak
+  - PPL (4k): 5.8066 ± 0.10463
+  - in words: reference point, native FA.
+- **`-ctk q8_0 -ctv q4_0`**
+  - read (prefill, 6.3k): 467.35 t/s
+  - write (decode, mean of 5): 19.35 t/s
+  - VRAM: 10.74 GiB after load, 11.30 GiB peak
+  - PPL (4k): 5.8214 ± 0.10512 (+0.25 %)
+  - KL vs baseline: median 0.002066, p99 0.040830, RMS Δp 1.865 ± 0.133 %,
+    same top-p 97.847 ± 0.454 %
+  - in words: the best 4k KL, but the mixed pair falls back to f16 attention,
+    which eats most of the peak saving and costs ~1 % write.
+- **`-ctk q5_0 -ctv q5_0`**
+  - read (prefill, 6.3k): 469.21 t/s
+  - write (decode, mean of 5): 18.82 t/s
+  - VRAM: 10.38 GiB after load, 10.85 GiB peak
+  - PPL (4k): 5.8200 ± 0.10499 (+0.23 %)
+  - KL vs baseline: median 0.001472, p99 0.030525, RMS Δp 1.885 ± 0.141 %,
+    same top-p 97.847 ± 0.454 %
+  - in words: lowest median KL, but the slowest write and no native FA.
+- **`-ctk q4_0 -ctv q4_0`**
+  - read (prefill, 6.3k): 467.53 t/s
+  - write (decode, mean of 5): 19.41 t/s
+  - VRAM: 9.86 GiB after load, 10.02 GiB peak
+  - PPL (4k): 5.8258 ± 0.10512 (+0.33 %)
+  - KL vs baseline: median 0.003023, p99 0.048997, RMS Δp 2.170 ± 0.159 %,
+    same top-p 96.477 ± 0.577 %
+  - in words: native FA, biggest peak saving (~1.9 GiB), write speed unchanged,
+    and only a small quality delta in these tests.
+
+Long-context checks:
+
+- `llama-perplexity` at `-c 8192` and `-c 16384` stalled in this build with no
+  progress (killed after several minutes), so there are no long-context PPL
+  numbers.
+- a 16.6k-token passkey test (WikiText filler, random 7-digit key at 10/50/90 %
+  depth, greedy) hit 3/3 for both q8_0/q8_0 and q4_0/q4_0; read (prefill) was
+  278–283 t/s for both.
+- conclusion: q4_0/q4_0 is the deployment candidate (native FA, -1.9 GiB peak,
+  speed-neutral, small 4k/16k deltas); q8_0/q4_0 and q5_0/q5_0 do not pay off
+  because of the FA fallback. Very long or adversarial retrieval is still
+  unvalidated.
 
 ## Takeaways
 
@@ -426,8 +481,11 @@ KV cache type notes:
 - Q3_K_XL is ~3–4 % faster to read and ~3–5 % faster to write than Q4_K_M at
   the shipped settings, for ~0.15 GiB less VRAM; Q4 remains the shipped model
   until the quality trade-off is settled.
-- The KV cache is the largest VRAM item (~4.5 GiB at 256k with q8_0); q4_0
-  would halve it but needs a quality check, and K is more sensitive than V.
+- KV `q4_0/q4_0` is the only native-FA quantized combo in this build: it
+  saves ~1.9 GiB peak VRAM with no write-speed loss, +0.33 % PPL at 4k, KL RMS
+  2.17 % / 96.5 % same top-p, and 3/3 passkeys at 16.6k. Mixed q8_0/q4_0 and
+  q5_0/q5_0 fall back to f16 attention, so they are slower to write and save
+  less at peak. Long-context PPL could not be measured.
 - Expert-cache size dominates write speed at 256k. At the shipped share 0.45 /
   ub512, 2048, 3072, 4096, 5120 and 6144 MiB give ~19.4, 21.6, 23.3, 25.4 and
   27.0 write t/s for ~11.7, 12.8, 14.2, 14.8 and 15.8 GiB peak: roughly each
