@@ -1,8 +1,9 @@
 # Inkling 2 Mini (local, Unsloth prebuilt)
 
 **Status: implemented 2026-11-23; standard deployment is text-only, 256k
-context, `--n-cpu-moe 16`.** The model is downloaded. Start it with
-`ai on -l`; the unit has no autostart. Vision is off by default.
+context, `--cpu-moe` with a 2 GiB expert cache.** The model is downloaded.
+Start it with `ai on -l`; the unit has no autostart. Vision is off by
+default.
 
 ## What it is
 
@@ -73,26 +74,33 @@ fetch-inkling --dspark   # also fetch the drafter
 The service listens on `127.0.0.1:8089` (loopback only, no auth) with:
 
 ```
---jinja -ngl 99 --n-cpu-moe 16 -c 262144
+--jinja -ngl 99 --cpu-moe --moe-cache-mib 2048 --moe-cache-cpu-share 0.45
+-ub 512 -c 262144
 -ctk q8_0 -ctv q8_0 -fa on --parallel 1
 --temp 1.0 --top-p 1.0 --top-k 0 --min-p 0.0
 ```
 
-`--n-cpu-moe 16` keeps the first 16 weight layers' experts in system RAM.
-At 256k text-only that measured **~13.3–13.7 GiB total VRAM including the
-desktop**, leaving ~2.3–2.6 GiB. Raising N costs generation speed but almost
-no prefill: at 32k depth `pp512` was 173.1 vs 169.9 t/s for N=10 vs N=16; at
-64k it was 93.6 vs 94.5. The fit limits at N=16 are about 384k text-only
-(~0.6 GiB free); 512k OOMs. Lower N only if you also lower context.
+All MoE experts stay in host RAM (~16.6 GB), with a fixed 2 GiB expert cache
+in VRAM and 45 % of cache misses computed on the CPU. At 256k text-only with
+a 6.3k prompt this measured **~11.5 GiB total VRAM including the desktop**
+(~3.4 GiB free), **~465 t/s read** (prefill) and **~19.3 t/s write** (decode)
+— about 2 GiB less VRAM than the old `--n-cpu-moe 16` setup, and faster.
+Bigger caches trade the headroom for write speed: 4096 MiB reaches ~21.4
+write t/s at ~14.7 GiB and 6144 MiB ~23.6 write t/s at ~14.6 GiB. `auto` is
+far too conservative (~1.3 GiB) and slow. Keep the share in 0.3–0.6 (there is
+a cliff at 0.7) and ubatch at 512: 2048 buys ~8 % read speed in a smaller KV
+budget but adds ~1.3 GiB and is unsafe at 256k once the cache grows.
+Full measurements: [inkling_bench](locallama/inkling_bench.md).
 
 The host box defaults include **8089** (alongside 8088 for embeddings), so a
 `box` session can reach this service at `127.0.0.1:8089`.
 
 Vision is **off**: no `--mmproj`, and the unit's condition only checks the
 model. To re-enable, add `--mmproj ~/models/inkling-2-mini/mmproj-F16.gguf`
-back to `ExecStart` and the condition, fetch with `--vision`, and restore
-image capability in opencode. It costs roughly 0.6–1.4 GiB of VRAM and
-lowers the practical max context.
+(plus `--no-mmproj-offload` to keep the projector in RAM) back to `ExecStart`
+and the condition, fetch with `--vision`, and restore image capability in
+opencode. It costs roughly 0.6–1.4 GiB of VRAM and lowers the practical max
+context.
 
 DSpark is not enabled in the unit. If it turns out to be worth the extra
 VRAM, add:

@@ -245,13 +245,19 @@ Read is a cold 6.3k prompt; write is the mean of three 128-token runs after a
   - read (prefill, 6.3k): 466.01 t/s
   - write (decode, mean of 3): 19.56 t/s (runs, write t/s: 19.24, 19.68, 19.76)
   - VRAM: 9.09 GiB
-  - in words: highest mean, but only by noise over 0.3 and 0.5–0.6.
+  - in words: highest mean, but only by noise over 0.3 and 0.45–0.6.
+- **`--moe-cache-cpu-share 0.45`**
+  - changed: share 0.45
+  - read (prefill, 6.3k): 465.66 t/s
+  - write (decode, mean of 3): 19.55 t/s (runs, write t/s: 19.26, 19.56, 19.83)
+  - VRAM: 9.00 GiB
+  - in words: effectively tied with 0.4; this is the deployed value.
 - **`--moe-cache-cpu-share 0.5`**
   - changed: share 0.5
   - read (prefill, 6.3k): 464.66 t/s
   - write (decode, mean of 3): 19.53 t/s (runs, write t/s: 19.19, 19.68, 19.72)
   - VRAM: 9.32 GiB
-  - in words: tied with 0.3–0.4 and 0.6; the curve is flat through here.
+  - in words: tied with 0.3–0.45 and 0.6; the curve is flat through here.
 - **`--moe-cache-cpu-share 0.6`**
   - changed: share 0.6
   - read (prefill, 6.3k): 465.70 t/s
@@ -272,8 +278,27 @@ Read is a cold 6.3k prompt; write is the mean of three 128-token runs after a
   - in words: writes stay slow and this was the only run with a visibly lower
     read speed (single sample).
 
+## Deployed config validation: 256k, 2k cache, share 0.45, ub512
+
+Fixed: context 262144, `cmoe`, `--moe-cache-mib 2048`, share 0.45,
+`--ubatch-size 512` — the settings used by `home/local-ai.nix`. Read is a
+cold 6.3k prompt; write is the mean of three 128-token runs after a 256-token
+warmup. Desktop baseline ~2.4 GiB; the server was stopped afterwards.
+
+- **`--cpu-moe --moe-cache-mib 2048 --moe-cache-cpu-share 0.45 --ubatch-size 512`**
+  - changed: context 262144 instead of 128k; otherwise the shipped flags
+  - read (prefill, 6.3k): 465.61 t/s
+  - write (decode, mean of 3): 19.28 t/s (runs, write t/s: 19.20, 18.94, 19.71)
+  - VRAM: 11.55 GiB after load (~3.4 GiB free of 15.92)
+  - in words: share 0.45 recovers ~2.7 write t/s over share 0.8 at the same
+    256k / 2k cache (16.59 → 19.28, same VRAM class), and the 256k KV costs
+    ~2.3 GiB over the 128k sweep runs without hurting either speed much.
+
 ## Takeaways
 
+- Deployed service: 256k context, `-cmoe` with a 2048 MiB cache, share 0.45
+  and ub512 → ~465 read t/s and ~19.3 write t/s at ~11.5 GiB VRAM (~3.4 GiB
+  free).
 - Expert-cache size dominates write speed at 256k: ~16.5 write t/s at 2048 MiB,
   ~21.4 write t/s at 4096, ~23.6 write t/s at 6144; `auto` is far too
   conservative and should not be used as the deployed setting.
@@ -290,4 +315,5 @@ Read is a cold 6.3k prompt; write is the mean of three 128-token runs after a
 - `--moe-cache-cpu-share` is irrelevant with the tiny `auto` cache, but with a
   2048 MiB cache shares 0.3–0.6 are ~36 % faster to write than 0.7–0.8
   (19.4–19.6 write t/s vs 14.2–14.4 write t/s) at identical read speed. The
-  plateau is flat from 0.3 to 0.6, with a cliff at 0.7; 0.5 is a fine pick.
+  plateau is flat from 0.3 to 0.6, with a cliff at 0.7; 0.45 is the deployed
+  pick.
