@@ -577,6 +577,102 @@ the delta, not absolute loads. Single runs.
 - The deployed source build chose 256 MiB as the middle ground; see the table
   above for its 25k/80k numbers.
 
+### Context-depth sweep: 32k to 128k of pre-existing context (2026-11-25)
+
+Same source build and flags as the section above (cap 256 MiB, `-ub 512`,
+`-c 262144`, `-cmoe`, 2 GiB cache, share 0.45, q4_0 KV), but sweeping the
+pre-existing context depth. Requests were run in increasing order so each
+prompt extends the previous cache; the "delta" is the newly processed tokens
+only, and the decode is a second request on the same prefix plus a short
+suffix (`max_tokens 32`). VRAM is total GPU0 including the desktop.
+
+| pre-existing -> total | delta tokens | prefill t/s | decode t/s | VRAM (total) | prefill time |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1.3k -> 32k | 30,680 | 237.9 | 15.3 | 10.43 GiB | 2m10s |
+| 32k -> 64k | 31,982 | 120.5 | 8.0* | 10.50 GiB | 4m26s |
+| 64k -> 92k | 28,082 | 82.2 | 15.0 | 10.46 GiB | 5m41s |
+| 92k -> 128k | 36,012 | 56.9 | 14.9 | 10.72 GiB | 10m33s |
+
+\* The 64k decode 8.0 t/s is an outlier; 32k/92k/128k all land at ~15 t/s. The
+64k cache-hit request also showed a 3.6 s prompt-eval for 6 tokens vs ~0.3 s
+at 92k, which points at a graph re-capture on that run, not a sustained loss.
+
+Notes:
+
+- Prefill speed falls with depth as expected: 238 -> 121 -> 82 -> 57 t/s from
+  32k to 128k. That is the growing attention cost, not the cap; the same curve
+  would appear uncapped. Prefill "parity" measured at 25k/80k does not predict
+  the 128k+ regime.
+- Decode stays flat at ~15 t/s across 32k-128k (ignoring the 64k outlier), so
+  the bounded cache is not hurting decode as depth grows.
+- VRAM stays bounded at 10.4-10.7 GiB total up to 128k. The uncapped pool hit
+  16.8 GiB at 96k, so the cap is doing its job at depth.
+- A 64k request issued *after* the 128k fill (shorter prompt reusing a longer
+  cached prefix) froze: main thread 100 % CPU, GPU ~5 % idle, `/slots`
+  unresponsive, log stopped at `f_keep = 0.499` with repeated `cancel task`
+  and no prompt-processing lines. This is a host-side cache-trim freeze, not
+  the pool free path the patch targets. Running in increasing order avoids it;
+  the 128k cache still needs a separate fix.
+
+### Full 256k context: 128k to 256k (same build, `-ub 512`)
+
+Continuing the `-ub 512` sweep from 128k up to the full 256k context, same
+flags and cap. Fresh server; 128k was a cold fill from zero, then each step
+extends the previous prompt. The 256k fill completed without freeze or OOM.
+
+| pre-existing -> total | delta tokens | prefill t/s | decode t/s | VRAM | prefill time |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 0 -> 128k (cold) | 128,050 | 95.6 | 14.8 | 10.53 GiB | 22m20s |
+| 128k -> 160k | 31,852 | 46.7 | 12.8 | 10.53 GiB | 11m22s |
+| 160k -> 192k | 31,852 | 38.9 | 14.5 | 10.60 GiB | 13m38s |
+| 192k -> 224k | 31,852 | 32.9 | 3.0-5.8 | 10.48 GiB | 16m07s |
+| 224k -> 256k | 32,502 | 27.0 | 7.4-10.6 | 10.81 GiB | 20m03s |
+
+- Prefill keeps falling with depth: 95.6 t/s averaged over the cold 0-128k
+  fill, then 46.7 -> 38.9 -> 32.9 -> 27.0 t/s for each 32k step to 256k. The
+  full 256k fill took ~20 min.
+- Decode holds ~14.5 t/s through 192k, then degrades: 3.0-5.8 t/s at 224k and
+  7.4-10.6 t/s at 256k. The cause is the same cap-too-small failure: at 224k+
+  the buffers exceed the 256 MiB cap, so the pool flushes and invalidates the
+  graph on every step (`graph reallocs` 431-493 over a 32-token decode). The
+  cache-hit prompt eval at 256k is also very slow (~12-20 s for 4-6 tokens)
+  for the same reason.
+- VRAM stays ~10.5-10.8 GiB total all the way to 256k, so the cap does bound
+  memory; the cost is decode speed at the top end, not VRAM.
+- The 224k decode 3.0-5.8 t/s is likely a bad graph re-capture sample; the
+  256k decode 7.4-10.6 t/s is the more representative top-end number. Even so,
+  the 256 MiB cap is too small for decode at 224k+.
+
+### Context-depth sweep at `-ub 2048` (same box, 2026-11-25)
+
+Same source build and flags as the `-ub 512` sweep above, only
+`--ubatch-size 2048`. Fresh server; requests in increasing order. Load VRAM
+was 11.66 GiB total (vs 10.4 GiB at `-ub 512`), reflecting the ~2.4 GiB
+prefill compute buffer.
+
+| pre-existing -> total | delta tokens | prefill t/s | decode t/s | VRAM (total) | prefill time |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 0 -> 32k | 31,980 | 263.4 | 10.0-13.8 | 12.02 GiB | 2m01s |
+| 32k -> 64k | 31,982 | 130.6 | 13.3 | 12.11 GiB | 4m05s |
+| 64k -> 92k | 28,082 | 86.4 | 2.2-7.3 | 12.31 GiB | 5m26s |
+| 92k -> 128k | 36,012 | 57.5 | 1.5-2.5 | 12.48 GiB | 10m26s |
+
+- Prefill vs `-ub 512`: 32k 263.4 vs 237.9 (+10.7 %), 64k 130.6 vs 120.5
+  (+8.4 %), 92k 86.4 vs 82.2 (+5.1 %), 128k 57.5 vs 56.9 (+1.1 %). `-ub 2048`
+  is faster to prefill at every depth, but the gain shrinks as depth grows
+  because prefill becomes attention-bound. **No serious negative effect on
+  prefill.**
+- Decode vs `-ub 512`: 32k 10-14 vs 15.3, 64k 13.3 vs 8.0 (outlier), 92k
+  2.2-7.3 vs 15.0, 128k 1.5-2.5 vs 14.9. Decode collapses at 92k-128k with
+  `-ub 2048`: the bigger buffers exceed the 256 MiB cap, so the cap takes the
+  `size > max_cached` branch and syncs/frees/invalidates the graph on every
+  step, and the graph is re-captured repeatedly (`graph reallocs` 41-57 over a
+  32-token decode). This is the "256 MiB is too small for bigger buffers"
+  failure mode, now measured. It is a decode regression, not a prefill one.
+- VRAM: 12.0-12.5 GiB total, ~1.6-1.8 GiB above `-ub 512` at the same depth.
+- Recommendation: keep `-ub 512` for the 256k service. `-ub 2048` only makes
+  sense with a smaller expert cache.
+
 ## Takeaways
 
 - Why VRAM climbs during long prefill: the ggml HIP buffer-pool cache, not
