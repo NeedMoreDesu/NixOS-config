@@ -252,10 +252,10 @@ Interpretation:
    with a 128–512 MiB default, evict largest or least-recently-used
    buffers, and decide whether eviction happens in `free()` or on the
    allocation path. This is a small, upstreamable change and does not
-   depend on private object layout. Implemented locally; see
+   depend on private object layout. Implemented and deployed; see
    [Source patch and source build](#source-patch-and-source-build-2026-11-25).
-   The Nix build is not deployed because its prefill is ~28 % slower under
-   nixpkgs ROCm.
+   The deployed build uses the prebuilt's exact TheRock/Clang toolchain, so
+   the earlier nixpkgs-ROCm prefill regression no longer applies.
 2. **Runtime interposer (immediate stopgap).** The prototype above proves
    the policy works without rebuilding. Package it under `pkgs/` and set
    `LD_PRELOAD` plus `GGML_CUDA_POOL_CAP_MIB=256` (or 512) in
@@ -308,43 +308,56 @@ anything was evicted. A buffer larger than the cap is freed instead of
 cached. `alloc()` is unchanged. This is the prototype policy plus the
 explicit synchronization the prototype lacked.
 
-Packaging: `pkgs/llama-cpp-unsloth-src.nix` builds the exact source commit
-behind the pinned prebuilt (`59f66204f52c1a69fdae7a90ae9d75de7a7b683d`,
-published as `llama.cpp-source-commit-*.tar.gz`). Do **not** use the
-`b12631-mix-acc0843` tag archive: the tag points at `cfc9ea3`, which is a
-different tree and lacks `--moe-cache-cpu-share`. The source package keeps
-the prebuilt's flags, wraps binaries with the `-inkling` suffix, and builds
-against nixpkgs ROCm 7.2.4. It is not referenced by `home/local-ai.nix`.
+Packaging: `pkgs/llama-cpp-unsloth-src.nix` reproduces the prebuilt's build
+recipe instead of using nixpkgs ROCm:
 
-Build checks passed: `--version` reports build 12631 / commit 59f66204f,
-`--help` contains both MoE cache flags, `--list-devices` shows
-`ROCm0: RX 9070 XT (gfx1201)`, and `ldd` resolves `libamdhip64`, `libhipblas`
-and `librocblas` from the ROCm packages.
+- source commit `59f66204f52c1a69fdae7a90ae9d75de7a7b683d` (the
+  `b12631-mix-acc0843` tag archive points at `cfc9ea3`, a different tree that
+  lacks `--moe-cache-cpu-share`; the release publishes the real tree as
+  `llama.cpp-source-commit-*.tar.gz`);
+- TheRock nightly `10.3.0a20261121` (`libamdhip64.so.7.18.26464`, the same
+  ROCm files as the prebuilt bundle), Clang 24 for host and HIP;
+- `GPU_TARGETS=gfx1200;gfx1201`, `GGML_OPENMP=OFF`, `GGML_NATIVE=OFF`,
+  `GGML_CPU_ALL_VARIANTS=ON`;
+- Ubuntu 22.04 GCC 11 `libstdc++` headers, as on the GitHub runner. This
+  matters: the same source built with Nix GCC 16 headers was ~7 % slower on
+  prefill.
+
+The TheRock tarball is a 3.5 GB build input; the output copies the selected
+ROCm runtime and `rocblas`/`hipblaslt` tuning data, and wraps the binaries
+with the `-inkling` suffix. The deployed `home/local-ai.nix` uses this
+package and sets `GGML_CUDA_POOL_MAX_CACHED_MIB=256`. The prebuilt derivation
+remains the rollback.
+
+Build checks: `--version` reports build 12631 / commit 59f66204f and "built
+with Clang 24.0.0"; `--help` contains both MoE cache flags; `--list-devices`
+shows `ROCm0: RX 9070 XT (gfx1201)`; the wrapper resolves `libamdhip64`,
+`libhipblas`, `librocblas` and `libggml-hip.so` from the output.
 
 25k measurements (text-only, `-c 32768 -ub 512 -fa on -cmoe
 --moe-cache-mib 2048 --moe-cache-cpu-share 0.45 -ctk q4_0 -ctv q4_0`,
-single runs, total GPU0 including the desktop):
+total GPU0 including the desktop):
 
 | build | cap | load -> idle delta | read t/s | write t/s |
 | --- | ---: | ---: | ---: | ---: |
-| prebuilt | none | +1.23 GiB | 295 | 17.72 |
-| source | none | +1.35 GiB | 213 | not measured |
-| source | 256 MiB | +0.08–0.33 GiB | 192–211 | 17.39 |
+| prebuilt | none | +1.23 GiB | 299 | 17.72 |
+| source | 256 MiB | +0.34 GiB | 292 | 17.89 |
 
-The cap works on the source build: growth is bounded and decode is within
-noise of the prebuilt. But read is consistently ~28 % slower (192–211 vs
-291–299 t/s across repeated runs), well outside the plan's "few percent"
-gate. This is the ROCm/compiler mismatch the plan flagged: the prebuilt
-bundles ROCm 7.18 and Clang 24, while nixpkgs provides ROCm 7.2.4 and the
-HIP device compiler there is Clang 22. A Clang 23 host build did not close
-the gap (211 t/s). Per the plan, the service stays on the prebuilt; the
-source package is an opt-in artifact to re-test when nixpkgs moves to a newer
-ROCm or when the pool patch is merged upstream.
+80k measurement (same flags, `-c 131072`):
 
-The prebuilt does not contain the source change, so setting
-`GGML_CUDA_POOL_MAX_CACHED_MIB` with the current service has no effect. The
-`LD_PRELOAD` prototype remains the only way to cap the prebuilt, and it is
-ABI-pinned to that binary.
+| build | cap | load -> idle delta | peak delta | read t/s | flush |
+| --- | ---: | ---: | ---: | ---: | --- |
+| source | 256 MiB | +0.23 GiB | +0.62 GiB | 141 | none |
+
+The exact-toolchain source build is within noise of the prebuilt: prefill
+292 vs 299 t/s (2.3 %), decode 17.89 vs 17.72 t/s, and 80k prefill 141 t/s
+with no OOM flush. The cap removes the cumulative retention: idle growth is
++0.34 GiB at 25k and +0.23 GiB at 80k instead of +1.2/+5.1 GiB. 128k and
+256k end-to-end are still unmeasured; the cap does not shrink the live set.
+
+The earlier nixpkgs-ROCm source build was 192–211 t/s on the same 25k prompt;
+that regression was the ROCm 7.2.4/Clang 22 toolchain and GCC 16 CPU backend
+headers, not the pool patch. The `LD_PRELOAD` prototype is no longer needed.
 
 ## Why this matters for 256k
 

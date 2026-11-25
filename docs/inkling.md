@@ -1,9 +1,10 @@
-# Inkling 2 Mini (local, Unsloth prebuilt)
+# Inkling 2 Mini (local, Unsloth source build)
 
-**Status: implemented 2026-11-23; standard deployment is 256k context with
-vision (projector kept in host RAM), `--cpu-moe` with a 2 GiB expert cache and
-q4_0 KV.** The model and projector are downloaded. Start it with `ai on -l`;
-the unit has no autostart.
+**Status: implemented 2026-11-23; source build with bounded HIP pool cache
+deployed 2026-11-25.** Standard deployment is 256k context with vision
+(projector kept in host RAM), `--cpu-moe` with a 2 GiB expert cache and q4_0
+KV, plus `GGML_CUDA_POOL_MAX_CACHED_MIB=256`. The model and projector are
+downloaded. Start it with `ai on -l`; the unit has no autostart.
 
 ## What it is
 
@@ -15,7 +16,7 @@ host RAM) at **256k** context. Local deployment is GGUF only on this machine:
 the official NVFP4/MXFP8 checkpoint is a vLLM/SGLang path (NVIDIA-only
 recipe).
 
-## Why a pinned Unsloth prebuilt
+## Why a pinned Unsloth build
 
 - nixpkgs `llama-cpp` is upstream **v1.0.0 / b12359**, which predates both the
   model and the `inkling2_loop` layout.
@@ -32,6 +33,24 @@ recipe).
   Asset: `app-b12631-mix-acc0843-linux-x64-rocm-gfx120X.tar.gz`
   (`969feb895f8666921fa39305f4950d1cddb93308f42d91f8c44f8d2e691d96d1`).
 
+The deployed package is the source build in `pkgs/llama-cpp-unsloth-src.nix`,
+which reproduces the prebuilt's toolchain instead of using nixpkgs ROCm:
+
+- source commit **`59f66204f52c1a69fdae7a90ae9d75de7a7b683d`** — the
+  `b12631-mix-acc0843` tag points at a different tree (`cfc9ea3`) that lacks
+  `--moe-cache-cpu-share`; the release publishes the real tree as
+  `llama.cpp-source-commit-*.tar.gz`;
+- TheRock nightly **`10.3.0a20261121`** (`libamdhip64.so.7.18.26464`), Clang
+  24 for host and HIP, `GPU_TARGETS=gfx1200;gfx1201`, `GGML_OPENMP=OFF`;
+- Ubuntu 22.04 GCC 11 `libstdc++` headers, as on the GitHub runner. Using
+  Nix GCC 16 headers for the CPU backend cost ~7 % prefill; with the Ubuntu
+  headers the build is within noise of the prebuilt;
+- `patches/llama-cuda-pool-cap.patch` applied on top.
+
+The TheRock tarball is a 3.5 GB build input, not runtime closure: the ROCm
+runtime and tuning data are copied into the output. The prebuilt derivation
+stays as the rollback path.
+
 Do **not** replace this with an `overrideAttrs` of nixpkgs' llama-cpp; the
 layout change breaks the npm/UI build.
 
@@ -39,8 +58,8 @@ layout change breaks the npm/UI build.
 
 | File | Purpose |
 | --- | --- |
-| `pkgs/llama-cpp-unsloth.nix` | Pinned prebuilt, ROCm bundle, wrappers. |
-| `pkgs/llama-cpp-unsloth-src.nix` | Source build of the prebuilt's exact commit plus the pool cap; not deployed (prefill ~28 % slower under nixpkgs ROCm). |
+| `pkgs/llama-cpp-unsloth.nix` | Pinned prebuilt, ROCm bundle, wrappers (rollback fallback). |
+| `pkgs/llama-cpp-unsloth-src.nix` | Deployed source build of the prebuilt's exact commit and TheRock toolchain, plus the bounded pool cache. |
 | `patches/llama-cuda-pool-cap.patch` | Bounded `ggml_cuda_pool_leg` cache (`GGML_CUDA_POOL_MAX_CACHED_MIB`). |
 | `scripts/fetch-inkling.sh` | Pinned root-layout GGUFs + sha256 checks. |
 | `home/local-ai.nix` | `llama-inkling` user service, fetch wrapper, `ai-toggle`. |
@@ -48,15 +67,17 @@ layout change breaks the npm/UI build.
 | `home/embeddings.nix` | Existing EmbeddingGemma service (`llama-embed`). |
 | `assets/opencode/opencode.jsonc` | `inkling` OpenAI-compatible provider. |
 
-Packaging notes: `autoPatchelfHook` is deliberately not used. Patching the
-bundled ROCm libraries makes the HIP backend segfault while loading
-`librocblas`; the derivation patches only the executables' interpreter and
-keeps the libs byte-identical. The wrapper puts the bundle and nixpkgs'
-libstdc++ on `LD_LIBRARY_PATH`, and sets `HIPBLASLT_TENSILE_LIBPATH` to the
-bundled gfx1201 tuning data. Binaries are installed with an `-inkling`
-suffix (`llama-server-inkling`, `llama-cli-inkling`, …) so the profile can
-keep nixpkgs' `llama-cpp` for `llama-embed`; plain `llama-server` is still
-the embedding build.
+Packaging notes: `autoPatchelfHook` is deliberately not used for the
+prebuilt. Patching the bundled ROCm libraries makes the HIP backend segfault
+while loading `librocblas`; that derivation patches only the executables'
+interpreter and keeps the libs byte-identical. The prebuilt wrapper puts the
+bundle and nixpkgs' libstdc++ on `LD_LIBRARY_PATH`, and sets
+`HIPBLASLT_TENSILE_LIBPATH` to the bundled gfx1201 tuning data. The source
+build does the same for its own copied ROCm runtime (from TheRock), and its
+wrappers add the source `lib/` and `libexec/rocm/` to `LD_LIBRARY_PATH`.
+Both install binaries with an `-inkling` suffix (`llama-server-inkling`,
+`llama-cli-inkling`, …) so the profile can keep nixpkgs' `llama-cpp` for
+`llama-embed`; plain `llama-server` is still the embedding build.
 
 ## Model and service
 
@@ -108,11 +129,11 @@ image requests are affected, and their encoding runs on the CPU (slow).
 Full measurements: [inkling_bench](locallama/inkling_bench.md). VRAM climbs
 during long prefills because the HIP buffer-pool cache retains freed graph
 buffers; stock llama.cpp never bounds that cache, so the high-water stays until
-restart. It is not the context. A local source patch bounds it
-(`GGML_CUDA_POOL_MAX_CACHED_MIB`, `patches/llama-cuda-pool-cap.patch`), and
-`pkgs/llama-cpp-unsloth-src.nix` builds it from the prebuilt's exact commit,
-but that build is ~28 % slower on prefill with nixpkgs ROCm 7.2.4, so the
-service still runs the prebuilt and the cache remains unbounded. See
+restart. It is not the context. The deployed source build applies
+`patches/llama-cuda-pool-cap.patch` and runs with
+`GGML_CUDA_POOL_MAX_CACHED_MIB=256`, so the cache is bounded (25k idle growth
++0.34 GiB, 80k +0.23 GiB; no OOM flush) while prefill/decode stay within noise
+of the prebuilt. See
 [inkling_vram_cluttering_issue](locallama/inkling_vram_cluttering_issue.md).
 
 The host box defaults include **8089** (alongside 8088 for embeddings), so a
@@ -200,13 +221,13 @@ journalctl --user -u llama-inkling -f
 
 ## Maintenance
 
-Replace the prebuilt with a source build when nixpkgs packages a llama.cpp
-release that contains ggml-org#32694/#32704 (and #32218 if DSpark matters):
-drop `pkgs/llama-cpp-unsloth.nix`, point the service at the nixpkgs package,
-and switch to the `Mainline_Support/` GGUFs. Until then, pin updates by
-changing `version` + `hash` in `pkgs/llama-cpp-unsloth.nix` together. The
-local source package is not a drop-in replacement yet: it is the same commit
-as the prebuilt plus the pool-cap patch, but nixpkgs ROCm 7.2.4 makes it
-~28 % slower on 25k prefill. Re-test it (and the cap's growth numbers) when
-nixpkgs moves to a newer ROCm, or drop it once the pool patch is upstream and
-the prebuilt picks it up.
+Replace these Unsloth builds with nixpkgs' llama.cpp when nixpkgs packages a release
+that contains ggml-org#32694/#32704 (and #32218 if DSpark matters): drop these
+derivations, point the service at the nixpkgs package, and switch to the
+`Mainline_Support/` GGUFs. Until then, pin updates by changing `version` +
+`hash` in `pkgs/llama-cpp-unsloth-src.nix` (source, TheRock, Ubuntu headers)
+together and re-run the 25k/80k benchmarks. `pkgs/llama-cpp-unsloth.nix` is the
+prebuilt rollback; switch `home/local-ai.nix` back to it and remove the
+`GGML_CUDA_POOL_MAX_CACHED_MIB` environment line if the source build regresses.
+The pool-cap patch is a candidate for upstream `ggml-org/llama.cpp` and can be
+dropped from the source derivation once a prebuilt/tag contains it.

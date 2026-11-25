@@ -41,8 +41,8 @@ This is the map. Detailed behaviour lives in the linked subject docs.
 | Path | Purpose |
 | --- | --- |
 | `box-tty-watch.c` / `.nix` | In-box TTY resize watcher. See [sandbox](sandbox.md). |
-| `llama-cpp-unsloth.nix` | Unsloth llama.cpp prebuilt for Inkling (deployed). See [inkling](inkling.md). |
-| `llama-cpp-unsloth-src.nix` | Source build of the prebuilt's exact commit plus the HIP pool-cap patch; not deployed (~28 % slower prefill under nixpkgs ROCm). See [inkling](inkling.md). |
+| `llama-cpp-unsloth.nix` | Unsloth llama.cpp prebuilt for Inkling (rollback fallback). See [inkling](inkling.md). |
+| `llama-cpp-unsloth-src.nix` | Deployed source build of the prebuilt's exact commit and TheRock toolchain, plus the HIP pool-cap patch. See [inkling](inkling.md). |
 
 ## `hosts/`
 
