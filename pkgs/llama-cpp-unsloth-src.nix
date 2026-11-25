@@ -7,23 +7,37 @@
   fetchurl,
   makeWrapper,
   patchelf,
-  openssl,
-  rocmPackages,
-  rocmGpuTargets ? [ "gfx1201" ],
+  dpkg,
+  zstd,
 }:
 
-# Source build of the exact commit behind the pinned prebuilt in
-# llama-cpp-unsloth.nix, plus patches/llama-cuda-pool-cap.patch: a bounded
-# cache for the legacy HIP buffer pool (`GGML_CUDA_POOL_MAX_CACHED_MIB`).
-# Benchmarked at 25k: the cap works, but prefill is ~28 % slower with
-# nixpkgs ROCm 7.2.4 than the ROCm 7.18 prebuilt, so this package is an
-# opt-in artifact and the service stays on the prebuilt for now. See
-# docs/locallama/inkling_vram_cluttering_issue.md.
-#
-# The release tag's GitHub archive is NOT the prebuilt's source: the tag
-# points at cfc9ea3, while the gfx120X asset was built from 59f66204f (it
-# carries --moe-cache-cpu-share). The release publishes that tree as
-# llama.cpp-source-commit-*.tar.gz, which is what we fetch here.
+# Exact source build of the pinned Unsloth prebuilt, using the same toolchain
+# as unsloth-prebuilt-rocm.yml:
+#   - source commit 59f66204f52c1a69fdae7a90ae9d75de7a7b683d (the gfx120X asset
+#     was NOT built from the b12631-mix-acc0843 tag tree, which is cfc9ea3 and
+#     lacks --moe-cache-cpu-share);
+#   - TheRock nightly 10.3.0a20261121 (HIP 7.18.26464, Clang 24);
+#   - Ubuntu 22.04 GCC 11 libstdc++ headers, which is what the GitHub runner
+#     used and what the CPU backend was compiled against;
+#   - GPU_TARGETS=gfx1200;gfx1201, GGML_OPENMP=OFF, host clang{,++} from TheRock.
+# Plus patches/llama-cuda-pool-cap.patch for the bounded legacy HIP pool.
+let
+  therockVersion = "10.3.0a20261121";
+
+  therockSrc = fetchurl {
+    url = "https://nightly.repo.amd.com/rocm/core/tarball/therock-dist-linux-gfx120X-all-${therockVersion}.tar.gz";
+    hash = "sha256-afNwFrph9d6UCII1emna5AHxCIyODtpp5GpWMw3bzik=";
+  };
+
+  # Headers from Ubuntu 22.04's libstdc++-11-dev, matching the prebuilt runner.
+  libstdcpp11 = fetchurl {
+    url = "http://archive.ubuntu.com/ubuntu/pool/main/g/gcc-11/libstdc++-11-dev_11.4.0-1ubuntu1~22.04.3_amd64.deb";
+    hash = "sha256-WODNLR91jnVCbqpHpecijRyGGAUA7WjRYry/ewocXdA=";
+  };
+
+  gccLib = lib.getLib stdenv.cc.cc;
+  gccInstallDir = "${stdenv.cc.cc}/lib/gcc/${stdenv.hostPlatform.config}/${stdenv.cc.cc.version}";
+in
 stdenv.mkDerivation (finalAttrs: {
   pname = "llama-cpp-unsloth-src";
   version = "b12631-mix-acc0843";
@@ -41,54 +55,179 @@ stdenv.mkDerivation (finalAttrs: {
     pkg-config
     makeWrapper
     patchelf
+    dpkg
+    zstd
   ];
 
-  buildInputs = [
-    openssl
-    rocmPackages.clr
-    rocmPackages.hipblas
-    rocmPackages.rocblas
-  ];
+  dontStrip = true;
 
-  cmakeFlags = [
-    (lib.cmakeBool "GGML_NATIVE" false)
-    (lib.cmakeFeature "CMAKE_BUILD_TYPE" "Release")
-    (lib.cmakeBool "LLAMA_BUILD_EXAMPLES" false)
-    (lib.cmakeBool "LLAMA_BUILD_TESTS" false)
-    (lib.cmakeBool "LLAMA_TESTS_INSTALL" false)
-    (lib.cmakeBool "LLAMA_BUILD_TOOLS" true)
-    (lib.cmakeBool "LLAMA_BUILD_SERVER" true)
-    # The OpenAI-compatible API does not need the Web UI, and disabling it
-    # avoids a network fetch in the sandbox.
-    (lib.cmakeBool "LLAMA_BUILD_UI" false)
-    (lib.cmakeBool "LLAMA_USE_PREBUILT_UI" false)
-    (lib.cmakeBool "LLAMA_OPENSSL" true)
-    (lib.cmakeBool "BUILD_SHARED_LIBS" true)
-    (lib.cmakeBool "GGML_HIP" true)
-    (lib.cmakeFeature "CMAKE_HIP_COMPILER" "${rocmPackages.clr.hipClangPath}/clang++")
-    (lib.cmakeFeature "CMAKE_HIP_ARCHITECTURES" (lib.concatStringsSep ";" rocmGpuTargets))
-    (lib.cmakeBool "GGML_HIP_NO_VMM" true)
-    (lib.cmakeBool "GGML_HIP_GRAPHS" true)
-    (lib.cmakeBool "GGML_BACKEND_DL" true)
-    (lib.cmakeBool "GGML_CPU_ALL_VARIANTS" true)
-    (lib.cmakeFeature "GGML_BACKEND_DIR" "${placeholder "out"}/bin")
-    (lib.cmakeFeature "LLAMA_BUILD_NUMBER" "12631")
-    (lib.cmakeFeature "LLAMA_BUILD_COMMIT" "59f66204f52c1a69fdae7a90ae9d75de7a7b683d")
-  ];
+  postUnpack = ''
+    export ROCM_PATH="$NIX_BUILD_TOP/toolchain/rocm"
+    export GCC11_PATH="$NIX_BUILD_TOP/toolchain/gcc11"
+    mkdir -p "$ROCM_PATH" "$GCC11_PATH"
+    tar -xzf ${therockSrc} -C "$ROCM_PATH" --strip-components=1
+    dpkg-deb -x ${libstdcpp11} "$GCC11_PATH"
+  '';
 
-  # Keep the profile collision-free with nixpkgs' llama-cpp (used by
-  # llama-embed): wrap the built executables with an -inkling suffix.
-  postInstall = ''
+  preConfigure = ''
+    export HIP_PATH=$ROCM_PATH
+    export HIP_PLATFORM=amd
+    export HIP_CLANG_PATH=$ROCM_PATH/llvm/bin
+    export HIP_INCLUDE_PATH=$ROCM_PATH/include
+    export CMAKE_PREFIX_PATH=$ROCM_PATH
+
+    loader="$(cat "$NIX_CC/nix-support/dynamic-linker")"
+    # TheRock binaries are built for /lib64; point them at the Nix loader.
+    for f in "$ROCM_PATH"/llvm/bin/* "$ROCM_PATH"/bin/*; do
+      [ -f "$f" ] && [ -x "$f" ] || continue
+      patchelf --print-interpreter "$f" >/dev/null 2>&1 || continue
+      patchelf --set-interpreter "$loader" "$f"
+    done
+
+    export LD_LIBRARY_PATH="$ROCM_PATH/lib:$ROCM_PATH/lib/rocm_sysdeps/lib:${gccLib}/lib:${stdenv.cc.libc}/lib"
+    export PATH="$ROCM_PATH/llvm/bin:$ROCM_PATH/bin:$PATH"
+  '';
+
+  configurePhase = ''
+    runHook preConfigure
+
+    mkdir -p build
+
+    # Use the Nix GCC/glibc C toolchain for headers and crt files, but the
+    # Ubuntu 22.04 GCC 11 C++ headers and the TheRock Clang 24 compilers.
+    hostflags="--gcc-install-dir=${gccInstallDir}"
+    hostflags="$hostflags -nostdinc++"
+    hostflags="$hostflags -isystem $GCC11_PATH/usr/include/c++/11"
+    hostflags="$hostflags -isystem $GCC11_PATH/usr/include/x86_64-linux-gnu/c++/11"
+    hostflags="$hostflags -isystem $GCC11_PATH/usr/include/c++/11/backward"
+    hostflags="$hostflags $(cat "$NIX_CC/nix-support/libc-cflags")"
+    hostflags="$hostflags $(cat "$NIX_CC/nix-support/cc-cflags")"
+    hostflags="$hostflags -I$ROCM_PATH/include"
+
+    linkflags="$(cat "$NIX_CC/nix-support/libc-crt1-cflags")"
+    linkflags="$linkflags $(cat "$NIX_CC/nix-support/cc-ldflags") -L${stdenv.cc.libc}/lib"
+    linkflags="$linkflags -Wl,--dynamic-linker=$loader"
+    linkflags="$linkflags -Wl,-rpath,${gccLib}/lib:${stdenv.cc.libc}/lib:$ROCM_PATH/lib:$ROCM_PATH/lib/rocm_sysdeps/lib"
+
+    cmake -S . -B build -G Ninja \
+      -DCMAKE_MAKE_PROGRAM=${ninja}/bin/ninja \
+      -DCMAKE_C_COMPILER="$ROCM_PATH/llvm/bin/clang" \
+      -DCMAKE_CXX_COMPILER="$ROCM_PATH/llvm/bin/clang++" \
+      -DCMAKE_HIP_COMPILER="$ROCM_PATH/llvm/bin/clang++" \
+      -DCMAKE_HIP_PLATFORM=amd \
+      "-DCMAKE_C_FLAGS=$hostflags" \
+      "-DCMAKE_CXX_FLAGS=$hostflags" \
+      "-DCMAKE_HIP_FLAGS=$hostflags $linkflags" \
+      "-DCMAKE_EXE_LINKER_FLAGS=$linkflags" \
+      "-DCMAKE_SHARED_LINKER_FLAGS=$linkflags" \
+      "-DCMAKE_MODULE_LINKER_FLAGS=$linkflags" \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_LIBDIR=lib \
+      -DCMAKE_SKIP_RPATH=ON \
+      "-DGPU_TARGETS=gfx1200;gfx1201" \
+      -DBUILD_SHARED_LIBS=ON \
+      -DLLAMA_BUILD_TESTS=OFF \
+      -DLLAMA_BUILD_UI=OFF \
+      -DLLAMA_USE_PREBUILT_UI=OFF \
+      -DLLAMA_OPENSSL=OFF \
+      -DGGML_HIP=ON \
+      -DGGML_OPENMP=OFF \
+      -DGGML_CUDA_FORCE_CUBLAS=OFF \
+      -DGGML_RPC=ON \
+      -DGGML_HIP_ROCWMMA_FATTN=OFF \
+      -DGGML_NATIVE=OFF \
+      -DGGML_STATIC=OFF \
+      -DGGML_BACKEND_DL=ON \
+      -DGGML_CPU_ALL_VARIANTS=ON \
+      -DGGML_BACKEND_DIR=${placeholder "out"}/bin
+
+    runHook postConfigure
+  '';
+
+  buildPhase = ''
+    runHook preBuild
+    export LD_LIBRARY_PATH="$PWD/build/bin:$PWD/build/lib:$ROCM_PATH/lib:$ROCM_PATH/lib/rocm_sysdeps/lib:${gccLib}/lib:${stdenv.cc.libc}/lib"
+    ninja -C build -j "''${NIX_BUILD_CORES:-1}"
+    runHook postBuild
+  '';
+
+  installPhase = ''
+    runHook preInstall
+    cmake --install build --prefix "$out"
+
+    # Self-contained ROCm runtime, selected to match the prebuilt bundle.
+    rocm="$out/libexec/rocm"
+    mkdir -p "$rocm"
+
+    for pat in \
+      libamd_comgr \
+      libamdhip64 \
+      libhipblaslt \
+      libhipblas \
+      libhsa-runtime64 \
+      liborigami \
+      librocblas \
+      librocm_kpack \
+      librocprofiler-register \
+      librocroller \
+      librocsolver \
+      libroctx64 \
+      libtensilelite-host \
+      libomp; do
+      cp -a "$ROCM_PATH/lib/$pat"*.so* "$rocm/" 2>/dev/null || true
+    done
+
+    cp -a "$ROCM_PATH"/lib/rocm_sysdeps/lib/librocm_sysdeps_*.so* "$rocm/" 2>/dev/null || true
+    cp -a "${gccLib}/lib"/libatomic.so* "$rocm/" 2>/dev/null || true
+
+    mkdir -p "$rocm/rocblas/k" "$rocm/hipblaslt"
+    cp -a "$ROCM_PATH/lib/rocblas/library" "$rocm/rocblas/"
+    cp -a "$ROCM_PATH"/.kpack/blas_lib_gfx1200.kpack "$rocm/rocblas/k/" 2>/dev/null || true
+    cp -a "$ROCM_PATH"/.kpack/blas_lib_gfx1201.kpack "$rocm/rocblas/k/" 2>/dev/null || true
+    cp -a "$ROCM_PATH/lib/hipblaslt/library" "$rocm/hipblaslt/"
+
+    chmod -R u+w "$rocm"
+    find "$rocm" -type f -name '*.so*' -exec patchelf --set-rpath '$ORIGIN' {} +
+
+    # Keep the profile collision-free with nixpkgs' llama-cpp (llama-embed).
+    # Move the binaries out of bin/ and expose only -inkling wrappers; the
+    # ggml backend .so files stay in bin/ because GGML_BACKEND_DIR points there.
+    mkdir -p "$out/libexec/llama-src/bin"
     for f in "$out"/bin/*; do
       [ -f "$f" ] && [ -x "$f" ] || continue
-      # Shared libraries have no PT_INTERP; leave them untouched.
       patchelf --print-interpreter "$f" >/dev/null 2>&1 || continue
-      makeWrapper "$f" "$f-inkling"
+      mv "$f" "$out/libexec/llama-src/bin/"
     done
+
+    # CMake ran with CMAKE_SKIP_RPATH to keep /build out of the store; set the
+    # relocatable runtime paths here instead.
+    for f in "$out"/lib/* "$out"/bin/*; do
+      [ -f "$f" ] || continue
+      patchelf --print-needed "$f" >/dev/null 2>&1 || continue
+      case "$f" in
+        "$out"/bin/*) patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../libexec/rocm' "$f" ;;
+        *)            patchelf --set-rpath '$ORIGIN:$ORIGIN/../libexec/rocm' "$f" ;;
+      esac
+    done
+    for f in "$out"/libexec/llama-src/bin/*; do
+      [ -f "$f" ] || continue
+      patchelf --print-needed "$f" >/dev/null 2>&1 || continue
+      patchelf --set-rpath '$ORIGIN/../../lib:$ORIGIN/../../libexec/rocm' "$f"
+    done
+
+    for f in "$out"/libexec/llama-src/bin/*; do
+      [ -f "$f" ] && [ -x "$f" ] || continue
+      name="$(basename "$f")"
+      makeWrapper "$f" "$out/bin/$name-inkling" \
+        --prefix LD_LIBRARY_PATH : "$out/lib:$out/libexec/rocm:${gccLib}/lib" \
+        --set-default HIPBLASLT_TENSILE_LIBPATH "$out/libexec/rocm/hipblaslt/library/gfx1201"
+    done
+
+    runHook postInstall
   '';
 
   meta = {
-    description = "Unsloth llama.cpp source build with a bounded HIP pool cache (ROCm gfx120X)";
+    description = "Unsloth llama.cpp source build with a bounded HIP pool cache (exact prebuilt toolchain)";
     homepage = "https://github.com/unslothai/llama.cpp";
     license = lib.licenses.mit;
     platforms = [ "x86_64-linux" ];

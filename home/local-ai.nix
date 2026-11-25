@@ -1,13 +1,16 @@
 { config, pkgs, ... }:
 let
-  # Unsloth's prebuilt is pinned because nixpkgs' llama-cpp is still upstream
-  # v1.0.0 (b12359): it predates Inkling 2 and lacks the inkling2_loop layout
-  # (ggml-org#32694/#32704). See docs/inkling.md.
-  # A source build of the same commit with the bounded HIP pool cache exists
-  # at ../pkgs/llama-cpp-unsloth-src.nix, but it is ~28 % slower on prefill
-  # under nixpkgs ROCm 7.2.4, so the service stays on the prebuilt. See
+  # Source build of the pinned Unsloth commit with the bounded HIP pool cache.
+  # It uses the same TheRock 10.3.0a20261121 / Clang 24 toolchain as the
+  # prebuilt, so 25k prefill is within noise (292 vs 299 t/s) and write is
+  # unchanged (17.9 vs 17.7 t/s). The prebuilt derivation stays in
+  # ../pkgs/llama-cpp-unsloth.nix as the rollback path. See
   # docs/locallama/inkling_vram_cluttering_issue.md.
-  llamaCppUnsloth = pkgs.callPackage ../pkgs/llama-cpp-unsloth.nix { };
+  llamaCppUnsloth = pkgs.callPackage ../pkgs/llama-cpp-unsloth-src.nix { };
+
+  # Fallback; swap the line above for this and drop the pool-cap Environment
+  # below if the source build regresses.
+  # llamaCppUnsloth = pkgs.callPackage ../pkgs/llama-cpp-unsloth.nix { };
 
   modelDir = "${config.home.homeDirectory}/models/inkling-2-mini";
   model = "${modelDir}/Inkling-2-Mini-UD-Q4_K_M.gguf";
@@ -78,6 +81,11 @@ in
       ];
       Restart = "on-failure";
       RestartSec = 5;
+      # Bound the legacy HIP pool's freed-buffer cache. Without this the
+      # high-water follows the largest prefill and stays resident until
+      # restart. 256 MiB keeps 80k prefill+decode at the prebuilt speed and
+      # caps the idle growth (see docs/locallama/inkling_vram_cluttering_issue.md).
+      Environment = [ "GGML_CUDA_POOL_MAX_CACHED_MIB=256" ];
       # `ai off` must not block for systemd's 90s default while the server is
       # still loading the 16 GB model (or a client holds a stream). There is
       # nothing to flush, so let systemd SIGKILL shortly after SIGTERM.
