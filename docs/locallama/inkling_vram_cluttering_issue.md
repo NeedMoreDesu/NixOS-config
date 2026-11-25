@@ -137,7 +137,8 @@ treat the debug pool as a debug path, not as a tuned production allocator.
 
 ## No stock cache bound
 
-The pinned build has exactly two pool policies:
+The pinned prebuilt (and stock upstream at this base) has exactly two pool
+policies:
 
 - the default pool caches every freed buffer it can (up to 256 slots) and
   keeps it;
@@ -145,13 +146,15 @@ The pinned build has exactly two pool policies:
   buffers, invalidate captured graphs) and a retry.
 
 There is no `--max-pool`-style llama-server flag and no
-`GGML_CUDA_POOL_MAX_*` environment variable in this build. The only
-allocator selector present is `GGML_CUDA_POOL_DEBUG`, which selects the
-debug allocator. `#22155` ("flush legacy pool on OOM and retry") is the
-existing failure path; it is not a trim policy, and it only runs when the
-pool has already consumed enough VRAM for an allocation to fail.
+`GGML_CUDA_POOL_MAX_*` environment variable in that build. The deployed
+source build adds `GGML_CUDA_POOL_MAX_CACHED_MIB`; see
+[Source patch and source build](#source-patch-and-source-build-2026-11-25).
+The only allocator selector in the prebuilt is `GGML_CUDA_POOL_DEBUG`, which
+selects the debug allocator. `#22155` ("flush legacy pool on OOM and retry")
+is the existing failure path; it is not a trim policy, and it only runs when
+the pool has already consumed enough VRAM for an allocation to fail.
 
-Consequences:
+Consequences for the prebuilt (the deployed source build removes the first):
 
 - `-ub`, context size, KV type, expert-cache size and stopping the
   embedding service change how fast or how high the pool grows, but cannot

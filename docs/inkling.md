@@ -221,13 +221,13 @@ journalctl --user -u llama-inkling -f
 
 ## Maintenance
 
-Replace these Unsloth builds with nixpkgs' llama.cpp when nixpkgs packages a release
-that contains ggml-org#32694/#32704 (and #32218 if DSpark matters): drop these
-derivations, point the service at the nixpkgs package, and switch to the
-`Mainline_Support/` GGUFs. Until then, pin updates by changing `version` +
-`hash` in `pkgs/llama-cpp-unsloth-src.nix` (source, TheRock, Ubuntu headers)
-together and re-run the 25k/80k benchmarks. `pkgs/llama-cpp-unsloth.nix` is the
-prebuilt rollback; switch `home/local-ai.nix` back to it and remove the
+Replace these Unsloth builds with nixpkgs' llama.cpp when nixpkgs packages a
+release that contains ggml-org#32694/#32704 (and #32218 if DSpark matters):
+drop these derivations, point the service at the nixpkgs package, and switch
+to the `Mainline_Support/` GGUFs. Until then, pin updates by changing
+`version` + `hash` in `pkgs/llama-cpp-unsloth-src.nix` (source, TheRock, Ubuntu
+headers) together and re-run the 25k/80k benchmarks. `pkgs/llama-cpp-unsloth.nix`
+is the prebuilt rollback; switch `home/local-ai.nix` back to it and remove the
 `GGML_CUDA_POOL_MAX_CACHED_MIB` environment line if the source build regresses.
 The pool-cap patch is a candidate for upstream `ggml-org/llama.cpp` and can be
 dropped from the source derivation once a prebuilt/tag contains it.
