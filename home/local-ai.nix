@@ -81,11 +81,9 @@ in
       ];
       Restart = "on-failure";
       RestartSec = 5;
-      # Bound the legacy HIP pool's freed-buffer cache. Without this the
-      # high-water follows the largest prefill and stays resident until
-      # restart. 256 MiB keeps 80k prefill+decode at the prebuilt speed and
-      # caps the idle growth (see docs/locallama/inkling_vram_cluttering_issue.md).
-      Environment = [ "GGML_CUDA_POOL_MAX_CACHED_MIB=256" ];
+      # The source build's legacy HIP pool keeps only graph-pinned buffers and
+      # frees the rest, so there is no cache-size env to set. See
+      # docs/locallama/inkling_vram_cluttering_issue.md.
       # `ai off` must not block for systemd's 90s default while the server is
       # still loading the 16 GB model (or a client holds a stream). There is
       # nothing to flush, so let systemd SIGKILL shortly after SIGTERM.

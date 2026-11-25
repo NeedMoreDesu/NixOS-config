@@ -1,10 +1,11 @@
 # Inkling 2 Mini (local, Unsloth source build)
 
-**Status: implemented 2026-11-23; source build with bounded HIP pool cache
-deployed 2026-11-25.** Standard deployment is 256k context with vision
-(projector kept in host RAM), `--cpu-moe` with a 2 GiB expert cache and q4_0
-KV, plus `GGML_CUDA_POOL_MAX_CACHED_MIB=256`. The model and projector are
-downloaded. Start it with `ai on -l`; the unit has no autostart.
+**Status: implemented 2026-11-23; pinned-only HIP pool deployed 2026-11-25.**
+Standard deployment is 256k context with vision (projector kept in host RAM),
+`--cpu-moe` with a 2 GiB expert cache and q4_0 KV. The legacy HIP pool keeps
+only buffers referenced by a live captured graph, so there is no cache-size
+knob. The model and projector are downloaded. Start it with `ai on -l`; the
+unit has no autostart.
 
 ## What it is
 
@@ -45,7 +46,8 @@ which reproduces the prebuilt's toolchain instead of using nixpkgs ROCm:
 - Ubuntu 22.04 GCC 11 `libstdc++` headers, as on the GitHub runner. Using
   Nix GCC 16 headers for the CPU backend cost ~7 % prefill; with the Ubuntu
   headers the build is within noise of the prebuilt;
-- `patches/llama-cuda-pool-cap.patch` applied on top.
+- `patches/llama-cuda-pool-pinned-only.patch` applied on top: the legacy HIP
+  pool keeps only graph-pinned buffers and frees everything else.
 
 The TheRock tarball is a 3.5 GB build input, not runtime closure: the ROCm
 runtime and tuning data are copied into the output. The prebuilt derivation
@@ -59,8 +61,8 @@ layout change breaks the npm/UI build.
 | File | Purpose |
 | --- | --- |
 | `pkgs/llama-cpp-unsloth.nix` | Pinned prebuilt, ROCm bundle, wrappers (rollback fallback). |
-| `pkgs/llama-cpp-unsloth-src.nix` | Deployed source build of the prebuilt's exact commit and TheRock toolchain, plus the bounded pool cache. |
-| `patches/llama-cuda-pool-cap.patch` | Bounded `ggml_cuda_pool_leg` cache (`GGML_CUDA_POOL_MAX_CACHED_MIB`). |
+| `pkgs/llama-cpp-unsloth-src.nix` | Deployed source build of the prebuilt's exact commit and TheRock toolchain, plus the pinned-only pool. |
+| `patches/llama-cuda-pool-pinned-only.patch` | Pinned-only `ggml_cuda_pool_leg` cache (no byte cap). |
 | `scripts/fetch-inkling.sh` | Pinned root-layout GGUFs + sha256 checks. |
 | `home/local-ai.nix` | `llama-inkling` user service, fetch wrapper, `ai-toggle`. |
 | `scripts/ai.sh` | Start/stop/status/list logic for local AI services. |
@@ -131,10 +133,11 @@ Full measurements: [inkling_bench](locallama/inkling_bench.md). VRAM climbs
 during long prefills because the HIP buffer-pool cache retains freed graph
 buffers; stock llama.cpp never bounds that cache, so the high-water stays until
 restart. It is not the context. The deployed source build applies
-`patches/llama-cuda-pool-cap.patch` and runs with
-`GGML_CUDA_POOL_MAX_CACHED_MIB=256`, so the cache is bounded (25k idle growth
-+0.34 GiB, 80k +0.23 GiB; no OOM flush) while prefill/decode stay within noise
-of the prebuilt. See
+`patches/llama-cuda-pool-pinned-only.patch`: the pool keeps only buffers
+referenced by a live captured graph and frees the rest, with no byte cap or
+size heuristic. At 0->32k this leaves ~0.25 GB less resident than the earlier
+256 MiB cap while prefill/decode stay within noise (decode identical); the
+prefill temporaries are transient because prefill is never captured. See
 [inkling_vram_cluttering_issue](locallama/inkling_vram_cluttering_issue.md).
 
 The host box defaults include **8089** (alongside 8088 for embeddings), so a
@@ -228,7 +231,7 @@ drop these derivations, point the service at the nixpkgs package, and switch
 to the `Mainline_Support/` GGUFs. Until then, pin updates by changing
 `version` + `hash` in `pkgs/llama-cpp-unsloth-src.nix` (source, TheRock, Ubuntu
 headers) together and re-run the 25k/80k benchmarks. `pkgs/llama-cpp-unsloth.nix`
-is the prebuilt rollback; switch `home/local-ai.nix` back to it and remove the
-`GGML_CUDA_POOL_MAX_CACHED_MIB` environment line if the source build regresses.
-The pool-cap patch is a candidate for upstream `ggml-org/llama.cpp` and can be
-dropped from the source derivation once a prebuilt/tag contains it.
+is the prebuilt rollback; switch `home/local-ai.nix` back to it if the source
+build regresses. The pinned-only pool patch is a candidate for upstream
+`ggml-org/llama.cpp` and can be dropped from the source derivation once a
+prebuilt/tag contains it.

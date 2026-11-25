@@ -520,7 +520,8 @@ was stopped afterwards.
 Campaign for the bounded `ggml_cuda_pool_leg` cache. Server: the source build
 at commit `59f66204f52c1a69fdae7a90ae9d75de7a7b683d`, built with the
 prebuilt's toolchain (TheRock `10.3.0a20261121`, Clang 24, Ubuntu 22.04 GCC 11
-`libstdc++` headers) plus `patches/llama-cuda-pool-cap.patch`; port 8099,
+`libstdc++` headers) plus the earlier cap patch (since replaced by the
+pinned-only `patches/llama-cuda-pool-pinned-only.patch`); port 8099,
 text-only, no mmproj.
 
 Method: synthetic repeated-paragraph prompts of 25,080 and 79,800 tokens,
@@ -678,9 +679,10 @@ prefill compute buffer.
 - Why VRAM climbs during long prefill: the ggml HIP buffer-pool cache, not
   the prompt or KV cache. See
   [inkling_vram_cluttering_issue](inkling_vram_cluttering_issue.md). The
-  deployed source build reproduces the prebuilt toolchain and caps the cache
-  at 256 MiB: 25k prefill 292 vs 299 t/s, decode 17.89 vs 17.72 t/s, and 80k
-  prefill 141 t/s with no OOM flush. The A/B numbers are in that issue doc.
+  deployed source build reproduces the prebuilt toolchain. It now uses the
+  pinned-only pool (no byte cap); the 0->32k A/B against the earlier 256 MiB
+  cap is within noise on prefill/decode and saves ~0.25 GB. The cap-era
+  numbers in this doc are historical.
 - Deployed service: 256k context, `-cmoe` with a 2048 MiB cache, share 0.45,
   ub512 and q4_0/q4_0 KV → ~455 read t/s and ~19.4 write t/s at ~10.2 GiB
   loaded / 10.4 GiB peak VRAM (~5.5 GiB free).

@@ -8,7 +8,7 @@ This is the map. Detailed behaviour lives in the linked subject docs.
 | --- | --- |
 | `flake.nix` | Inputs and `mkHost` / `nixosConfigurations.<name>`. See [pins](pins.md) and [hosts](hosts.md). |
 | `rebuild.sh` | Flake rebuild one-liner. See [rebuild](rebuild.md). |
-| `patches/` | Local package patches. `keyd-release-on-remove.patch` releases held keys on device removal; `llama-cuda-pool-cap.patch` bounds the HIP buffer-pool cache. See [keyboard](keyboard.md) and [inkling](inkling.md). |
+| `patches/` | Local package patches. `keyd-release-on-remove.patch` releases held keys on device removal; `llama-cuda-pool-pinned-only.patch` makes the HIP buffer pool keep only graph-pinned buffers. See [keyboard](keyboard.md) and [inkling](inkling.md). |
 | `docs/` | This manual. `docs/history/` holds closed/removed setups. |
 
 ## `shell/`
@@ -42,7 +42,7 @@ This is the map. Detailed behaviour lives in the linked subject docs.
 | --- | --- |
 | `box-tty-watch.c` / `.nix` | In-box TTY resize watcher. See [sandbox](sandbox.md). |
 | `llama-cpp-unsloth.nix` | Unsloth llama.cpp prebuilt for Inkling (rollback fallback). See [inkling](inkling.md). |
-| `llama-cpp-unsloth-src.nix` | Deployed source build of the prebuilt's exact commit and TheRock toolchain, plus the HIP pool-cap patch. See [inkling](inkling.md). |
+| `llama-cpp-unsloth-src.nix` | Deployed source build of the prebuilt's exact commit and TheRock toolchain, plus the pinned-only pool patch. See [inkling](inkling.md). |
 
 ## `hosts/`
 

@@ -20,7 +20,8 @@
 #   - Ubuntu 22.04 GCC 11 libstdc++ headers, which is what the GitHub runner
 #     used and what the CPU backend was compiled against;
 #   - GPU_TARGETS=gfx1200;gfx1201, GGML_OPENMP=OFF, host clang{,++} from TheRock.
-# Plus patches/llama-cuda-pool-cap.patch for the bounded legacy HIP pool.
+# Plus patches/llama-cuda-pool-pinned-only.patch: the legacy HIP pool keeps
+# only buffers referenced by a live captured graph.
 let
   therockVersion = "10.3.0a20261121";
 
@@ -47,7 +48,7 @@ stdenv.mkDerivation (finalAttrs: {
     hash = "sha256-RoEnZirovbpCgcJf/ofjg6Pbm55C8xecfzkl2w5DLYU=";
   };
 
-  patches = [ ../patches/llama-cuda-pool-cap.patch ];
+  patches = [ ../patches/llama-cuda-pool-pinned-only.patch ];
 
   nativeBuildInputs = [
     cmake

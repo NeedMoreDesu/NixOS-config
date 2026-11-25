@@ -1,0 +1,174 @@
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -100,6 +100,7 @@
+ #include <cstdio>
+ #include <cstdlib>
+ #include <string>
++#include <unordered_set>
+ #include <vector>
+ 
+ #if !defined(GGML_USE_HIP) && !defined(GGML_USE_MUSA)
+@@ -542,10 +543,17 @@
+     struct ggml_cuda_buffer {
+         void * ptr = nullptr;
+         size_t size = 0;
++        bool pinned = false;  // referenced by a live CUDA graph; keep resident
+     };
+ 
+     ggml_cuda_buffer buffer_pool[MAX_BUFFERS] = {};
+     size_t pool_size = 0;
++    // Pointers allocated while a CUDA/HIP graph capture was active. A captured
++    // graph still references these buffers, so freeing them would invalidate
++    // the graph and force a re-capture. They are the only buffers this pool
++    // caches: the policy is "keep what a captured graph references, free the
++    // rest", with no byte budget or size heuristic.
++    std::unordered_set<void *> pinned_ptrs;
+ 
+     ggml_cuda_pool_leg(ggml_backend_cuda_context & ctx, int device) :
+         ctx(ctx),
+@@ -566,8 +574,28 @@
+                 pool_size -= b.size;
+                 b.ptr  = nullptr;
+                 b.size = 0;
++                b.pinned = false;
+             }
+         }
++        pinned_ptrs.clear();
++    }
++
++    // true while the current stream is capturing a CUDA/HIP graph
++    bool is_capturing() {
++        ggml_cuda_set_device(device);
++#if defined(GGML_USE_HIP)
++        hipStreamCaptureStatus status = hipStreamCaptureStatusNone;
++        if (ctx.stream() != nullptr) {
++            CUDA_CHECK(hipStreamIsCapturing(ctx.stream(), &status));
++        }
++        return status != hipStreamCaptureStatusNone;
++#else
++        cudaStreamCaptureStatus status = cudaStreamCaptureStatusNone;
++        if (ctx.stream() != nullptr) {
++            CUDA_CHECK(cudaStreamIsCapturing(ctx.stream(), &status));
++        }
++        return status != cudaStreamCaptureStatusNone;
++#endif
+     }
+ 
+     // captured CUDA graphs can still use freed buffers, so they must be captured again
+@@ -582,9 +610,15 @@
+         }
+         ctx.cuda_graphs.clear();
+ #endif // USE_CUDA_GRAPH
++        // the graphs are gone; their buffers no longer need to be pinned
++        pinned_ptrs.clear();
++        for (int i = 0; i < MAX_BUFFERS; ++i) {
++            buffer_pool[i].pinned = false;
++        }
+     }
+ 
+     void * alloc(size_t size, size_t * actual_size) override {
++        const bool capturing = is_capturing();
+ #ifdef DEBUG_CUDA_MALLOC
+         int nnz = 0;
+         size_t max_size = 0;
+@@ -608,6 +642,8 @@
+                             *actual_size = b.size;
+                             b.ptr = nullptr;
+                             b.size = 0;
++                            b.pinned = false;
++                            if (capturing) pinned_ptrs.insert(ptr);
+                             return ptr;
+                         }
+                     }
+@@ -620,6 +656,8 @@
+             *actual_size = b.size;
+             b.ptr = nullptr;
+             b.size = 0;
++            b.pinned = false;
++            if (capturing) pinned_ptrs.insert(ptr);
+             return ptr;
+         }
+         void * ptr;
+@@ -643,6 +681,7 @@
+         CUDA_CHECK(err);
+         *actual_size = look_ahead_size;
+         pool_size += look_ahead_size;
++        if (capturing) pinned_ptrs.insert(ptr);
+ #ifdef DEBUG_CUDA_MALLOC
+         GGML_LOG_INFO("%s[%d]: %d buffers, max_size = %u MB, pool_size = %u MB, requested %u MB\n", __func__, device, nnz,
+                            (uint32_t)(max_size / 1024 / 1024), (uint32_t)(pool_size / 1024 / 1024), (uint32_t)(size / 1024 / 1024));
+@@ -651,18 +690,71 @@
+     }
+ 
+     void free(void * ptr, size_t size) override {
++        const bool capturing = is_capturing();
++        const bool pinned = pinned_ptrs.count(ptr) > 0;
++
++        if (capturing) {
++            // Inside a graph capture: never synchronize, evict or invalidate.
++            // Those operations are illegal during capture and deadlock the HIP
++            // runtime. Only cache the buffer; the graph being captured still
++            // references it, so mark it pinned.
++            pinned_ptrs.insert(ptr);
++            for (int i = 0; i < MAX_BUFFERS; ++i) {
++                ggml_cuda_buffer& b = buffer_pool[i];
++                if (b.ptr == nullptr) {
++                    b.ptr = ptr;
++                    b.size = size;
++                    b.pinned = true;
++                    return;
++                }
++            }
++            // Pool full during capture: the only case we cannot cache. This is
++            // rare (256 slots) and decode capture uses few buffers.
++            GGML_LOG_DEBUG(GGML_CUDA_NAME " buffer pool full during capture, freeing directly\n");
++            ggml_cuda_set_device(device);
++            CUDA_CHECK(cudaFree(ptr));
++            pool_size -= size;
++            pinned_ptrs.erase(ptr);
++            invalidate_cuda_graphs();
++            return;
++        }
++
++        // Pinned-only policy: no byte budget. Keep graph-referenced buffers and
++        // free everything else at this non-capture point. cudaFree()
++        // synchronizes implicitly, so no explicit sync is needed.
++        ggml_cuda_set_device(device);
+         for (int i = 0; i < MAX_BUFFERS; ++i) {
+-            ggml_cuda_buffer& b = buffer_pool[i];
++            ggml_cuda_buffer & b = buffer_pool[i];
++            if (b.ptr != nullptr && !b.pinned) {
++                CUDA_CHECK(cudaFree(b.ptr));
++                pool_size -= b.size;
++                pinned_ptrs.erase(b.ptr);
++                b.ptr  = nullptr;
++                b.size = 0;
++            }
++        }
++
++        if (!pinned) {
++            CUDA_CHECK(cudaFree(ptr));
++            pool_size -= size;
++            pinned_ptrs.erase(ptr);
++            return;
++        }
++
++        for (int i = 0; i < MAX_BUFFERS; ++i) {
++            ggml_cuda_buffer & b = buffer_pool[i];
+             if (b.ptr == nullptr) {
+                 b.ptr = ptr;
+                 b.size = size;
++                b.pinned = true;
+                 return;
+             }
+         }
+-        GGML_LOG_DEBUG(GGML_CUDA_NAME " buffer pool full, increase MAX_CUDA_BUFFERS\n");
+-        ggml_cuda_set_device(device);
++        // Pinned set alone fills the pool: free directly and re-capture.
++        GGML_LOG_DEBUG(GGML_CUDA_NAME " buffer pool full of pinned buffers, freeing directly\n");
+         CUDA_CHECK(cudaFree(ptr));
+         pool_size -= size;
++        pinned_ptrs.erase(ptr);
+         invalidate_cuda_graphs();
+     }
+ };

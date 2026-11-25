@@ -147,7 +147,9 @@ policies:
 
 There is no `--max-pool`-style llama-server flag and no
 `GGML_CUDA_POOL_MAX_*` environment variable in that build. The deployed
-source build adds `GGML_CUDA_POOL_MAX_CACHED_MIB`; see
+source build now uses a **pinned-only** pool: `free()` keeps only buffers
+referenced by a live captured graph and frees the rest, with no byte cap or
+size heuristic (`patches/llama-cuda-pool-pinned-only.patch`). See
 [Source patch and source build](#source-patch-and-source-build-2026-11-25).
 The only allocator selector in the prebuilt is `GGML_CUDA_POOL_DEBUG`, which
 selects the debug allocator. `#22155` ("flush legacy pool on OOM and retry")
@@ -295,9 +297,20 @@ Interpretation:
 
 ## Source patch and source build (2026-11-25)
 
+**Update 2026-11-25: the cap below is superseded by the pinned-only pool.**
+The deployed patch is now `patches/llama-cuda-pool-pinned-only.patch`: the
+legacy pool keeps only buffers allocated or freed during graph capture
+(captured graphs reference those pointers) and `cudaFree`s every non-pinned
+buffer at the next non-capture free. There is no byte budget, no per-item
+cutoff and no size heuristic, so no env var is needed. At cold 0->32k this is
+within noise on prefill/decode and leaves ~0.25 GB less VRAM than the 256 MiB
+cap; the non-pinned reuse cache is prefill-only and not load-bearing at that
+depth. The cap text below is kept as the history of how the policy was
+reached.
+
 The production version of the cap is implemented in
-`ggml/src/ggml-cuda/ggml-cuda.cu` and exported as
-`patches/llama-cuda-pool-cap.patch`. It adds
+`ggml/src/ggml-cuda/ggml-cuda.cu` and was exported as
+`patches/llama-cuda-pool-cap.patch` (since removed). It added
 `GGML_CUDA_POOL_MAX_CACHED_MIB`:
 
 - unset or empty: unlimited cache, byte-for-byte the old behavior;
@@ -329,8 +342,8 @@ recipe instead of using nixpkgs ROCm:
 The TheRock tarball is a 3.5 GB build input; the output copies the selected
 ROCm runtime and `rocblas`/`hipblaslt` tuning data, and wraps the binaries
 with the `-inkling` suffix. The deployed `home/local-ai.nix` uses this
-package and sets `GGML_CUDA_POOL_MAX_CACHED_MIB=256`. The prebuilt derivation
-remains the rollback.
+package with the pinned-only patch and sets no pool env var. The prebuilt
+derivation remains the rollback.
 
 Build checks: `--version` reports build 12631 / commit 59f66204f and "built
 with Clang 24.0.0"; `--help` contains both MoE cache flags; `--list-devices`
@@ -471,9 +484,10 @@ accumulating while the server keeps running.
   the residual live compute buffer still fits at 256k, are open.
 - Write speed at 80k with a cap was not measured. At 25k, 128/512 MiB match
   the default; cap 0 loses ~27 %.
-- The local production source patch uses free-time largest-first eviction,
-  an explicit `cudaDeviceSynchronize()` before eviction, and an env var
-  (`GGML_CUDA_POOL_MAX_CACHED_MIB`). Whether upstream prefers LRU or
+- The earlier local source patch used free-time largest-first eviction, an
+  explicit `cudaDeviceSynchronize()` before eviction, and an env var
+  (`GGML_CUDA_POOL_MAX_CACHED_MIB`). It is superseded by the pinned-only
+  policy (no cap, no env). Whether upstream prefers pinned-only, LRU or
   alloc-time eviction is still open. The runtime interposer is ABI-pinned
   and not a long-term answer.
 - `#22193`/`#22207` only evict on OOM. Whether a cached-byte cap belongs in
