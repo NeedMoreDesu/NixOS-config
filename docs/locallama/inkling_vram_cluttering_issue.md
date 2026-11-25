@@ -357,6 +357,8 @@ The exact-toolchain source build is within noise of the prebuilt: prefill
 with no OOM flush. The cap removes the cumulative retention: idle growth is
 +0.34 GiB at 25k and +0.23 GiB at 80k instead of +1.2/+5.1 GiB. 128k and
 256k end-to-end are still unmeasured; the cap does not shrink the live set.
+Detailed campaign and a same-time A/B under load:
+[inkling_bench](inkling_bench.md#bounded-hip-pool-cache-exact-source-build-2026-11-25).
 
 The earlier nixpkgs-ROCm source build was 192–211 t/s on the same 25k prompt;
 that regression was the ROCm 7.2.4/Clang 22 toolchain and GCC 16 CPU backend

@@ -515,6 +515,45 @@ was stopped afterwards.
   - in words: +37 % write; with q4_0 KV this no longer sits at the edge, but
     the desktop can still consume the last 1.5 GiB under load.
 
+## Bounded HIP pool cache: exact source build (2026-11-25)
+
+Campaign for the bounded `ggml_cuda_pool_leg` cache. Server: the source build
+at commit `59f66204f52c1a69fdae7a90ae9d75de7a7b683d`, built with the
+prebuilt's toolchain (TheRock `10.3.0a20261121`, Clang 24, Ubuntu 22.04 GCC 11
+`libstdc++` headers) plus `patches/llama-cuda-pool-cap.patch`; port 8099,
+text-only, no mmproj.
+
+Method: synthetic repeated-paragraph prompts of 25,080 and 79,800 tokens,
+`-c 32768` / `-c 131072`, `-ub 512`, `-fa on`, `-cmoe`,
+`--moe-cache-mib 2048 --moe-cache-cpu-share 0.45`, `-ctk q4_0 -ctv q4_0`,
+`--parallel 1`. VRAM is total GPU0 including the desktop, sampled every 1 s
+with `rocm-smi`; read = `timings.prompt_per_second` on a fresh server, write =
+a second request on the same prompt with `max_tokens 129` (cache hit;
+`timings.predicted_per_second`).
+
+| build | prompt | cap | idle growth | peak growth | read t/s | write t/s | flush |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| prebuilt | 25,080 | none | +1.27 GiB | +1.27 GiB | 277.8 | 18.05 | — |
+| source, cap 256 | 25,080 | 256 MiB | +0.38 GiB | +0.43 GiB | 276.9 | 17.53 | none |
+| source, cap 256 | 79,800 | 256 MiB | +0.23 GiB | +0.62 GiB | 141.0 | not measured | none |
+
+Notes:
+
+- The 25k rows are a back-to-back A/B under the same box load. Earlier quiet
+  runs measured prebuilt 299 and source 292 read, both within the same ±2–3 %
+  band. The box was shared with other work and `-cmoe` prefill is CPU-bound,
+  so single runs vary by roughly ±5–10 %; compare same-time pairs.
+- The cap removes the cumulative retention: idle growth is +0.38 GiB at 25k
+  (vs +1.27 GiB prebuilt) and +0.23 GiB at 80k (vs +5.14 GiB prebuilt at 78k
+  in the earlier campaign).
+- 80k write speed and 128k/256k end-to-end were not measured. The cap bounds
+  the disposable cache, not the live set (KV, expert cache, graph/compute
+  buffer).
+- Earlier nixpkgs-ROCm builds of the same source were 192–211 t/s at 25k.
+  That regression was the toolchain (ROCm 7.2.4/Clang 22 and Nix GCC 16 CPU
+  headers), not the pool patch; the deployed TheRock/Clang 24 recipe restores
+  parity.
+
 ## Takeaways
 
 - Why VRAM climbs during long prefill: the ggml HIP buffer-pool cache, not
