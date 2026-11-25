@@ -554,6 +554,29 @@ Notes:
   headers), not the pool patch; the deployed TheRock/Clang 24 recipe restores
   parity.
 
+### Prototype cap sweep (2026-11-24)
+
+These are the earlier `LD_PRELOAD` interposer runs on the prebuilt that set
+the policy before the source patch. Same box and deployed flags, text-only,
+`--cache-ram 0`; the 25k rows used `-c 32768` and the 80k row `-c 131072`
+(23,795 / 80,903 tokens). Values are total GPU0 including the desktop; compare
+the delta, not absolute loads. Single runs.
+
+| build | prompt | cap | load -> idle growth | read t/s | write t/s |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| prebuilt | 23,795 | none | +1.17 GiB | 288.7 | 17.39 |
+| prebuilt + interposer | 23,795 | 512 MiB | +0.51 GiB | 289.4 | 17.44 |
+| prebuilt + interposer | 23,795 | 128 MiB | +0.18 GiB | 287.2 | 17.23 |
+| prebuilt + interposer | 23,795 | 0 | +0.05 GiB | 281.3 | 12.70 |
+| prebuilt + interposer | 80,903 | 512 MiB | +1.31 GiB | 135.0 | not measured |
+
+- Cap 128 already preserves decode at 25k; cap 512 was validated at 80k; cap 0
+  loses ~27 % write (12.70 t/s) and is only useful as a no-cache measurement.
+- The residual growth at 80k is live/retained graph state plus at most the cap,
+  not cumulative cache.
+- The deployed source build chose 256 MiB as the middle ground; see the table
+  above for its 25k/80k numbers.
+
 ## Takeaways
 
 - Why VRAM climbs during long prefill: the ggml HIP buffer-pool cache, not
