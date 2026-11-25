@@ -8,7 +8,7 @@ This is the map. Detailed behaviour lives in the linked subject docs.
 | --- | --- |
 | `flake.nix` | Inputs and `mkHost` / `nixosConfigurations.<name>`. See [pins](pins.md) and [hosts](hosts.md). |
 | `rebuild.sh` | Flake rebuild one-liner. See [rebuild](rebuild.md). |
-| `patches/` | Local package patches. `keyd-release-on-remove.patch` releases held keys on device removal. See [keyboard](keyboard.md). |
+| `patches/` | Local package patches. `keyd-release-on-remove.patch` releases held keys on device removal; `llama-cuda-pool-cap.patch` bounds the HIP buffer-pool cache. See [keyboard](keyboard.md) and [inkling](inkling.md). |
 | `docs/` | This manual. `docs/history/` holds closed/removed setups. |
 
 ## `shell/`
@@ -41,7 +41,8 @@ This is the map. Detailed behaviour lives in the linked subject docs.
 | Path | Purpose |
 | --- | --- |
 | `box-tty-watch.c` / `.nix` | In-box TTY resize watcher. See [sandbox](sandbox.md). |
-| `llama-cpp-unsloth.nix` | Unsloth llama.cpp build for Inkling. See [inkling](inkling.md). |
+| `llama-cpp-unsloth.nix` | Unsloth llama.cpp prebuilt for Inkling (deployed). See [inkling](inkling.md). |
+| `llama-cpp-unsloth-src.nix` | Source build of the prebuilt's exact commit plus the HIP pool-cap patch; not deployed (~28 % slower prefill under nixpkgs ROCm). See [inkling](inkling.md). |
 
 ## `hosts/`
 

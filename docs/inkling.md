@@ -40,6 +40,8 @@ layout change breaks the npm/UI build.
 | File | Purpose |
 | --- | --- |
 | `pkgs/llama-cpp-unsloth.nix` | Pinned prebuilt, ROCm bundle, wrappers. |
+| `pkgs/llama-cpp-unsloth-src.nix` | Source build of the prebuilt's exact commit plus the pool cap; not deployed (prefill ~28 % slower under nixpkgs ROCm). |
+| `patches/llama-cuda-pool-cap.patch` | Bounded `ggml_cuda_pool_leg` cache (`GGML_CUDA_POOL_MAX_CACHED_MIB`). |
 | `scripts/fetch-inkling.sh` | Pinned root-layout GGUFs + sha256 checks. |
 | `home/local-ai.nix` | `llama-inkling` user service, fetch wrapper, `ai-toggle`. |
 | `scripts/ai.sh` | Start/stop/status/list logic for local AI services. |
@@ -106,7 +108,11 @@ image requests are affected, and their encoding runs on the CPU (slow).
 Full measurements: [inkling_bench](locallama/inkling_bench.md). VRAM climbs
 during long prefills because the HIP buffer-pool cache retains freed graph
 buffers; stock llama.cpp never bounds that cache, so the high-water stays until
-restart. It is not the context. See
+restart. It is not the context. A local source patch bounds it
+(`GGML_CUDA_POOL_MAX_CACHED_MIB`, `patches/llama-cuda-pool-cap.patch`), and
+`pkgs/llama-cpp-unsloth-src.nix` builds it from the prebuilt's exact commit,
+but that build is ~28 % slower on prefill with nixpkgs ROCm 7.2.4, so the
+service still runs the prebuilt and the cache remains unbounded. See
 [inkling_vram_cluttering_issue](locallama/inkling_vram_cluttering_issue.md).
 
 The host box defaults include **8089** (alongside 8088 for embeddings), so a
@@ -198,4 +204,9 @@ Replace the prebuilt with a source build when nixpkgs packages a llama.cpp
 release that contains ggml-org#32694/#32704 (and #32218 if DSpark matters):
 drop `pkgs/llama-cpp-unsloth.nix`, point the service at the nixpkgs package,
 and switch to the `Mainline_Support/` GGUFs. Until then, pin updates by
-changing `version` + `hash` in `pkgs/llama-cpp-unsloth.nix` together.
+changing `version` + `hash` in `pkgs/llama-cpp-unsloth.nix` together. The
+local source package is not a drop-in replacement yet: it is the same commit
+as the prebuilt plus the pool-cap patch, but nixpkgs ROCm 7.2.4 makes it
+~28 % slower on 25k prefill. Re-test it (and the cap's growth numbers) when
+nixpkgs moves to a newer ROCm, or drop it once the pool patch is upstream and
+the prebuilt picks it up.

@@ -519,7 +519,10 @@ was stopped afterwards.
 
 - Why VRAM climbs during long prefill: the ggml HIP buffer-pool cache, not
   the prompt or KV cache. See
-  [inkling_vram_cluttering_issue](inkling_vram_cluttering_issue.md).
+  [inkling_vram_cluttering_issue](inkling_vram_cluttering_issue.md). A source
+  build of the same commit with a bounded pool cache caps the growth at 25k
+  but is ~28 % slower on prefill under nixpkgs ROCm 7.2.4, so it is not
+  deployed; the A/B numbers are in that issue doc.
 - Deployed service: 256k context, `-cmoe` with a 2048 MiB cache, share 0.45,
   ub512 and q4_0/q4_0 KV → ~455 read t/s and ~19.4 write t/s at ~10.2 GiB
   loaded / 10.4 GiB peak VRAM (~5.5 GiB free).

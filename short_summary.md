@@ -45,7 +45,7 @@ live session. See [rebuild](docs/rebuild.md) and
 | [sandbox](docs/sandbox.md) | `box` project/system modes, pasta network, secrets. |
 | [packages](docs/packages.md) | System packages, Steam, LLM CLIs, Syncthing. |
 | [embeddings](docs/embeddings.md) | llama.cpp ROCm embedding server (EmbeddingGemma 2 Q8), omni input; activation pending; vLLM/SGLang for video later. |
-| [inkling](docs/inkling.md) | Local Inkling 2 Mini (26B MoE Q4, vision 256k, CPU projector, Unsloth prebuilt), manual `ai` toggle, opencode provider; no autostart. |
+| [inkling](docs/inkling.md) | Local Inkling 2 Mini (26B MoE Q4, vision 256k, CPU projector, Unsloth prebuilt), manual `ai` toggle, opencode provider; no autostart. Source pool-cap build exists but is not deployed (slower prefill). |
 | [lfm-vl](docs/lfm-vl.md) | Local LFM2.5-VL-1.6B Q4_K_M vision-language sidecar on 8090, 5k context, `ai on lfm`; no autostart. |
 
 `docs/history/` holds setups that are no longer present:

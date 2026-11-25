@@ -3,6 +3,10 @@ let
   # Unsloth's prebuilt is pinned because nixpkgs' llama-cpp is still upstream
   # v1.0.0 (b12359): it predates Inkling 2 and lacks the inkling2_loop layout
   # (ggml-org#32694/#32704). See docs/inkling.md.
+  # A source build of the same commit with the bounded HIP pool cache exists
+  # at ../pkgs/llama-cpp-unsloth-src.nix, but it is ~28 % slower on prefill
+  # under nixpkgs ROCm 7.2.4, so the service stays on the prebuilt. See
+  # docs/locallama/inkling_vram_cluttering_issue.md.
   llamaCppUnsloth = pkgs.callPackage ../pkgs/llama-cpp-unsloth.nix { };
 
   modelDir = "${config.home.homeDirectory}/models/inkling-2-mini";

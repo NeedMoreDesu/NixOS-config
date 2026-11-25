@@ -13,7 +13,11 @@ server is running**: stock llama.cpp has no cache-size flag or env var, so
 the high-water rises with the largest prefill seen and stays there until the
 process restarts. A prototype cache cap (not a stock setting) and its
 measurements are in [Bounding the cache](#bounding-the-cache-a-prototype-cap-2026-11-24);
-the durable fix is a pool change, not a llama-server flag.
+the durable fix is a pool change, not a llama-server flag. A source patch now
+implements that pool change, but its local Nix build is ~30 % slower on
+prefill here, so the deployment still uses the prebuilt and the cache remains
+unbounded until a faster build or an upstream merge lands. See
+[Source patch and source build](#source-patch-and-source-build-2026-11-25).
 
 ## Setup
 
@@ -248,7 +252,10 @@ Interpretation:
    with a 128–512 MiB default, evict largest or least-recently-used
    buffers, and decide whether eviction happens in `free()` or on the
    allocation path. This is a small, upstreamable change and does not
-   depend on private object layout.
+   depend on private object layout. Implemented locally; see
+   [Source patch and source build](#source-patch-and-source-build-2026-11-25).
+   The Nix build is not deployed because its prefill is ~28 % slower under
+   nixpkgs ROCm.
 2. **Runtime interposer (immediate stopgap).** The prototype above proves
    the policy works without rebuilding. Package it under `pkgs/` and set
    `LD_PRELOAD` plus `GGML_CUDA_POOL_CAP_MIB=256` (or 512) in
@@ -282,6 +289,62 @@ Interpretation:
   need a proper lock in both paths.
 - Only text-only, 23.8k/80.9k-token runs were measured. 128k and 256k
   end-to-end, and write speed at 80k with the cap, are still open.
+
+## Source patch and source build (2026-11-25)
+
+The production version of the cap is implemented in
+`ggml/src/ggml-cuda/ggml-cuda.cu` and exported as
+`patches/llama-cuda-pool-cap.patch`. It adds
+`GGML_CUDA_POOL_MAX_CACHED_MIB`:
+
+- unset or empty: unlimited cache, byte-for-byte the old behavior;
+- `0`: no cache (each free synchronizes and `hipFree`s immediately);
+- positive: maximum cached freed bytes per pool/device.
+
+Policy: largest-first eviction in `free()`. When `cached + size` would exceed
+the cap, the pool synchronizes the device once, frees the largest cached
+buffers until the new buffer fits, and invalidates captured graphs if
+anything was evicted. A buffer larger than the cap is freed instead of
+cached. `alloc()` is unchanged. This is the prototype policy plus the
+explicit synchronization the prototype lacked.
+
+Packaging: `pkgs/llama-cpp-unsloth-src.nix` builds the exact source commit
+behind the pinned prebuilt (`59f66204f52c1a69fdae7a90ae9d75de7a7b683d`,
+published as `llama.cpp-source-commit-*.tar.gz`). Do **not** use the
+`b12631-mix-acc0843` tag archive: the tag points at `cfc9ea3`, which is a
+different tree and lacks `--moe-cache-cpu-share`. The source package keeps
+the prebuilt's flags, wraps binaries with the `-inkling` suffix, and builds
+against nixpkgs ROCm 7.2.4. It is not referenced by `home/local-ai.nix`.
+
+Build checks passed: `--version` reports build 12631 / commit 59f66204f,
+`--help` contains both MoE cache flags, `--list-devices` shows
+`ROCm0: RX 9070 XT (gfx1201)`, and `ldd` resolves `libamdhip64`, `libhipblas`
+and `librocblas` from the ROCm packages.
+
+25k measurements (text-only, `-c 32768 -ub 512 -fa on -cmoe
+--moe-cache-mib 2048 --moe-cache-cpu-share 0.45 -ctk q4_0 -ctv q4_0`,
+single runs, total GPU0 including the desktop):
+
+| build | cap | load -> idle delta | read t/s | write t/s |
+| --- | ---: | ---: | ---: | ---: |
+| prebuilt | none | +1.23 GiB | 295 | 17.72 |
+| source | none | +1.35 GiB | 213 | not measured |
+| source | 256 MiB | +0.08–0.33 GiB | 192–211 | 17.39 |
+
+The cap works on the source build: growth is bounded and decode is within
+noise of the prebuilt. But read is consistently ~28 % slower (192–211 vs
+291–299 t/s across repeated runs), well outside the plan's "few percent"
+gate. This is the ROCm/compiler mismatch the plan flagged: the prebuilt
+bundles ROCm 7.18 and Clang 24, while nixpkgs provides ROCm 7.2.4 and the
+HIP device compiler there is Clang 22. A Clang 23 host build did not close
+the gap (211 t/s). Per the plan, the service stays on the prebuilt; the
+source package is an opt-in artifact to re-test when nixpkgs moves to a newer
+ROCm or when the pool patch is merged upstream.
+
+The prebuilt does not contain the source change, so setting
+`GGML_CUDA_POOL_MAX_CACHED_MIB` with the current service has no effect. The
+`LD_PRELOAD` prototype remains the only way to cap the prebuilt, and it is
+ABI-pinned to that binary.
 
 ## Why this matters for 256k
 
@@ -390,10 +453,11 @@ accumulating while the server keeps running.
   the residual live compute buffer still fits at 256k, are open.
 - Write speed at 80k with a cap was not measured. At 25k, 128/512 MiB match
   the default; cap 0 loses ~27 %.
-- A production source patch still has to choose free-time versus
-  alloc-time eviction, add explicit device/stream synchronization, and
-  decide whether the cap is a hard-coded constant, an env var, or a server
-  flag. The runtime interposer is ABI-pinned and not a long-term answer.
+- The local production source patch uses free-time largest-first eviction,
+  an explicit `cudaDeviceSynchronize()` before eviction, and an env var
+  (`GGML_CUDA_POOL_MAX_CACHED_MIB`). Whether upstream prefers LRU or
+  alloc-time eviction is still open. The runtime interposer is ABI-pinned
+  and not a long-term answer.
 - `#22193`/`#22207` only evict on OOM. Whether a cached-byte cap belongs in
   those PRs, in a new upstream option, or only in this repo's build is
   unresolved.
