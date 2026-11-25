@@ -139,7 +139,7 @@ stdenv.mkDerivation (finalAttrs: {
       -DGGML_STATIC=OFF \
       -DGGML_BACKEND_DL=ON \
       -DGGML_CPU_ALL_VARIANTS=ON \
-      -DGGML_BACKEND_DIR=${placeholder "out"}/bin
+      -DGGML_BACKEND_DIR=${placeholder "out"}/libexec/llama-src/bin
 
     runHook postConfigure
   '';
@@ -153,10 +153,12 @@ stdenv.mkDerivation (finalAttrs: {
 
   installPhase = ''
     runHook preInstall
-    cmake --install build --prefix "$out"
+
+    private="$out/libexec/llama-src"
+    rocm="$private/rocm"
+    cmake --install build --prefix "$private"
 
     # Self-contained ROCm runtime, selected to match the prebuilt bundle.
-    rocm="$out/libexec/rocm"
     mkdir -p "$rocm"
 
     for pat in \
@@ -189,38 +191,28 @@ stdenv.mkDerivation (finalAttrs: {
     chmod -R u+w "$rocm"
     find "$rocm" -type f -name '*.so*' -exec patchelf --set-rpath '$ORIGIN' {} +
 
-    # Keep the profile collision-free with nixpkgs' llama-cpp (llama-embed).
-    # Move the binaries out of bin/ and expose only -inkling wrappers; the
-    # ggml backend .so files stay in bin/ because GGML_BACKEND_DIR points there.
-    mkdir -p "$out/libexec/llama-src/bin"
-    for f in "$out"/bin/*; do
-      [ -f "$f" ] && [ -x "$f" ] || continue
-      patchelf --print-interpreter "$f" >/dev/null 2>&1 || continue
-      mv "$f" "$out/libexec/llama-src/bin/"
-    done
-
     # CMake ran with CMAKE_SKIP_RPATH to keep /build out of the store; set the
     # relocatable runtime paths here instead.
-    for f in "$out"/lib/* "$out"/bin/*; do
+    for f in "$private"/bin/* "$private"/lib/*; do
       [ -f "$f" ] || continue
       patchelf --print-needed "$f" >/dev/null 2>&1 || continue
       case "$f" in
-        "$out"/bin/*) patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../libexec/rocm' "$f" ;;
-        *)            patchelf --set-rpath '$ORIGIN:$ORIGIN/../libexec/rocm' "$f" ;;
+        "$private"/bin/*) patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../rocm' "$f" ;;
+        *)                patchelf --set-rpath '$ORIGIN:$ORIGIN/../rocm' "$f" ;;
       esac
     done
-    for f in "$out"/libexec/llama-src/bin/*; do
-      [ -f "$f" ] || continue
-      patchelf --print-needed "$f" >/dev/null 2>&1 || continue
-      patchelf --set-rpath '$ORIGIN/../../lib:$ORIGIN/../../libexec/rocm' "$f"
-    done
 
-    for f in "$out"/libexec/llama-src/bin/*; do
+    # Keep the profile collision-free with nixpkgs' llama-cpp (llama-embed):
+    # everything stays under libexec/llama-src and only -inkling wrappers are
+    # exposed in bin/.
+    mkdir -p "$out/bin"
+    for f in "$private"/bin/*; do
       [ -f "$f" ] && [ -x "$f" ] || continue
+      patchelf --print-interpreter "$f" >/dev/null 2>&1 || continue
       name="$(basename "$f")"
       makeWrapper "$f" "$out/bin/$name-inkling" \
-        --prefix LD_LIBRARY_PATH : "$out/lib:$out/libexec/rocm:${gccLib}/lib" \
-        --set-default HIPBLASLT_TENSILE_LIBPATH "$out/libexec/rocm/hipblaslt/library/gfx1201"
+        --prefix LD_LIBRARY_PATH : "$private/bin:$private/lib:$rocm:${gccLib}/lib" \
+        --set-default HIPBLASLT_TENSILE_LIBPATH "$rocm/hipblaslt/library/gfx1201"
     done
 
     runHook postInstall

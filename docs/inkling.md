@@ -74,7 +74,8 @@ interpreter and keeps the libs byte-identical. The prebuilt wrapper puts the
 bundle and nixpkgs' libstdc++ on `LD_LIBRARY_PATH`, and sets
 `HIPBLASLT_TENSILE_LIBPATH` to the bundled gfx1201 tuning data. The source
 build does the same for its own copied ROCm runtime (from TheRock), and its
-wrappers add the source `lib/` and `libexec/rocm/` to `LD_LIBRARY_PATH`.
+wrappers add `libexec/llama-src/lib` and `libexec/llama-src/rocm` to
+`LD_LIBRARY_PATH`.
 Both install binaries with an `-inkling` suffix (`llama-server-inkling`,
 `llama-cli-inkling`, …) so the profile can keep nixpkgs' `llama-cpp` for
 `llama-embed`; plain `llama-server` is still the embedding build.
