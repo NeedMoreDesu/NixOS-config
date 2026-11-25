@@ -7,7 +7,9 @@ files).
 
 Mode of operations for AI assistants: commit incrementally — each finished
 change gets its own commit right away, don't batch up edits and don't wait to
-be asked.
+be asked. This repo is often worked on in parallel, on tangentially different
+areas, by several different AIs: commit carefully and stage only what you
+wrote.
 
 ## What this system is
 
@@ -57,7 +59,7 @@ live session. See [rebuild](docs/rebuild.md) and
 `plans/` is transient implementation state, not documentation: one `.md` per
 unfinished change (problem/evidence, chosen design, exact files, checklist).
 When a plan lands, move the durable behavior and current state into the matching
-`docs/` page and delete the plan file. Don't link plans as long-term docs.
+`docs/` page and delete the plan file (don't delete plans/ folder). Don't link plans as long-term docs.
 No plan is currently open.
 
 ## Ground rules
