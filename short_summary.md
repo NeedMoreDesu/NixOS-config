@@ -59,8 +59,12 @@ live session. See [rebuild](docs/rebuild.md) and
 `plans/` is transient implementation state, not documentation: one `.md` per
 unfinished change (problem/evidence, chosen design, exact files, checklist).
 When a plan lands, move the durable behavior and current state into the matching
-`docs/` page and delete the plan file (don't delete plans/ folder). Don't link plans as long-term docs.
-No plan is currently open.
+`docs/` page and delete the plan file (don't delete plans/ folder). Rejected
+ideas are buried under `plans/bad_ideas/` instead. Don't link plans as
+long-term docs.
+
+Open: `plans/cpu-bench.md` (not implemented). The Inkling GPU-headroom plan was
+rejected and moved to `plans/bad_ideas/inkling-gpu-headroom.md`.
 
 ## Ground rules
 

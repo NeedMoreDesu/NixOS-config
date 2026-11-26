@@ -1,8 +1,22 @@
 # Inkling GPU headroom: separate prefill and decode throttles
 
-Status: **planned** (2026-11-26). Transient work state: when this lands, move the
-durable behavior to `docs/inkling.md` and delete this file. Do not treat it as
-documentation.
+Status: **buried / rejected** (2026-11-26). Moved to `plans/bad_ideas/`; do not
+implement. Kept only so the idea and its measurements are not retried.
+
+Why it is buried:
+
+- Prefill is computed in whole `-ub` chunks. A duty-cycle sleep can only be
+  inserted between chunks, not inside one, and a 512-token chunk takes seconds,
+  so the granularity is far too coarse to pace GPU use. Reported prefill t/s
+  would fall without keeping the burst below ~100 %.
+- Throttling decode does not help prefill, and throttling prefill at chunk
+  boundaries does not help frame time during a chunk.
+- HIP stream priorities were tested and had no effect on the llama low/high
+  streams (commits `870865b`..`f251273`). A real cross-process priority path
+  would need source-level launch/graph-node or DRM context priority, which is
+  out of scope here.
+
+The rest of this file is the earlier plan, kept as history.
 
 ## Goal
 
