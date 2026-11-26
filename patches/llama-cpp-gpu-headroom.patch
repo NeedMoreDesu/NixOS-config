@@ -48,7 +48,7 @@ index 0afcce5..883a3b1 100644
      bool    fit_params_print   = false; // print the estimated required memory to run the model
      int32_t fit_params_min_ctx = 4096;  // minimum context size to set when trying to reduce memory use
 diff --git a/include/llama.h b/include/llama.h
-index 71c907c..a04478c 100644
+index 71c907c..aa25951 100644
 --- a/include/llama.h
 +++ b/include/llama.h
 @@ -442,6 +442,11 @@ extern "C" {
@@ -57,7 +57,7 @@ index 71c907c..a04478c 100644
          struct llama_context * ctx_other;
 +
 +        // percentage of wall-clock GPU time to leave idle for other workloads (0 = off, max 95)
-+        // after each graph compute the context synchronizes and sleeps for
++        // at synchronization points the context sleeps for
 +        // busy_us * gpu_headroom_pct / (100 - gpu_headroom_pct)
 +        int32_t gpu_headroom_pct;
      };
@@ -69,7 +69,7 @@ index 71c907c..a04478c 100644
  
 +    // Set the percentage of wall-clock GPU time to leave idle for other workloads
 +    // 0 disables the throttle, values are clamped to [0, 95]
-+    // the throttle is cooperative: it sleeps after each graph compute, so a single long
++    // the throttle is cooperative: it sleeps at synchronization points, so a single
 +    // kernel cannot be preempted
 +    LLAMA_API void llama_set_gpu_headroom(struct llama_context * ctx, int32_t pct);
 +
@@ -80,7 +80,7 @@ index 71c907c..a04478c 100644
      // The logits for which llama_batch.logits[i] != 0 are stored contiguously
      // in the order they have appeared in the batch.
 diff --git a/src/llama-context.cpp b/src/llama-context.cpp
-index b507b6d..6776fa4 100644
+index b507b6d..be6213b 100644
 --- a/src/llama-context.cpp
 +++ b/src/llama-context.cpp
 @@ -16,11 +16,13 @@
@@ -127,7 +127,25 @@ index b507b6d..6776fa4 100644
          }
  
          if (cparams.moe_cache_size > 0) {
-@@ -991,27 +1002,31 @@ void llama_context::synchronize() {
+@@ -987,31 +998,49 @@ void llama_context::synchronize() {
+ 
+     ggml_backend_sched_synchronize(sched.get());
+ 
++    // Cooperative duty-cycle throttle: sleep at natural synchronization points
++    // instead of forcing a sync after every graph compute. Forcing a sync would
++    // serialize CPU and GPU work (especially with --cpu-moe) and can make
++    // prefill several times slower than the requested headroom.
++    const int32_t gpu_headroom = gpu_headroom_pct.load(std::memory_order_relaxed);
++    if (gpu_headroom > 0 && has_gpu_backend && !cparams.pipeline_parallel && n_queued_tokens > 0) {
++        const int64_t busy_us = ggml_time_us() - t_compute_start_us - t_throttle_sleep_us;
++        if (busy_us > 1000) {
++            const int64_t sleep_us = (int64_t) ((double) busy_us * gpu_headroom / (100 - gpu_headroom));
++            t_throttle_sleep_us += sleep_us;
++            std::this_thread::sleep_for(std::chrono::microseconds(sleep_us));
++        }
++    }
++
+     // FIXME: if multiple single tokens are evaluated without a synchronization,
      // the stats will be added to the prompt evaluation stats
      // this should only happen when using batch size 1 to evaluate a batch
  
@@ -162,7 +180,7 @@ index b507b6d..6776fa4 100644
  }
  
  const llama_model & llama_context::get_model() const {
-@@ -1733,6 +1748,19 @@ bool llama_context::get_causal_attn() const {
+@@ -1733,6 +1762,19 @@ bool llama_context::get_causal_attn() const {
      return cparams.causal_attn;
  }
  
@@ -182,35 +200,7 @@ index b507b6d..6776fa4 100644
  bool llama_context::set_sampler(llama_seq_id seq_id, llama_sampler * sampler) {
      if (!sampler && sampling.samplers.count(seq_id) == 0) {
          return true;
-@@ -3187,11 +3215,27 @@ ggml_status llama_context::graph_compute(
- 
-     copy_experts.reset();
- 
-+    const int32_t gpu_headroom = gpu_headroom_pct.load(std::memory_order_relaxed);
-+    const bool    throttle     = gpu_headroom > 0 && has_gpu_backend && !cparams.pipeline_parallel;
-+    const int64_t t_throttle_start_us = throttle ? ggml_time_us() : 0;
-+
-     auto status = ggml_backend_sched_graph_compute_async(sched.get(), gf);
-     if (status != GGML_STATUS_SUCCESS) {
-         LLAMA_LOG_ERROR("%s: ggml_backend_sched_graph_compute_async failed with error %d\n", __func__, status);
-     }
- 
-+    if (status == GGML_STATUS_SUCCESS && throttle) {
-+        // make the GPU idle before sleeping, otherwise the queued work keeps it busy
-+        ggml_backend_sched_synchronize(sched.get());
-+
-+        const int64_t busy_us = ggml_time_us() - t_throttle_start_us;
-+        if (busy_us > 1000) {
-+            const int64_t sleep_us = (int64_t) ((double) busy_us * gpu_headroom / (100 - gpu_headroom));
-+            t_throttle_sleep_us += sleep_us;
-+            std::this_thread::sleep_for(std::chrono::microseconds(sleep_us));
-+        }
-+    }
-+
-     // fprintf(stderr, "splits: %d\n", ggml_backend_sched_get_n_splits(sched));
- 
-     return status;
-@@ -4495,6 +4539,7 @@ llama_context_params llama_context_default_params() {
+@@ -4495,6 +4537,7 @@ llama_context_params llama_context_default_params() {
          /*.sampler                     =*/ nullptr,
          /*.n_sampler                   =*/ 0,
          /*.ctx_other                   =*/ nullptr,
@@ -218,7 +208,7 @@ index b507b6d..6776fa4 100644
      };
  
      return result;
-@@ -4732,6 +4777,14 @@ void llama_synchronize(llama_context * ctx) {
+@@ -4732,6 +4775,14 @@ void llama_synchronize(llama_context * ctx) {
      ctx->synchronize();
  }
  

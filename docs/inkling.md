@@ -215,11 +215,13 @@ command to run.
 
 ## GPU headroom
 
-The source build carries `patches/llama-cpp-gpu-headroom.patch`. After each
-graph compute the server synchronizes and sleeps `busy * N / (100 - N)`, so
-`N%` of wall-clock GPU time is left idle for the desktop and other GPU apps.
-It is a cooperative time-share, not an SM/CU reservation, and it does not free
-VRAM.
+The source build carries `patches/llama-cpp-gpu-headroom.patch`. At each
+synchronization point the server sleeps `busy * N / (100 - N)`, so `N%` of
+wall-clock GPU time is left idle for the desktop and other GPU apps. It is a
+cooperative time-share, not an SM/CU reservation, and it does not free VRAM.
+The throttle does not add extra synchronizations: decode syncs roughly once
+per token, so it is effective there; a long prefill may only sync at the end
+and run unthrottled, then sleep afterwards.
 
 The service starts with `--props --gpu-headroom 15`, so the desktop always
 gets some compute room by default. Change it at runtime:
@@ -233,8 +235,8 @@ ai headroom off    # back to 0 (full LLM speed)
 `--props` is required for the POST; the server is loopback-only, so no auth is
 involved. With `--parallel 1` the duty cycle is predictable. Decode bursts are
 roughly one token (10-50 ms); a long prefill can still delay other work, so use
-a smaller `-ub` if prefill stutter matters. The sleep is excluded from the
-server's `t_eval_us` / `t_p_eval_us` counters.
+a smaller `-ub` or drive the display from the iGPU if prefill stutter matters.
+The sleep is excluded from the server's `t_eval_us` / `t_p_eval_us` counters.
 
 `llama-inkling.service` also starts `llama-headroom-watch.service` (no boot
 autostart; it stops with the LLM). It raises the headroom to
