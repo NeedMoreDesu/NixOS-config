@@ -17,14 +17,13 @@ services=(
 
 usage() {
   cat <<'EOF'
-usage: ai [on|off|restart|status|list|headroom] [TARGET...]
+usage: ai [on|off|restart|status|list] [TARGET...]
 
   on TARGET...         start for this session (target required)
   off [TARGET...]      stop (no target = all)
   restart TARGET...    restart (target required)
   status [TARGET...]   show service state
   list                 list known services
-  headroom [N]         show/set GPU headroom for llama-inkling (0-95, off=0)
 
 targets (on/off/restart/status):
   -e, --embeddings     best embedding service
@@ -41,9 +40,6 @@ examples:
   ai off incl
   ai status InCl
   ai status GEMMA
-  ai headroom
-  ai headroom 40
-  ai headroom off
 EOF
 }
 
@@ -165,64 +161,8 @@ do_list() {
   done <<<"$(printf '%s\n' "${services[@]}")"
 }
 
-headroom_port() {
-  case "$1" in
-    llama-inkling) echo 8089 ;;
-    *) return 1 ;;
-  esac
-}
-
-do_headroom() {
-  local pct=${1:-}
-  local unit=llama-inkling
-  local port
-  port=$(headroom_port "$unit") || die "no GPU headroom endpoint configured for $unit"
-
-  if (($# > 1)); then
-    die "usage: ai headroom [N|off]"
-  fi
-
-  if ! systemctl --user is-active --quiet "$unit"; then
-    die "$unit is not running; start it with 'ai on -l'"
-  fi
-
-  if [[ -z $pct ]]; then
-    if ! curl -fsS "http://127.0.0.1:$port/props" |
-        jq -r '"gpu_headroom = \(.gpu_headroom // "unknown")%"'; then
-      die "failed to read props from $unit"
-    fi
-    return
-  fi
-
-  if [[ $pct == off || $pct == false ]]; then
-    pct=0
-  fi
-  [[ $pct =~ ^[0-9]+$ ]] || die "headroom must be an integer in [0, 95] or 'off'"
-  if ((pct > 95)); then
-    die "headroom must be in [0, 95]"
-  fi
-
-  if ! curl -fsS -X POST "http://127.0.0.1:$port/props" \
-      -H 'Content-Type: application/json' \
-      -d "{\"gpu_headroom\":$pct}" >/dev/null; then
-    die "failed to set headroom; is $unit running with --props?"
-  fi
-  echo "llama-inkling gpu_headroom = $pct%"
-}
-
 action=${1:-}
 case "$action" in
-  headroom)
-    shift
-    if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
-      die "run as your user, not root/sudo (systemctl --user target)"
-    fi
-    if ! systemctl --user show-environment >/dev/null 2>&1; then
-      die "cannot reach the systemd user manager (no user session bus?)"
-    fi
-    do_headroom "$@"
-    exit 0
-    ;;
   on | off | restart | status)
     shift
     if [[ ${EUID:-$(id -u)} -eq 0 ]]; then

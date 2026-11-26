@@ -47,7 +47,7 @@ live session. See [rebuild](docs/rebuild.md) and
 | [sandbox](docs/sandbox.md) | `box` project/system modes, pasta network, secrets. |
 | [packages](docs/packages.md) | System packages, Steam, LLM CLIs, Syncthing. |
 | [embeddings](docs/embeddings.md) | llama.cpp ROCm embedding server (EmbeddingGemma 2 Q8), omni input; activation pending; vLLM/SGLang for video later. |
-| [inkling](docs/inkling.md) | Local Inkling 2 Mini (26B MoE Q4, vision 256k, CPU projector, Unsloth source build with bounded HIP pool cache and GPU headroom throttle with Godot/Krita watcher), manual `ai` toggle / `ai headroom`, opencode provider; no autostart. |
+| [inkling](docs/inkling.md) | Local Inkling 2 Mini (26B MoE Q4, vision 256k, CPU projector, Unsloth source build with bounded HIP pool cache), manual `ai` toggle, opencode provider; no autostart. |
 | [lfm-vl](docs/lfm-vl.md) | Local LFM2.5-VL-1.6B Q4_K_M vision-language sidecar on 8090, 5k context, `ai on lfm`; no autostart. |
 
 `docs/history/` holds setups that are no longer present:
@@ -71,7 +71,4 @@ No plan is currently open.
 - Local AI services (`llama-inkling`, `llama-embed`, `llama-vl`) have **no
   autostart**; start them by name with `ai on -l` / `ai on lfm`, stop with
   `ai off`. See [inkling](docs/inkling.md).
-- GPU headroom for the local LLM is `ai headroom [N]` (`0`/`off` = full
-  speed; default 10%); the Inkling source build carries the throttle patch.
-  See [inkling](docs/inkling.md#gpu-headroom).
 - `stateVersion` is pinned in `hosts/nixos/default.nix` — never bump it.

@@ -22,8 +22,6 @@
 #   - GPU_TARGETS=gfx1200;gfx1201, GGML_OPENMP=OFF, host clang{,++} from TheRock.
 # Plus patches/llama-cuda-pool-pinned-only.patch: the legacy HIP pool keeps
 # only buffers referenced by a live captured graph.
-# Plus patches/llama-cpp-gpu-headroom.patch: cooperative GPU duty-cycle
-# throttle (--gpu-headroom and the /props runtime endpoint).
 let
   therockVersion = "10.3.0a20261121";
 
@@ -50,10 +48,7 @@ stdenv.mkDerivation (finalAttrs: {
     hash = "sha256-RoEnZirovbpCgcJf/ofjg6Pbm55C8xecfzkl2w5DLYU=";
   };
 
-  patches = [
-    ../patches/llama-cuda-pool-pinned-only.patch
-    ../patches/llama-cpp-gpu-headroom.patch
-  ];
+  patches = [ ../patches/llama-cuda-pool-pinned-only.patch ];
 
   nativeBuildInputs = [
     cmake

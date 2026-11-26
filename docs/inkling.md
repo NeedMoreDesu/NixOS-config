@@ -5,8 +5,7 @@ Standard deployment is 256k context with vision (projector kept in host RAM),
 `--cpu-moe` with a 2 GiB expert cache and q4_0 KV. The legacy HIP pool keeps
 only buffers referenced by a live captured graph, so there is no cache-size
 knob. The model and projector are downloaded. Start it with `ai on -l`; the
-unit has no autostart. GPU headroom (cooperative duty-cycle throttle) was
-deployed 2026-11-26; use `ai headroom [N]` to change it at runtime.
+unit has no autostart.
 
 ## What it is
 
@@ -49,9 +48,6 @@ which reproduces the prebuilt's toolchain instead of using nixpkgs ROCm:
   headers the build is within noise of the prebuilt;
 - `patches/llama-cuda-pool-pinned-only.patch` applied on top: the legacy HIP
   pool keeps only graph-pinned buffers and frees everything else.
-- `patches/llama-cpp-gpu-headroom.patch` applied on top: cooperative GPU
-  duty-cycle throttle (`--gpu-headroom N`) and the `POST /props` runtime
-  endpoint.
 
 The TheRock tarball is a 3.5 GB build input, not runtime closure: the ROCm
 runtime and tuning data are copied into the output. The prebuilt derivation
@@ -65,13 +61,11 @@ layout change breaks the npm/UI build.
 | File | Purpose |
 | --- | --- |
 | `pkgs/llama-cpp-unsloth.nix` | Pinned prebuilt, ROCm bundle, wrappers (rollback fallback). |
-| `pkgs/llama-cpp-unsloth-src.nix` | Deployed source build of the prebuilt's exact commit and TheRock toolchain, plus the pinned-only pool and GPU headroom patches. |
+| `pkgs/llama-cpp-unsloth-src.nix` | Deployed source build of the prebuilt's exact commit and TheRock toolchain, plus the pinned-only pool. |
 | `patches/llama-cuda-pool-pinned-only.patch` | Pinned-only `ggml_cuda_pool_leg` cache (no byte cap). |
-| `patches/llama-cpp-gpu-headroom.patch` | `--gpu-headroom` duty-cycle throttle and `POST /props` runtime control. |
 | `scripts/fetch-inkling.sh` | Pinned root-layout GGUFs + sha256 checks. |
-| `home/local-ai.nix` | `llama-inkling` user service, fetch wrapper, `ai-toggle`, `gpuHeadroom` settings, headroom watcher. |
-| `scripts/ai.sh` | Start/stop/status/list and `headroom` logic for local AI services. |
-| `scripts/ai-headroom-watch.sh` | Raises headroom while Godot/Krita is running. |
+| `home/local-ai.nix` | `llama-inkling` user service, fetch wrapper, `ai-toggle`. |
+| `scripts/ai.sh` | Start/stop/status/list logic for local AI services. |
 | `home/embeddings.nix` | Existing EmbeddingGemma service (`llama-embed`). |
 | `assets/opencode/opencode.jsonc` | `inkling` OpenAI-compatible provider. |
 
@@ -112,13 +106,7 @@ The service listens on `127.0.0.1:8089` (loopback only, no auth) with:
 -ub 512 -c 262144
 -ctk q4_0 -ctv q4_0 -fa on --parallel 1
 --temp 1.0 --top-p 1.0 --top-k 0 --min-p 0.0
---props --gpu-headroom 10
 ```
-
-The last line is provided by the GPU headroom patch; `--props` is what makes
-`ai headroom` (and `POST /props`) work. The default headroom is 10% (leaves
-the desktop compute room); `ai headroom 0` / `ai headroom off` gives the LLM
-full speed.
 
 All MoE experts stay in host RAM (~16.6 GB), with a fixed 2 GiB expert cache
 in VRAM and 45 % of cache misses computed on the CPU. The F16 projector also
@@ -213,60 +201,6 @@ for systemd's 90s default. To restore autostart later, add
 run `nyx` to relink it. Missing weights are reported with the `fetch-*`
 command to run.
 
-## GPU headroom
-
-The source build carries `patches/llama-cpp-gpu-headroom.patch`. At each
-synchronization point the server sleeps `busy * N / (100 - N)`, so `N%` of
-wall-clock GPU time is left idle for the desktop and other GPU apps. It is a
-cooperative time-share, not an SM/CU reservation, and it does not free VRAM.
-The throttle does not add extra synchronizations: decode syncs roughly once
-per token, so it is effective there; a long prefill may only sync at the end
-and run unthrottled, then sleep afterwards.
-
-The service starts with `--props --gpu-headroom 10`, so the desktop always
-gets some compute room by default. Change it at runtime:
-
-```
-ai headroom        # query the running server
-ai headroom 40     # leave 40% of GPU wall time idle
-ai headroom off    # back to 0 (full LLM speed)
-```
-
-`--props` is required for the POST; the server is loopback-only, so no auth is
-involved. With `--parallel 1` the duty cycle is predictable. Decode bursts are
-roughly one token (10-50 ms); a long prefill can still delay other work, so use
-a smaller `-ub` or drive the display from the iGPU if prefill stutter matters.
-The sleep is excluded from the server's `t_eval_us` / `t_p_eval_us` counters.
-
-`llama-inkling.service` also starts `llama-headroom-watch.service` (no boot
-autostart; it stops with the LLM). It raises the headroom to
-`gpuHeadroom.apps` (40%) while one of `gpuHeadroom.watch` (`godot`, `godot4`,
-`krita`) is running, and returns to `gpuHeadroom.default` (10) when they exit.
-Configure those in `home/local-ai.nix`. A manual `ai headroom` value persists
-until the next watched app starts or stops.
-
-### Benchmark
-
-Cold-booted service, normal unit params (`-ub 512`, `--parallel 1`, q4_0 KV,
-2 GiB expert cache, share 0.45), short 136-token prompt, 128 generated tokens,
-4 requests per headroom (first request is warm-up; the table reports the
-median of runs 2-4).
-
-| headroom | prompt t/s | decode t/s | decode vs 0% |
-| ---: | ---: | ---: | ---: |
-| 0% | 184.5 | 18.25 | 1.00x |
-| 10% | 145.3 | 13.06 | 0.72x |
-| 25% | 106.2 | 9.50 | 0.52x |
-| 50% | 79.6 | 7.22 | 0.40x |
-
-The effect is monotonic and clearly visible. The measured slowdown is larger
-than the nominal percentage on this CPU-MoE setup: the sleep is based on the
-busy window at a synchronization point, which includes CPU work that is not
-GPU-busy, so 10% behaves more like ~28% decode headroom. Treat the number as a
-tuning knob, not an exact GPU-time cap; use `ai headroom off` for full speed.
-Prefill numbers are noisier because the host CPU load varies and prefill is
-CPU-heavy; decode medians were stable within each run.
-
 ## opencode
 
 `opencode.jsonc` uses the legacy `provider`/`npm` entry for `inkling`: on
@@ -288,13 +222,8 @@ llama-server-inkling --list-devices   # ROCm0: RX 9070 XT
 ai on -l
 curl -s http://127.0.0.1:8089/health
 curl -s http://127.0.0.1:8089/v1/models | jq .
-ai headroom                          # current value
-ai headroom 40                       # leave 40% of GPU time idle
-curl -s http://127.0.0.1:8089/props | jq .gpu_headroom
 rocm-smi --showmeminfo vram
 journalctl --user -u llama-inkling -f
-systemctl --user status llama-headroom-watch
-journalctl --user -u llama-headroom-watch -f
 ```
 
 ## Maintenance
@@ -308,7 +237,4 @@ headers) together and re-run the 25k/80k benchmarks. `pkgs/llama-cpp-unsloth.nix
 is the prebuilt rollback; switch `home/local-ai.nix` back to it if the source
 build regresses. The pinned-only pool patch is a candidate for upstream
 `ggml-org/llama.cpp` and can be dropped from the source derivation once a
-prebuilt/tag contains it. The GPU headroom patch is likewise a candidate for
-upstream. If you switch back to the prebuilt rollback, set
-`gpuHeadroom.enable = false` in `home/local-ai.nix`: the prebuilt does not
-carry `--gpu-headroom`, so the service must not pass it.
+prebuilt/tag contains it.
