@@ -21,8 +21,9 @@ under `$HOME` (`-d .ssh` is `~/.ssh`) and `~/` is expanded. It applies after
 the HOME allowlists, before the `$PWD` bind, so it can override a read-only
 entry; last one wins. Missing directories are an error.
 
-`nyvibe` = `box -s opencode` with the short_summary prompt and an explicit
-`-p 8088` (deduped with the host default; 8089 and 8090 are already in the
+`nyvibe` = `oc -s -p 8088` with the short_summary prompt appended, so oc's
+flags work here too (`nyvibe -l` selects the local Inkling model); the explicit
+`-p 8088` is deduped with the host default (8089 and 8090 are already in the
 default).
 `oc [box flags] [-l] [--] [opencode args]` runs opencode in a box on the
 current directory; `oc -s` selects system mode, `oc -l` selects the local

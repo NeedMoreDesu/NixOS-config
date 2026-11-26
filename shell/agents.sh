@@ -1,10 +1,13 @@
 # Agent session launchers. Shared across hosts.
 
 # System-mode opencode in the repo with the short_summary prompt.
+# Goes through oc, so its flags work here too (e.g. `nyvibe -l` selects the
+# local Inkling model); anything after the first unrecognised arg is passed
+# to opencode, then the prompt is appended.
 # Host default ports already include 8088 (llama-embed), 8089
 # (llama-inkling) and 8090 (llama-vl); the explicit -p 8088 is deduped.
 nyvibe() {
-  ( cd "$NYX_REPO" && box -s -p 8088 opencode --prompt "read short_summary.md" "$@" )
+  ( cd "$NYX_REPO" && oc -s -p 8088 "$@" --prompt "read short_summary.md" )
 }
 
 # opencode in a box. Parses the box flags -s/--system, -x/--relaxed,
