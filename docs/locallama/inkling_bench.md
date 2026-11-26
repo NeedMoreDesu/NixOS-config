@@ -674,6 +674,42 @@ prefill compute buffer.
 - Recommendation: keep `-ub 512` for the 256k service. `-ub 2048` only makes
   sense with a smaller expert cache.
 
+## Pinned-only pool depth sweep: 32k to 256k (2026-11-26)
+
+Follow-up to the cap campaign, with the deployed source build switched to the
+pinned-only pool (`patches/llama-cuda-pool-pinned-only.patch`, no byte cap, no
+env var). Same box and flags as the `-ub 512` sweep above. Continued from a
+saved 32k slot (`--slot-save-path`, restore instead of re-prefill), then each
+step prefills the next prompt, saves a slot, and runs one 32-token decode on
+the cached prefix. The `92k` row is the existing prompt chain's 28k delta.
+
+| pre-existing -> total | delta tokens | prefill t/s | decode t/s (32 tok) | VRAM (GB) |
+| ---: | ---: | ---: | ---: | ---: |
+| 32k -> 64k | 31,980 | 120.9 | 10.6 | 10.67 |
+| 64k -> 92k | 28,082 | 81.0 | 13.2 | 10.74 |
+| 92k -> 128k | 36,012 | 60.5 | 14.5 | 10.69 |
+| 128k -> 160k | 31,852 | 46.6 | 13.6 | 10.71 |
+| 160k -> 192k | 31,852 | 38.8 | 13.4 | 10.76 |
+| 192k -> 224k | 31,852 | 33.1 | 12.9 | 10.59 |
+| 224k -> 256k | 32,502 | 28.5 | 2.6* | 10.45 |
+
+\* First 32-token decode immediately after the 256k fill. Warm 96-token decodes
+from the saved 256k slot give 10.6 / 14.65 / 14.60 t/s. The other rows are also
+first-decode-after-prefill samples and read as lower bounds.
+
+- Prefill matches the cap build within noise (120.5, 82.2, 56.9, 46.7, 38.9,
+  32.9, 27.0 t/s).
+- Decode does not collapse at the top end: ~13 t/s at 224k and 14.6 t/s warm at
+  256k, versus the cap's 3.0-5.8 / 7.4-10.6 t/s.
+- No re-capture storm: the 256k decode ended with `graph reallocs` 428, the
+  same as before it (`graphs reused` 30/32); warm 96-token runs report
+  `graph reallocs = 1`, `graphs reused` 94/96.
+- VRAM is flat at 10.4-10.8 GB total across 32k-256k, including the 256k
+  fill/decode. The uncapped pool reached 16.8 GB at 96k; the cap stayed
+  ~10.5-10.8 GB, and pinned-only matches it while keeping top-end decode.
+- Saved slots (32k-256k) are under `/tmp/opencode/breakpoints/`; 256k is 3.3 GB
+  and restores in 1.4 s.
+
 ## Takeaways
 
 - Why VRAM climbs during long prefill: the ggml HIP buffer-pool cache, not

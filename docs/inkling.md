@@ -137,7 +137,10 @@ restart. It is not the context. The deployed source build applies
 referenced by a live captured graph and frees the rest, with no byte cap or
 size heuristic. At 0->32k this leaves ~0.25 GB less resident than the earlier
 256 MiB cap while prefill/decode stay within noise (decode identical); the
-prefill temporaries are transient because prefill is never captured. See
+prefill temporaries are transient because prefill is never captured. A
+32k->256k `-ub 512` sweep holds prefill at 120.9 -> 28.5 t/s (matching the cap)
+and decode at ~13 t/s through 224k and 14.6 t/s warm at 256k, with VRAM flat at
+10.4-10.8 GB; the cap-era 224k/256k decode collapse (3-10 t/s) is gone. See
 [inkling_vram_cluttering_issue](locallama/inkling_vram_cluttering_issue.md).
 
 The host box defaults include **8089** (alongside 8088 for embeddings), so a
