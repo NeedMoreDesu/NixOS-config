@@ -8,3 +8,7 @@ alias ai='ai-toggle'
 # is unaffected; add the "Manually Block Sleep and Screen Locking" widget if
 # the screen should stay unlocked too.
 alias caffeinate='systemd-inhibit --what=idle:sleep:handle-lid-switch --why="away" sleep infinity'
+
+# Reload xremap's config (it can't live-reload): restart the session user
+# service. nyx does the same as root after a switch; this is for hand edits.
+alias xremap-reset='systemctl --user restart xremap'
