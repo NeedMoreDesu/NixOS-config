@@ -66,6 +66,11 @@ in
         "--cpu-moe"
         "--moe-cache-mib" "2048"
         "--moe-cache-cpu-share" "0.45"
+        # Pin the ~16 GB of CPU-resident experts. Without this the desktop and
+        # opencode evict model pages from the page cache, every expert upload
+        # faults from disk, and prefill collapses to ~10 t/s or appears hung
+        # for minutes. Needs LimitMEMLOCK=infinity on user@.service.
+        "--load-mode" "mmap+mlock"
         "--ubatch-size" "512"
         "--ctx-size" "262144"
         "--cache-type-k" "q4_0"

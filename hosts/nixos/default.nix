@@ -23,6 +23,12 @@
 
   networking.hostName = "nixos";
 
+  # The local llama.cpp service mlocks the ~16 GB Inkling model so the desktop
+  # and opencode cannot evict its expert pages. The user manager starts with an
+  # 8 MiB memlock limit, so raise it for all user services.
+  systemd.services."user@".overrideStrategy = "asDropin";
+  systemd.services."user@".serviceConfig.LimitMEMLOCK = "infinity";
+
   # This option defines the first version of NixOS you have installed on this particular machine,
   # and is used to maintain compatibility with application data (e.g. databases) created on older NixOS versions.
   #

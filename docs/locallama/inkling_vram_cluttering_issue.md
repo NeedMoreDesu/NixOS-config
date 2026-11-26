@@ -507,3 +507,27 @@ accumulating while the server keeps running.
   possible, but the log is very noisy. A quieter tracer (`rocprof`,
   `ltrace`, or a corrected `LD_PRELOAD` wrapper) would help confirm the
   exact live/cached split at high context.
+
+## 2026-11-26 follow-up: page-cache thrash, not a pool deadlock
+
+The long stall was reproduced with gdb on a clean GPU, and the unpatched
+prebuilt hangs the same way. The main thread sits in
+`ggml_backend_cuda_synchronize` -> `hipStreamSynchronize` (or directly in
+`hipMemcpyAsync`) inside `llama_context::sched_copy_experts`, waiting for a
+stream that only makes progress when the mmap'd expert pages are faulted in.
+The same binary runs 31k-token turns in 12-40 s while the model stays in page
+cache (`Cached` ~17 GiB); freeing a few GB of idle opencode sessions was enough
+to remove the stalls, and letting the cache fill removed them again.
+
+So the primary trigger is the ~16 GB mmap'd CPU expert set being evicted and
+re-read while experts are uploaded to the GPU, not the pool policy. The service
+now runs with `--load-mode mmap+mlock`; `hosts/nixos/default.nix` raises
+`LimitMEMLOCK` on `user@.service` so the model can actually be locked.
+
+The pinned pool itself was also made capture-safe: it no longer calls
+`hipFree`/`invalidate_cuda_graphs` from `free()`, tracks capture state on the
+backend context, grows instead of freeing when a capture fills the old
+256-slot array, and trims cached non-graph buffers only from
+`ggml_backend_cuda_synchronize`. VRAM stayed flat at ~10.9 GiB over repeated
+10-turn sessions.
+
