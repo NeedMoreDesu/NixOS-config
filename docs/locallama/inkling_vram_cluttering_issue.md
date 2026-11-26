@@ -524,6 +524,12 @@ re-read while experts are uploaded to the GPU, not the pool policy. The service
 now runs with `--load-mode mmap+mlock`; `hosts/nixos/default.nix` raises
 `LimitMEMLOCK` on `user@.service` so the model can actually be locked.
 
+At the 2026-11-26 17:08 check the running `user@1000` manager predated that
+drop-in and still had the old 8 MiB limit, so mlock failed (`VmLck: 0`,
+`failed to mlock ... Cannot allocate memory`). A reboot or full logout is
+required before the pinning is effective; verify `VmLck` is ~16 GB after the
+manager restarts.
+
 The pinned pool itself was also made capture-safe: it no longer calls
 `hipFree`/`invalidate_cuda_graphs` from `free()`, tracks capture state on the
 backend context, grows instead of freeing when a capture fills the old
