@@ -72,6 +72,6 @@ No plan is currently open.
   autostart**; start them by name with `ai on -l` / `ai on lfm`, stop with
   `ai off`. See [inkling](docs/inkling.md).
 - GPU headroom for the local LLM is `ai headroom [N]` (`0`/`off` = full
-  speed; default 15%); the Inkling source build carries the throttle patch.
+  speed; default 10%); the Inkling source build carries the throttle patch.
   See [inkling](docs/inkling.md#gpu-headroom).
 - `stateVersion` is pinned in `hosts/nixos/default.nix` — never bump it.

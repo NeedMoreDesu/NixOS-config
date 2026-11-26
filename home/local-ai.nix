@@ -17,11 +17,11 @@ let
   # patches/llama-cpp-gpu-headroom.patch. `default` is the percentage of
   # wall-clock GPU time left idle when the service starts; use `ai headroom`
   # to change it at runtime. The companion watcher raises it to `apps` while
-  # one of the `watch` processes is running. The default of 15 leaves the
+  # one of the `watch` processes is running. The default of 10 leaves the
   # desktop some compute room even when no tracked app is open.
   gpuHeadroom = {
     enable = true;
-    default = 15;
+    default = 10;
     apps = 40;
     watch = [ "godot" "godot4" "krita" ];
   };
