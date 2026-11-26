@@ -183,9 +183,11 @@ Verified on this gfx1201 box: HIP stream priorities are supported.
 (-1). llama.cpp currently creates **default-priority** streams in
 `ggml/src/ggml-cuda/common.cuh`, so all its work competes as normal priority.
 
-A low-priority llama stream would yield dynamically to higher-priority contexts
-(a game/compositor) only when there is contention, with no fixed loss when the
-GPU is otherwise idle. That is a different tool from a duty-cycle sleep:
+A low-priority llama stream could in principle yield dynamically to
+higher-priority contexts (a game/compositor) only when there is contention, with
+no fixed loss when the GPU is otherwise idle. That is a different tool from a
+duty-cycle sleep. The preload test below did **not** reproduce that effect for
+llama, so this is not adopted yet:
 
 - priority decides *who wins* at kernel boundaries;
 - headroom sleep caps *average* GPU time;
@@ -204,9 +206,30 @@ touch `common.cuh` like the pool patch, so keep the hunk isolated. Per-phase
 priority (prefill low, decode normal) would need two streams and a sync at the
 phase boundary; more invasive, not phase 1.
 
-Experiment before adopting: two processes running the same HIP busy kernel on a
-low and a high priority stream; compare throughput. Then patch llama and measure
-a game/compositor frame-time A/B.
+Measured 2026-11-26 with an `LD_PRELOAD` interposer on
+`hipStreamCreateWithFlags` (confirmed with `hipStreamGetPriority`; caller was
+`libggml-hip.so`, so this reached llama's streams):
+
+- burn vs burn, two processes: equal priority 50/50 (~149 kps each); normal vs
+  low ~276 vs ~30 kps; high vs normal ~276 vs ~28 kps. Cross-process priority is
+  real for identical continuous kernels.
+- llama prefill under a 100% normal burn: normal-priority llama ~134 t/s,
+  low-priority ~136, high-priority ~132; burn stayed ~291-295 kps in every case.
+  With graphs disabled: normal ~139, high ~140 under the same burn. Normal
+  llama vs a low-priority burn also stayed ~267 t/s with burn ~292 kps.
+- 20% duty burn (430 ms sleep): alone ~29.6 kps; with normal llama ~31.9 kps;
+  with low llama ~31.9 kps. Llama prefill was ~429 t/s under burn vs ~460 solo.
+  The light competitor did not struggle in any case.
+
+Conclusion: stream priority works for the synthetic burn, but forcing llama's
+HIP streams low/high did not change its throughput or protect the burn. Either
+the workloads co-run on spare resources, or priority does not propagate through
+llama's hipBLASLt / graph / bursty CPU-MoE submission path. Do not drop the
+ubatch/headroom work on the strength of this test.
+
+Next tests if priority is pursued: source-level launch/graph-node priority
+(`hipLaunchAttributePriority`, `hipGraphInstantiateFlagUseNodePriority`), DRM
+context priority, or a real graphics workload with frame-time measurement.
 
 ### Phase-2 fallback (only if needed)
 
@@ -300,8 +323,10 @@ pinned-pool patch.
 - [ ] Set service defaults: prefill 10, decode 0; enable `--props`.
 - [x] Bench `-ub 128/256/512`: prefill 241/359/459 t/s; decode unchanged with
       forced identical tokens. Recorded above.
-- [ ] Test cross-process HIP priority (low vs high busy kernel) before deciding
-      whether to add `--gpu-priority`.
+- [x] Test cross-process HIP priority: burn-vs-burn works, but the LD_PRELOAD
+      llama low/high streams showed no effect. Recorded above.
+- [ ] If priority is still pursued: source-level launch/graph-node or DRM
+      context priority, plus a real graphics-workload frame-time A/B.
 - [ ] Build, smoke-test, run the headroom prefill/decode A/B matrix.
 - [ ] Move the result into `docs/inkling.md` + bench log and delete this plan.
 
