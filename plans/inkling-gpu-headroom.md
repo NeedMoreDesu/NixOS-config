@@ -175,6 +175,39 @@ Start with **256** as the candidate default: it halves the burst length for a
 ~22 % prefill-throughput cost, and decode is unchanged. Fall back to 128 if
 spikes still matter, or keep 512 if prefill throughput is more important.
 
+### Alternative: GPU priority instead of fixed duty cycle
+
+Verified on this gfx1201 box: HIP stream priorities are supported.
+`hipDeviceGetStreamPriorityRange` returned `least=1, greatest=-1`, and
+`hipStreamCreateWithPriority` accepted/honored low (+1), normal (0) and high
+(-1). llama.cpp currently creates **default-priority** streams in
+`ggml/src/ggml-cuda/common.cuh`, so all its work competes as normal priority.
+
+A low-priority llama stream would yield dynamically to higher-priority contexts
+(a game/compositor) only when there is contention, with no fixed loss when the
+GPU is otherwise idle. That is a different tool from a duty-cycle sleep:
+
+- priority decides *who wins* at kernel boundaries;
+- headroom sleep caps *average* GPU time;
+- `-ub` caps the *maximum burst*.
+
+It is still not a partition: no MIG/MPS, and a running kernel is not preempted.
+The kernel side is HWS with `sched_policy=0`, `hws_max_conc_proc=-1` (max
+concurrent processes), `mcbp=-1` (mid-command-buffer preemption auto) and
+`queue_preemption_timeout_ms=9000`. Cross-process priority enforcement is
+driver-dependent and must be measured, not assumed.
+
+Possible shape: add a separate `--gpu-priority low|normal|high` flag and a
+separate `patches/llama-cpp-gpu-priority.patch` that creates the compute streams
+with `hipStreamCreateWithPriority`/`cudaStreamCreateWithPriority`. It would
+touch `common.cuh` like the pool patch, so keep the hunk isolated. Per-phase
+priority (prefill low, decode normal) would need two streams and a sync at the
+phase boundary; more invasive, not phase 1.
+
+Experiment before adopting: two processes running the same HIP busy kernel on a
+low and a high priority stream; compare throughput. Then patch llama and measure
+a game/compositor frame-time A/B.
+
 ### Phase-2 fallback (only if needed)
 
 Event-based prefill pacing: record a HIP event at the end of each ubatch, wait
@@ -267,6 +300,8 @@ pinned-pool patch.
 - [ ] Set service defaults: prefill 10, decode 0; enable `--props`.
 - [x] Bench `-ub 128/256/512`: prefill 241/359/459 t/s; decode unchanged with
       forced identical tokens. Recorded above.
+- [ ] Test cross-process HIP priority (low vs high busy kernel) before deciding
+      whether to add `--gpu-priority`.
 - [ ] Build, smoke-test, run the headroom prefill/decode A/B matrix.
 - [ ] Move the result into `docs/inkling.md` + bench log and delete this plan.
 
