@@ -131,9 +131,49 @@ not guaranteed GPU-busy time; the tail of the current ubatch can overlap the
 sleep. Measure the actual `gpu_busy_percent`/PPT. If the prefill burst stays at
 ~100 % or the speed loss is far from `P_pp`, use the phase-2 fallback below.
 
-Granularity is one ubatch (~1 s at `-ub 512`). For a finer, less bursty gap use
-`-ub 128`/`256`; that also changes VRAM and throughput, so it is a separate
-experiment.
+Granularity is one ubatch. Headroom cannot shorten the burst; it only controls
+the average between chunks. Peak control is the ubatch size (next section).
+
+### Peak control: prefill ubatch size
+
+`--ubatch-size` is the only knob that shortens the uninterruptible prefill burst.
+It is effectively prefill-only here: with `--parallel 1` and no speculative
+decoding, decode always submits one token per ubatch, so changing `-ub` does not
+change decode compute. It does change the reserved compute buffer (smaller `-ub`
+means a smaller reservation) and can shift pool/graph behavior, so decode t/s
+must be verified, but it should stay within noise.
+
+`-ub` is a context-init parameter, not runtime-switchable; tuning it means a
+service restart per value, unlike the `/props` headroom value.
+
+Measured 2026-11-26 (5751-token cold prompt, deployed flags, 256k context,
+2 GiB cache, share 0.45; VRAM is card1 total, including the ~2.3 GiB desktop):
+
+| `-ub` | prefill t/s | prefill time | full chunk | load VRAM | peak VRAM |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 128 | 241.0 | 23.9 s | ~0.53 s | 8.68 GiB | 8.80 GiB |
+| 256 | 358.9 | 16.0 s | ~0.71 s | 8.81 GiB | 8.93 GiB |
+| 512 | 459.1 | 12.5 s | ~1.12 s | 9.29 GiB | 9.46 GiB |
+
+Prefill cost is large and monotonic: 256 is 78 % of 512's prefill rate, 128 is
+52 %. The smaller chunk also reserves ~0.5-0.6 GiB less VRAM.
+
+Decode is unaffected. With `logit_bias` forcing the same token for every run
+(so the generated content is identical), five-run medians were **28.42 /
+28.31 / 28.42 t/s** for 128/256/512. Without forcing, the changed prefill
+batching altered the first token (text vs blank for the same prompt), and the
+decode numbers then ranged 19-25 t/s. That was a content/expert-selection
+artifact, not an ubatch effect.
+
+Those are shallow (5.7k) full-chunk times; at depth, use the measured `-ub 512`
+rates (~121 t/s at 32k, ~47 t/s at 128k) and expect the same ub ratios unless a
+deeper sweep says otherwise. A typical cached turn (~300 new tokens) is one
+chunk at 512, two at 256, and three at 128; only the latter two give the headroom
+sleep boundaries to act on.
+
+Start with **256** as the candidate default: it halves the burst length for a
+~22 % prefill-throughput cost, and decode is unchanged. Fall back to 128 if
+spikes still matter, or keep 512 if prefill throughput is more important.
 
 ### Phase-2 fallback (only if needed)
 
@@ -225,7 +265,9 @@ pinned-pool patch.
 - [ ] Extend `/props` for both values; add `ai headroom` manual wrapper.
 - [ ] Add the headroom patch to `pkgs/llama-cpp-unsloth-src.nix`.
 - [ ] Set service defaults: prefill 10, decode 0; enable `--props`.
-- [ ] Build, smoke-test, run the prefill/decode A/B matrix.
+- [x] Bench `-ub 128/256/512`: prefill 241/359/459 t/s; decode unchanged with
+      forced identical tokens. Recorded above.
+- [ ] Build, smoke-test, run the headroom prefill/decode A/B matrix.
 - [ ] Move the result into `docs/inkling.md` + bench log and delete this plan.
 
 ## Out of scope
