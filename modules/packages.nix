@@ -41,6 +41,10 @@ in
   environment.systemPackages = with pkgs; [
     git
     fastfetch
+    # Python 3 with pip + the venv module, so `python -m venv` works out of
+    # the box. Building C extensions from source in a venv also needs a
+    # toolchain/headers (gcc, pkg-config, ...); prebuilt wheels don't.
+    python3
     sourcegit
     godot
     krita
