@@ -80,7 +80,7 @@ index 71c907c..aa25951 100644
      // The logits for which llama_batch.logits[i] != 0 are stored contiguously
      // in the order they have appeared in the batch.
 diff --git a/src/llama-context.cpp b/src/llama-context.cpp
-index b507b6d..be6213b 100644
+index b507b6d..4dddeb8 100644
 --- a/src/llama-context.cpp
 +++ b/src/llama-context.cpp
 @@ -16,11 +16,13 @@
@@ -127,7 +127,7 @@ index b507b6d..be6213b 100644
          }
  
          if (cparams.moe_cache_size > 0) {
-@@ -987,31 +998,49 @@ void llama_context::synchronize() {
+@@ -987,31 +998,51 @@ void llama_context::synchronize() {
  
      ggml_backend_sched_synchronize(sched.get());
  
@@ -136,8 +136,9 @@ index b507b6d..be6213b 100644
 +    // serialize CPU and GPU work (especially with --cpu-moe) and can make
 +    // prefill several times slower than the requested headroom.
 +    const int32_t gpu_headroom = gpu_headroom_pct.load(std::memory_order_relaxed);
-+    if (gpu_headroom > 0 && has_gpu_backend && !cparams.pipeline_parallel && n_queued_tokens > 0) {
-+        const int64_t busy_us = ggml_time_us() - t_compute_start_us - t_throttle_sleep_us;
++    if (gpu_headroom > 0 && has_gpu_backend && !cparams.pipeline_parallel &&
++            n_queued_tokens > 0 && t_graph_compute_start_us > 0) {
++        const int64_t busy_us = ggml_time_us() - t_graph_compute_start_us - t_throttle_sleep_us;
 +        if (busy_us > 1000) {
 +            const int64_t sleep_us = (int64_t) ((double) busy_us * gpu_headroom / (100 - gpu_headroom));
 +            t_throttle_sleep_us += sleep_us;
@@ -177,10 +178,11 @@ index b507b6d..be6213b 100644
      n_queued_tokens = 0;
      t_compute_start_us = 0;
 +    t_throttle_sleep_us = 0;
++    t_graph_compute_start_us = 0;
  }
  
  const llama_model & llama_context::get_model() const {
-@@ -1733,6 +1762,19 @@ bool llama_context::get_causal_attn() const {
+@@ -1733,6 +1764,19 @@ bool llama_context::get_causal_attn() const {
      return cparams.causal_attn;
  }
  
@@ -200,7 +202,18 @@ index b507b6d..be6213b 100644
  bool llama_context::set_sampler(llama_seq_id seq_id, llama_sampler * sampler) {
      if (!sampler && sampling.samplers.count(seq_id) == 0) {
          return true;
-@@ -4495,6 +4537,7 @@ llama_context_params llama_context_default_params() {
+@@ -3187,6 +3231,10 @@ ggml_status llama_context::graph_compute(
+ 
+     copy_experts.reset();
+ 
++    if (t_graph_compute_start_us == 0) {
++        t_graph_compute_start_us = ggml_time_us();
++    }
++
+     auto status = ggml_backend_sched_graph_compute_async(sched.get(), gf);
+     if (status != GGML_STATUS_SUCCESS) {
+         LLAMA_LOG_ERROR("%s: ggml_backend_sched_graph_compute_async failed with error %d\n", __func__, status);
+@@ -4495,6 +4543,7 @@ llama_context_params llama_context_default_params() {
          /*.sampler                     =*/ nullptr,
          /*.n_sampler                   =*/ 0,
          /*.ctx_other                   =*/ nullptr,
@@ -208,7 +221,7 @@ index b507b6d..be6213b 100644
      };
  
      return result;
-@@ -4732,6 +4775,14 @@ void llama_synchronize(llama_context * ctx) {
+@@ -4732,6 +4781,14 @@ void llama_synchronize(llama_context * ctx) {
      ctx->synchronize();
  }
  
@@ -224,7 +237,7 @@ index b507b6d..be6213b 100644
      ctx->synchronize();
  
 diff --git a/src/llama-context.h b/src/llama-context.h
-index 6ce13b6..5679201 100644
+index 6ce13b6..f0b4669 100644
 --- a/src/llama-context.h
 +++ b/src/llama-context.h
 @@ -13,6 +13,7 @@
@@ -256,9 +269,11 @@ index 6ce13b6..5679201 100644
      // training
      ggml_opt_context_t opt_ctx = nullptr;
  
-@@ -507,6 +515,7 @@ private:
+@@ -506,7 +514,9 @@ private:
+     mutable int64_t t_eval_us   = 0;
  
      mutable int64_t t_compute_start_us = 0;
++    mutable int64_t t_graph_compute_start_us = 0;
      mutable int64_t n_queued_tokens    = 0;
 +    mutable int64_t t_throttle_sleep_us = 0;
  
