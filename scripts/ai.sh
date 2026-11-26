@@ -17,16 +17,17 @@ services=(
 
 usage() {
   cat <<'EOF'
-usage: ai [on|off|r|restart] [TARGET...]
+usage: ai [on|off|r|restart|list] [TARGET...]
 
   on TARGET...         start for this session (target required)
   off [TARGET...]      stop (no target = all)
   r|restart TARGET...  restart; alias r (target required)
+  list|ls [TARGET...]  show state; targets search/filter (no target = all)
 
   With no arguments, show this help and an overview of all services
   (unit, active, enabled, kind, label).
 
-targets (on/off/r):
+targets (on/off/r/list):
   -e, --embeddings     best embedding service
   -l, --llm            best LLM service
   NAME                 case-insensitive partial match on unit, label or alias
@@ -34,6 +35,8 @@ targets (on/off/r):
 
 examples:
   ai
+  ai list
+  ai ls InCl
   ai on -e
   ai on -l
   ai on lfm
@@ -136,10 +139,10 @@ info() {
   done <<<"$(printf '%s\n' "${services[@]}")"
 }
 
-do_overview() {
-  local unit kind rank label aliases hint model active enabled unit_file
-  printf '%-14s %-9s %-9s %-11s %s\n' UNIT ACTIVE ENABLED KIND LABEL
-  while IFS='|' read -r unit kind rank label aliases hint model; do
+overview_row() {
+  local unit=$1 entry kind rank label aliases hint model active enabled unit_file
+  while IFS='|' read -r entry kind rank label aliases hint model; do
+    [[ $entry == "$unit" ]] || continue
     unit_file="$HOME/.config/systemd/user/$unit.service"
     if [[ ! -e $unit_file ]]; then
       active=missing
@@ -151,7 +154,18 @@ do_overview() {
       enabled=${enabled:-unknown}
     fi
     printf '%-14s %-9s %-9s %-11s %s\n' "$unit" "$active" "$enabled" "$kind" "$label"
+    return
   done <<<"$(printf '%s\n' "${services[@]}")"
+}
+
+do_overview() {
+  local unit
+  printf '%-14s %-9s %-9s %-11s %s\n' UNIT ACTIVE ENABLED KIND LABEL
+  if ((${#sel[@]})); then
+    for unit in "${sel[@]}"; do overview_row "$unit"; done
+  else
+    for unit in "${services[@]%%|*}"; do overview_row "$unit"; done
+  fi
 }
 
 do_list() {
@@ -164,6 +178,7 @@ do_list() {
 
 action=${1:-}
 [[ $action == r ]] && action=restart
+[[ $action == ls ]] && action=list
 case "$action" in
   on | off | restart)
     shift
@@ -185,8 +200,17 @@ case "$action" in
       add_all
     fi
     ;;
-  status | list)
-    die "'$action' was removed; run 'ai' for the service overview"
+  list)
+    shift
+    if ! systemctl --user show-environment >/dev/null 2>&1; then
+      die "cannot reach the systemd user manager (no user session bus?)"
+    fi
+    resolve_targets "$@"
+    do_overview
+    exit 0
+    ;;
+  status)
+    die "'status' was removed; use 'ai list' (alias 'ai ls')"
     ;;
   "")
     usage

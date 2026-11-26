@@ -199,6 +199,8 @@ lives in `shell/aliases.sh`).
 
 ```
 ai                    # help + overview: unit, active, enabled, kind, label
+ai ls InCl            # search/list by target (alias of `ai list`)
+ai list GEMMA
 ai off                # all
 ai on -e              # best embedding service
 ai on -l              # best LLM service
@@ -209,8 +211,8 @@ ai r -l               # restart (alias r); reloads the model into memory
 
 `-e`/`--embeddings` and `-l`/`--llm` select by service kind, so they never
 depend on pattern matching. Named targets are partial, case-insensitive, and
-ignore `-`, `_` and spaces; this applies to `on`, `off` and `restart` (and
-`r`) alike. `on` and `restart`/`r` require an explicit target and print the
+ignore `-`, `_` and spaces; this applies to `on`, `off`, `restart` (and `r`)
+and `list`/`ls` alike. `on` and `restart`/`r` require an explicit target and print the
 service list when omitted; an ambiguous name is rejected instead of starting
 several models. `off` without a target stops everything. `on` only starts the
 unit for the current session; the units have no `[Install]`/`WantedBy`, so

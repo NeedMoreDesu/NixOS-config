@@ -88,7 +88,7 @@ calls misbehave, supply `--chat-template-file` with the model's
 ```bash
 fetch-lfm25vl                 # one-time, ~1.31 GB
 ai on lfm                     # start this service
-ai                            # overview: unit, active, enabled, kind, label
+ai ls lfm                     # overview of this service (alias of `ai list`)
 curl -s http://127.0.0.1:8090/health
 curl -s http://127.0.0.1:8090/v1/models | jq .
 journalctl --user -u llama-vl -f
