@@ -32,6 +32,15 @@ prompt): dGPU prefill **396 t/s**, short forced-token decode **11.8 t/s**.
 At the deployed 256k/2 GiB-cache settings the dGPU measures ~459 t/s prefill
 and ~19 t/s text decode (~28 t/s with a forced identical token).
 
+llama.cpp has no prefill-only backend placement: offload is per layer/tensor,
+and the same weights run prefill and decode. The simple way to leave the dGPU
+free is CPU-only (`-ngl 0`). A short text test (`ctx 8192`, f16 KV, no expert
+cache) measured **376 t/s prefill** and **8.7 t/s forced-token decode**, close
+to the dGPU at the same small context (396/11.8 above). A true
+GPU-prefill/CPU-decode split needs a two-process KV save/restore handoff (the
+256k save was 3.3 GB / ~69 s in the bench) or a custom two-backend patch, not a
+server flag.
+
 ## Why a pinned Unsloth build
 
 - nixpkgs `llama-cpp` is upstream **v1.0.0 / b12359**, which predates both the
