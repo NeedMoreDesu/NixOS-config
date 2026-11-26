@@ -17,6 +17,21 @@ host RAM) at **256k** context. Local deployment is GGUF only on this machine:
 the official NVFP4/MXFP8 checkpoint is a vLLM/SGLang path (NVIDIA-only
 recipe).
 
+## GPU support
+
+Only the RX 9070 XT is usable. The build is compiled with
+`GPU_TARGETS=gfx1200;gfx1201` and the TheRock bundle carries only gfx120X
+code/tuning data, so the Raphael iGPU (`gfx1036`, 2 CUs) aborts at the first
+GPU FILL with `ROCm error: device kernel image is invalid`
+(`HIP_VISIBLE_DEVICES=1`). The service already runs on the dGPU only; the iGPU
+is not a way to free it for games. A gfx1036 build would need a separate
+ROCm/toolchain and is not practical for this 26B model on 2 CUs.
+
+Single-device test (same flags, `ctx 8192`, 512 MiB expert cache, 990-token
+prompt): dGPU prefill **396 t/s**, short forced-token decode **11.8 t/s**.
+At the deployed 256k/2 GiB-cache settings the dGPU measures ~459 t/s prefill
+and ~19 t/s text decode (~28 t/s with a forced identical token).
+
 ## Why a pinned Unsloth build
 
 - nixpkgs `llama-cpp` is upstream **v1.0.0 / b12359**, which predates both the
