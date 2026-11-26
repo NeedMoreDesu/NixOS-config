@@ -321,8 +321,10 @@ box() {
       # Relaxed: bind the whole host root read-write (so /dev, /proc, /sys,
       # /run, /tmp and the network are all the host's) and then hide only
       # $HOME. bwrap still creates a user namespace and maps mika's uid.
+      # --dev-bind, not --bind: --bind recursively remounts every submount
+      # nodev, which makes /dev/null etc. unusable (EACCES).
       flags+=(
-        --bind / /
+        --dev-bind / /
         --unshare-user
         --uid "$(id -u)"
         --gid "$(id -g)"

@@ -65,10 +65,12 @@ attaching to the host's dedicated Chromium (see
 ## Relaxed system mode (`box -x`)
 
 For debugging when the agent needs the host: the whole host root is bound
-**read-write**, so namespaces, mounts, `/dev`, `/proc`, `/sys`, `/run/user`,
-the journal and the network are all the host's. Only `$HOME` is replaced by a
-tmpfs rebuilt from the system allowlists. `-d|--dir` is the explicit escape
-hatch for a specific host directory.
+**read-write** with `--dev-bind`, so namespaces, mounts, `/dev`, `/proc`,
+`/sys`, `/run/user`, the journal and the network are all the host's. (Plain
+`--bind` is wrong here: bwrap recursively remounts every submount `nodev`,
+which makes `/dev/null` and other device nodes fail with EACCES.) Only
+`$HOME` is replaced by a tmpfs rebuilt from the system allowlists.
+`-d|--dir` is the explicit escape hatch for a specific host directory.
 
 - Host PID namespace (no `--unshare-pid`), so host processes are visible and
   the agent can attach to processes it starts.
