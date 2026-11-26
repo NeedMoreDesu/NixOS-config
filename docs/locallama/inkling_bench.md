@@ -12,8 +12,8 @@ Every speed is labelled **read** or **write**: read = prefill/input processing
 ## Inputs
 
 - Model: `Inkling-2-Mini-UD-Q4_K_M.gguf` (16.61 GB, Unsloth root layout).
-  Bench runs were text-only, no mmproj; the deployed unit now loads the
-  projector with `--no-mmproj-offload`.
+  Bench runs were text-only, no mmproj; the deployed unit loads the projector
+  with `--no-mmproj-offload` and vision works (image encoding is CPU-side).
 - Server: `llama-server-inkling` from `pkgs/llama-cpp-unsloth.nix`, build
   `b12631-mix-acc0843` (upstream b12631 + Unsloth Inkling patches).
 - GPU: RX 9070 XT, 15.92 GiB VRAM, PCIe 5.0 x16.
@@ -547,9 +547,10 @@ Notes:
 - The cap removes the cumulative retention: idle growth is +0.38 GiB at 25k
   (vs +1.27 GiB prebuilt) and +0.23 GiB at 80k (vs +5.14 GiB prebuilt at 78k
   in the earlier campaign).
-- 80k write speed and 128k/256k end-to-end were not measured. The cap bounds
-  the disposable cache, not the live set (KV, expert cache, graph/compute
-  buffer).
+- 80k write speed was not measured in this cap campaign. 128k and 256k
+  end-to-end were covered later with the pinned-only pool (below). The cap
+  bounds the disposable cache, not the live set (KV, expert cache,
+  graph/compute buffer).
 - Earlier nixpkgs-ROCm builds of the same source were 192–211 t/s at 25k.
   That regression was the toolchain (ROCm 7.2.4/Clang 22 and Nix GCC 16 CPU
   headers), not the pool patch; the deployed TheRock/Clang 24 recipe restores
@@ -611,9 +612,11 @@ Notes:
 - A 64k request issued *after* the 128k fill (shorter prompt reusing a longer
   cached prefix) froze: main thread 100 % CPU, GPU ~5 % idle, `/slots`
   unresponsive, log stopped at `f_keep = 0.499` with repeated `cancel task`
-  and no prompt-processing lines. This is a host-side cache-trim freeze, not
-  the pool free path the patch targets. Running in increasing order avoids it;
-  the 128k cache still needs a separate fix.
+  and no prompt-processing lines. This was later traced to the ~16 GB mmap'd
+  expert set being evicted from page cache, not the pool or a prompt-cache
+  trim. Running in increasing order avoided it during the sweep; the deployed
+  `--load-mode mmap+mlock` (with `LimitMEMLOCK=infinity` once the user manager
+  restarts) fixes the stall.
 
 ### Full 256k context: 128k to 256k (same build, `-ub 512`)
 
@@ -677,11 +680,13 @@ prefill compute buffer.
 ## Pinned-only pool depth sweep: 32k to 256k (2026-11-26)
 
 Follow-up to the cap campaign, with the deployed source build switched to the
-pinned-only pool (`patches/llama-cuda-pool-pinned-only.patch`, no byte cap, no
-env var). Same box and flags as the `-ub 512` sweep above. Continued from a
-saved 32k slot (`--slot-save-path`, restore instead of re-prefill), then each
-step prefills the next prompt, saves a slot, and runs one 32-token decode on
-the cached prefix. The `92k` row is the existing prompt chain's 28k delta.
+pinned-only pool (`patches/llama-cuda-pool-pinned-only.patch`: only
+graph-pinned buffers stay resident; non-pinned buffers are released at the
+next synchronized point). Same box and flags as the `-ub 512` sweep above.
+Continued from a saved 32k slot (`--slot-save-path`, restore instead of
+re-prefill), then each step prefills the next prompt, saves a slot, and runs
+one 32-token decode on the cached prefix. The `92k` row is the existing
+prompt chain's 28k delta.
 
 | pre-existing -> total | delta tokens | prefill t/s | decode t/s (32 tok) | VRAM (GB) |
 | ---: | ---: | ---: | ---: | ---: |
@@ -715,10 +720,14 @@ first-decode-after-prefill samples and read as lower bounds.
 - Why VRAM climbs during long prefill: the ggml HIP buffer-pool cache, not
   the prompt or KV cache. See
   [inkling_vram_cluttering_issue](inkling_vram_cluttering_issue.md). The
-  deployed source build reproduces the prebuilt toolchain. It now uses the
-  pinned-only pool (no byte cap); the 0->32k A/B against the earlier 256 MiB
-  cap is within noise on prefill/decode and saves ~0.25 GB. The cap-era
-  numbers in this doc are historical.
+  deployed source build reproduces the prebuilt toolchain. It now keeps only
+  graph-pinned buffers; the 0->32k A/B against the earlier 256 MiB cap is
+  within noise on prefill/decode and saves ~0.25 GB. The cap-era numbers in
+  this doc are historical.
+- Deep-context stalls were the ~16 GB mmap'd expert set being evicted from
+  page cache, not the pool. The unit uses `--load-mode mmap+mlock` and
+  `LimitMEMLOCK=infinity` on `user@.service`; after the 2026-11-26 reboot the
+  lock is active (`VmLck` ~16 GB) and the stalls no longer reproduce.
 - Deployed service: 256k context, `-cmoe` with a 2048 MiB cache, share 0.45,
   ub512 and q4_0/q4_0 KV → ~455 read t/s and ~19.4 write t/s at ~10.2 GiB
   loaded / 10.4 GiB peak VRAM (~5.5 GiB free).

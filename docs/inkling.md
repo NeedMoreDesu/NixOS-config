@@ -1,11 +1,13 @@
 # Inkling 2 Mini (local, Unsloth source build)
 
-**Status: implemented 2026-11-23; pinned-only HIP pool deployed 2026-11-25.**
-Standard deployment is 256k context with vision (projector kept in host RAM),
-`--cpu-moe` with a 2 GiB expert cache and q4_0 KV. The legacy HIP pool keeps
-only buffers referenced by a live captured graph, so there is no cache-size
-knob. The model and projector are downloaded. Start it with `ai on -l`; the
-unit has no autostart.
+**Status: implemented 2026-11-23; pinned-only HIP pool deployed 2026-11-25,
+made capture-safe with deferred frees 2026-11-26; mlock active after the
+2026-11-26 reboot.**
+Standard deployment is 256k context with working vision (projector kept in host
+RAM), `--cpu-moe` with a 2 GiB expert cache, q4_0 KV, and
+`--load-mode mmap+mlock`. The legacy HIP pool keeps only graph-pinned buffers,
+so there is no cache-size knob. The model and projector are downloaded. Start
+it with `ai on -l`; the unit has no autostart.
 
 ## What it is
 
@@ -86,7 +88,7 @@ layout change breaks the npm/UI build.
 | --- | --- |
 | `pkgs/llama-cpp-unsloth.nix` | Pinned prebuilt, ROCm bundle, wrappers (rollback fallback). |
 | `pkgs/llama-cpp-unsloth-src.nix` | Deployed source build of the prebuilt's exact commit and TheRock toolchain, plus the pinned-only pool. |
-| `patches/llama-cuda-pool-pinned-only.patch` | Pinned-only `ggml_cuda_pool_leg` cache (no byte cap). |
+| `patches/llama-cuda-pool-pinned-only.patch` | Pinned-only HIP pool: keeps graph-referenced buffers, releases the rest at a synchronized point. |
 | `scripts/fetch-inkling.sh` | Pinned root-layout GGUFs + sha256 checks. |
 | `home/local-ai.nix` | `llama-inkling` user service, fetch wrapper, `ai-toggle`. |
 | `scripts/ai.sh` | Start/stop logic and overview for local AI services. |
@@ -126,7 +128,7 @@ The service listens on `127.0.0.1:8089` (loopback only, no auth) with:
 
 ```
 --mmproj ~/models/inkling-2-mini/mmproj-F16.gguf --no-mmproj-offload
---jinja -ngl 99 --cpu-moe --moe-cache-mib 2048 --moe-cache-cpu-share 0.45
+--jinja -ngl 99 --load-mode mmap+mlock --cpu-moe --moe-cache-mib 2048 --moe-cache-cpu-share 0.45
 -ub 512 -c 262144
 -ctk q4_0 -ctv q4_0 -fa on --parallel 1
 --temp 1.0 --top-p 1.0 --top-k 0 --min-p 0.0
@@ -153,24 +155,27 @@ f16 attention. Long-context PPL could not be measured.
 The mmproj is not in that VRAM figure: `--no-mmproj-offload` keeps the F16
 projector (~610 MB) in host RAM. Text speed and VRAM are unchanged; only
 image requests are affected, and their encoding runs on the CPU (slow).
-Full measurements: [inkling_bench](locallama/inkling_bench.md). VRAM climbs
-during long prefills because the HIP buffer-pool cache retains freed graph
-buffers; stock llama.cpp never bounds that cache, so the high-water stays until
-restart. It is not the context. The deployed source build applies
-`patches/llama-cuda-pool-pinned-only.patch`: the pool keeps only buffers
-referenced by a live captured graph and frees the rest, with no byte cap or
-size heuristic. At 0->32k this leaves ~0.25 GB less resident than the earlier
-256 MiB cap while prefill/decode stay within noise (decode identical); the
-prefill temporaries are transient because prefill is never captured. A
-32k->256k `-ub 512` sweep holds prefill at 120.9 -> 28.5 t/s (matching the cap)
-and decode at ~13 t/s through 224k and 14.6 t/s warm at 256k, with VRAM flat at
-10.4-10.8 GB; the cap-era 224k/256k decode collapse (3-10 t/s) is gone. See
+Full measurements: [inkling_bench](locallama/inkling_bench.md). Stock
+llama.cpp's legacy HIP pool retains every freed graph buffer, so VRAM climbed
+during long prefills and stayed at the high-water until restart; it was never
+the context. The deployed source build applies
+`patches/llama-cuda-pool-pinned-only.patch`: only buffers referenced by a live
+captured graph stay resident, everything else is released at the next
+synchronized point. There is no non-pinned cache to size, trim or tune. At
+0->32k this leaves ~0.25 GB less resident than the earlier 256 MiB cap while
+prefill/decode stay within noise. A 32k->256k `-ub 512` sweep holds prefill at
+120.9 -> 28.5 t/s (matching the cap) and decode at ~13 t/s through 224k and
+14.6 t/s warm at 256k, with VRAM flat at 10.4-10.8 GB; the cap-era 224k/256k
+decode collapse (3-10 t/s) is gone. Deep-context stalls were a separate
+host-side problem: the 16 GB mmap'd expert set was evicted from page cache.
+`--load-mode mmap+mlock` plus `LimitMEMLOCK=infinity` on `user@.service` fixes
+it once the user manager has restarted. See
 [inkling_vram_cluttering_issue](locallama/inkling_vram_cluttering_issue.md).
 
 The host box defaults include **8089** (alongside 8088 for embeddings), so a
 `box` session can reach this service at `127.0.0.1:8089`.
 
-Vision is **on** but not offloaded: `--mmproj .../mmproj-F16.gguf` with
+Vision **works** and is not offloaded: `--mmproj .../mmproj-F16.gguf` with
 `--no-mmproj-offload`. The unit's condition checks both the model and the
 projector; if it is skipped, run `fetch-inkling --vision` to fetch the
 projector. This keeps the ~610 MB projector in host RAM, so text-only VRAM is

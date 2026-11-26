@@ -8,16 +8,20 @@ restarted, with free VRAM dropping below 1 GiB?
 Short answer: it is not the prompt cache and not the KV cache. It is
 `ggml_cuda_pool_leg`, ggml's HIP buffer pool, caching freed graph buffers.
 The cache is reclaimable and does not need to stay in VRAM; it is flushed
-automatically when an allocation fails. It is also **unbounded while the
-server is running**: stock llama.cpp has no cache-size flag or env var, so
-the high-water rises with the largest prefill seen and stays there until the
-process restarts. A prototype cache cap (not a stock setting) and its
-measurements are in [Bounding the cache](#bounding-the-cache-a-prototype-cap-2026-11-24);
-the durable fix is a pool change, not a llama-server flag. A source patch now
-implements that pool change, but its local Nix build is ~30 % slower on
-prefill here, so the deployment still uses the prebuilt and the cache remains
-unbounded until a faster build or an upstream merge lands. See
+automatically when an allocation fails. Stock llama.cpp has no cache-size flag
+or env var, so the high-water rises with the largest prefill seen and stays
+there until the process restarts. A prototype cache cap (not a stock setting)
+and its measurements are in
+[Bounding the cache](#bounding-the-cache-a-prototype-cap-2026-11-24); this led
+to the durable fix, a pool change rather than a llama-server flag. The
+deployed source build applies that change locally
+(`patches/llama-cuda-pool-pinned-only.patch`): only buffers referenced by a
+live captured graph stay resident and everything else is released at the next
+synchronized point, so there is no non-pinned cache to size or trim. See
 [Source patch and source build](#source-patch-and-source-build-2026-11-25).
+The deep-context collapse that looked like a cache freeze was a separate
+page-cache problem, fixed by mlock; see the
+[2026-11-26 follow-up](#2026-11-26-follow-up-page-cache-thrash-not-a-pool-deadlock).
 
 ## Setup
 
@@ -147,9 +151,11 @@ policies:
 
 There is no `--max-pool`-style llama-server flag and no
 `GGML_CUDA_POOL_MAX_*` environment variable in that build. The deployed
-source build now uses a **pinned-only** pool: `free()` keeps only buffers
-referenced by a live captured graph and frees the rest, with no byte cap or
-size heuristic (`patches/llama-cuda-pool-pinned-only.patch`). See
+source build, with the local patch
+(`patches/llama-cuda-pool-pinned-only.patch`), uses a **pinned-only** pool:
+only buffers referenced by a live captured graph stay resident; everything
+else is released at the next synchronized point, so there is no non-pinned
+cache to size or trim. See
 [Source patch and source build](#source-patch-and-source-build-2026-11-25).
 The only allocator selector in the prebuilt is `GGML_CUDA_POOL_DEBUG`, which
 selects the debug allocator. `#22155` ("flush legacy pool on OOM and retry")
@@ -292,8 +298,9 @@ Interpretation:
 - It takes its own lock, but the library's `alloc` does not take that
   lock. The deployed service uses `--parallel 1`; concurrent pool use would
   need a proper lock in both paths.
-- Only text-only, 23.8k/80.9k-token runs were measured. 128k and 256k
-  end-to-end, and write speed at 80k with the cap, are still open.
+- Only text-only, 23.8k/80.9k-token runs were measured for the prototype. 128k
+  and 256k end-to-end were later covered with the pinned-only pool; write speed
+  at 80k with the cap was never measured.
 
 ## Source patch and source build (2026-11-25)
 
@@ -368,8 +375,9 @@ total GPU0 including the desktop):
 The exact-toolchain source build is within noise of the prebuilt: prefill
 292 vs 299 t/s (2.3 %), decode 17.89 vs 17.72 t/s, and 80k prefill 141 t/s
 with no OOM flush. The cap removes the cumulative retention: idle growth is
-+0.34 GiB at 25k and +0.23 GiB at 80k instead of +1.2/+5.1 GiB. 128k and
-256k end-to-end are still unmeasured; the cap does not shrink the live set.
++0.34 GiB at 25k and +0.23 GiB at 80k instead of +1.2/+5.1 GiB. The cap does
+not shrink the live set; 128k and 256k were covered later with the pinned-only
+pool (see [inkling_bench](inkling_bench.md)).
 Detailed campaign and a same-time A/B under load:
 [inkling_bench](inkling_bench.md#bounded-hip-pool-cache-exact-source-build-2026-11-25).
 
@@ -476,6 +484,10 @@ accumulating while the server keeps running.
 
 ## Open questions
 
+Most items below predate the pinned-only deployment and the mlock fix. 128k and
+256k were subsequently swept (see [inkling_bench](inkling_bench.md)); the
+pinned-only pool replaced the cap, and mlock removed the deep-context stalls.
+
 - 128k and 256k were not run end-to-end (a 256k prefill is on the order of
   40+ minutes); the expectation is that the pool flushes and retries, not a
   hard OOM. This needs a deliberate validation with the desktop quiet.
@@ -524,16 +536,17 @@ re-read while experts are uploaded to the GPU, not the pool policy. The service
 now runs with `--load-mode mmap+mlock`; `hosts/nixos/default.nix` raises
 `LimitMEMLOCK` on `user@.service` so the model can actually be locked.
 
-At the 2026-11-26 17:08 check the running `user@1000` manager predated that
-drop-in and still had the old 8 MiB limit, so mlock failed (`VmLck: 0`,
-`failed to mlock ... Cannot allocate memory`). A reboot or full logout is
-required before the pinning is effective; verify `VmLck` is ~16 GB after the
-manager restarts.
+At the 2026-11-26 17:08 check the then-running `user@1000` manager still
+predated that drop-in and had the old 8 MiB limit, so mlock failed (`VmLck: 0`,
+`failed to mlock ... Cannot allocate memory`). After the reboot the limit is
+`infinity`, `VmLck` is ~16 GB, and the failure is gone; the deep-context
+stalls no longer reproduce.
 
 The pinned pool itself was also made capture-safe: it no longer calls
 `hipFree`/`invalidate_cuda_graphs` from `free()`, tracks capture state on the
 backend context, grows instead of freeing when a capture fills the old
-256-slot array, and trims cached non-graph buffers only from
-`ggml_backend_cuda_synchronize`. VRAM stayed flat at ~10.9 GiB over repeated
-10-turn sessions.
+256-slot array, and releases cached non-graph buffers only from
+`ggml_backend_cuda_synchronize`. Only graph-pinned buffers are kept resident;
+there is no non-pinned cache-size or trim policy. VRAM stayed flat at
+~10.9 GiB over repeated 10-turn sessions.
 
