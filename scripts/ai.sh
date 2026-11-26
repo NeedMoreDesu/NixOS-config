@@ -17,23 +17,23 @@ services=(
 
 usage() {
   cat <<'EOF'
-usage: ai [on|off|r|restart|status|list] [TARGET...]
+usage: ai [on|off|r|restart] [TARGET...]
 
   on TARGET...         start for this session (target required)
   off [TARGET...]      stop (no target = all)
   r|restart TARGET...  restart; alias r (target required)
-  status [TARGET...]   show service state
-  list                 list known services
 
-  With no arguments, show this help and the status of all services.
+  With no arguments, show this help and an overview of all services
+  (unit, active, enabled, kind, label).
 
-targets (on/off/r/status):
+targets (on/off/r):
   -e, --embeddings     best embedding service
   -l, --llm            best LLM service
   NAME                 case-insensitive partial match on unit, label or alias
                        (e.g. gemma, InCl, lfm)
 
 examples:
+  ai
   ai on -e
   ai on -l
   ai on lfm
@@ -41,8 +41,6 @@ examples:
   ai on gemma
   ai off incl
   ai r -l
-  ai status InCl
-  ai status GEMMA
 EOF
 }
 
@@ -119,7 +117,7 @@ resolve_targets() {
       -e | --embedding | --embeddings) best_of_kind embeddings ;;
       -l | --llm | --llms) best_of_kind llm ;;
       -a | --all | all | everything | '*')
-        die "targeting every service was removed; name one service (see 'ai list')"
+        die "targeting every service was removed; name one service (see 'ai')"
         ;;
       *) add_name "$t" ;;
     esac
@@ -138,22 +136,22 @@ info() {
   done <<<"$(printf '%s\n' "${services[@]}")"
 }
 
-state() {
-  local unit=$1 active enabled
-  active=$(systemctl --user is-active "$unit" 2>/dev/null || true)
-  enabled=$(systemctl --user is-enabled "$unit" 2>/dev/null || true)
-  printf '%-14s %-9s %-9s\n' "$unit" "${active:-unknown}" "${enabled:-unknown}"
-}
-
-do_status() {
-  local unit
-  if ((${#sel[@]})); then
-    printf '%-14s %-9s %-9s\n' UNIT ACTIVE ENABLED
-    for unit in "${sel[@]}"; do state "$unit"; done
-  else
-    printf '%-14s %-9s %-9s\n' UNIT ACTIVE ENABLED
-    for unit in "${services[@]%%|*}"; do state "$unit"; done
-  fi
+do_overview() {
+  local unit kind rank label aliases hint model active enabled unit_file
+  printf '%-14s %-9s %-9s %-11s %s\n' UNIT ACTIVE ENABLED KIND LABEL
+  while IFS='|' read -r unit kind rank label aliases hint model; do
+    unit_file="$HOME/.config/systemd/user/$unit.service"
+    if [[ ! -e $unit_file ]]; then
+      active=missing
+      enabled=missing
+    else
+      active=$(systemctl --user is-active "$unit" 2>/dev/null || true)
+      enabled=$(systemctl --user is-enabled "$unit" 2>/dev/null || true)
+      active=${active:-unknown}
+      enabled=${enabled:-unknown}
+    fi
+    printf '%-14s %-9s %-9s %-11s %s\n' "$unit" "$active" "$enabled" "$kind" "$label"
+  done <<<"$(printf '%s\n' "${services[@]}")"
 }
 
 do_list() {
@@ -167,7 +165,7 @@ do_list() {
 action=${1:-}
 [[ $action == r ]] && action=restart
 case "$action" in
-  on | off | restart | status)
+  on | off | restart)
     shift
     if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
       die "run as your user, not root/sudo (systemctl --user target)"
@@ -178,7 +176,7 @@ case "$action" in
     resolve_targets "$@"
     # No target: `on` and `restart` must name a service; show the registry so
     # the choice is obvious. `off` without a target still means everything.
-    if ((${#sel[@]} == 0)) && [[ $action != status ]]; then
+    if ((${#sel[@]} == 0)); then
       if [[ $action == on || $action == restart ]]; then
         printf "ai: '%s' needs a target; choose one of:\n" "$action" >&2
         do_list >&2
@@ -187,17 +185,16 @@ case "$action" in
       add_all
     fi
     ;;
-  list)
-    do_list
-    exit 0
+  status | list)
+    die "'$action' was removed; run 'ai' for the service overview"
     ;;
   "")
     usage
     if systemctl --user show-environment >/dev/null 2>&1; then
       printf '\n'
-      do_status
+      do_overview
     else
-      printf '\nai: cannot reach the systemd user manager; status unavailable\n' >&2
+      printf '\nai: cannot reach the systemd user manager; overview unavailable\n' >&2
     fi
     exit 0
     ;;
@@ -210,11 +207,6 @@ case "$action" in
     exit 2
     ;;
 esac
-
-if [[ $action == status ]]; then
-  do_status
-  exit 0
-fi
 
 failed=0
 for unit in "${sel[@]}"; do
@@ -261,13 +253,6 @@ for unit in "${sel[@]}"; do
       else
         failed=1
       fi
-      ;;
-    status)
-      if [[ ! -e $unit_file ]]; then
-        printf '%-14s %-9s %-9s\n' "$unit" "missing" "missing"
-        continue
-      fi
-      state "$unit"
       ;;
   esac
 done

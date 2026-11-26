@@ -89,7 +89,7 @@ layout change breaks the npm/UI build.
 | `patches/llama-cuda-pool-pinned-only.patch` | Pinned-only `ggml_cuda_pool_leg` cache (no byte cap). |
 | `scripts/fetch-inkling.sh` | Pinned root-layout GGUFs + sha256 checks. |
 | `home/local-ai.nix` | `llama-inkling` user service, fetch wrapper, `ai-toggle`. |
-| `scripts/ai.sh` | Start/stop/status/list logic for local AI services. |
+| `scripts/ai.sh` | Start/stop logic and overview for local AI services. |
 | `home/embeddings.nix` | Existing EmbeddingGemma service (`llama-embed`). |
 | `assets/opencode/opencode.jsonc` | `inkling` OpenAI-compatible provider. |
 
@@ -198,22 +198,19 @@ drafter also competes for the same 16 GB.
 lives in `shell/aliases.sh`).
 
 ```
+ai                    # help + overview: unit, active, enabled, kind, label
 ai off                # all
 ai on -e              # best embedding service
 ai on -l              # best LLM service
 ai on gemma           # case-insensitive partial match (unit/label/alias)
 ai off incl           # ...also for an Inkling alias
 ai r -l               # restart (alias r); reloads the model into memory
-ai status InCl        # status uses the same matcher
-ai status GEMMA
-ai status
-ai list
 ```
 
 `-e`/`--embeddings` and `-l`/`--llm` select by service kind, so they never
 depend on pattern matching. Named targets are partial, case-insensitive, and
-ignore `-`, `_` and spaces; this applies to `on`, `off`, `restart` (and `r`) and
-`status` alike. `on` and `restart`/`r` require an explicit target and print the
+ignore `-`, `_` and spaces; this applies to `on`, `off` and `restart` (and
+`r`) alike. `on` and `restart`/`r` require an explicit target and print the
 service list when omitted; an ambiguous name is rejected instead of starting
 several models. `off` without a target stops everything. `on` only starts the
 unit for the current session; the units have no `[Install]`/`WantedBy`, so
