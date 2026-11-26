@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 let
   # Source build of the pinned Unsloth commit with the bounded HIP pool cache.
   # It uses the same TheRock 10.3.0a20261121 / Clang 24 toolchain as the
@@ -9,8 +9,18 @@ let
   llamaCppUnsloth = pkgs.callPackage ../pkgs/llama-cpp-unsloth-src.nix { };
 
   # Fallback; swap the line above for this and drop the pool-cap Environment
-  # below if the source build regresses.
+  # below if the source build regresses. Also set gpuHeadroom.enable = false:
+  # the prebuilt does not carry the --gpu-headroom patch.
   # llamaCppUnsloth = pkgs.callPackage ../pkgs/llama-cpp-unsloth.nix { };
+
+  # Cooperative GPU duty-cycle throttle. Requires the source build's
+  # patches/llama-cpp-gpu-headroom.patch. `default` is the percentage of
+  # wall-clock GPU time left idle when the service starts; use `ai headroom`
+  # to change it at runtime.
+  gpuHeadroom = {
+    enable = true;
+    default = 0;
+  };
 
   modelDir = "${config.home.homeDirectory}/models/inkling-2-mini";
   model = "${modelDir}/Inkling-2-Mini-UD-Q4_K_M.gguf";
@@ -22,7 +32,7 @@ let
   '';
 
   aiToggle = pkgs.writeShellScriptBin "ai-toggle" ''
-    export PATH="${pkgs.lib.makeBinPath [ pkgs.bash pkgs.coreutils pkgs.systemd ]}:$PATH"
+    export PATH="${pkgs.lib.makeBinPath [ pkgs.bash pkgs.coreutils pkgs.systemd pkgs.curl pkgs.jq ]}:$PATH"
     exec ${pkgs.bash}/bin/bash ${../scripts/ai.sh} "$@"
   '';
 in
@@ -44,7 +54,7 @@ in
     };
 
     Service = {
-      ExecStart = builtins.concatStringsSep " " [
+      ExecStart = builtins.concatStringsSep " " ([
         "${llamaCppUnsloth}/bin/llama-server-inkling"
         "--model" model
         # Vision: the F16 projector stays in host RAM (`--no-mmproj-offload`),
@@ -78,7 +88,12 @@ in
         "--min-p" "0.0"
         "--host" "127.0.0.1"
         "--port" "8089"
-      ];
+      ] ++ lib.optionals gpuHeadroom.enable [
+        # Cooperative GPU duty-cycle throttle. --props exposes POST /props so
+        # `ai headroom N` can change the value without restarting the server.
+        "--props"
+        "--gpu-headroom" (toString gpuHeadroom.default)
+      ]);
       Restart = "on-failure";
       RestartSec = 5;
       # The source build's legacy HIP pool keeps only graph-pinned buffers and
