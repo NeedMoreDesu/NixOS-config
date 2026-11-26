@@ -16,10 +16,13 @@ let
   # Cooperative GPU duty-cycle throttle. Requires the source build's
   # patches/llama-cpp-gpu-headroom.patch. `default` is the percentage of
   # wall-clock GPU time left idle when the service starts; use `ai headroom`
-  # to change it at runtime.
+  # to change it at runtime. The companion watcher raises it to `apps` while
+  # one of the `watch` processes is running.
   gpuHeadroom = {
     enable = true;
     default = 0;
+    apps = 40;
+    watch = [ "godot" "godot4" "krita" ];
   };
 
   modelDir = "${config.home.homeDirectory}/models/inkling-2-mini";
@@ -35,6 +38,11 @@ let
     export PATH="${pkgs.lib.makeBinPath [ pkgs.bash pkgs.coreutils pkgs.systemd pkgs.curl pkgs.jq ]}:$PATH"
     exec ${pkgs.bash}/bin/bash ${../scripts/ai.sh} "$@"
   '';
+
+  aiHeadroomWatch = pkgs.writeShellScriptBin "ai-headroom-watch" ''
+    export PATH="${pkgs.lib.makeBinPath [ pkgs.bash pkgs.coreutils pkgs.curl pkgs.procps ]}:$PATH"
+    exec ${pkgs.bash}/bin/bash ${../scripts/ai-headroom-watch.sh} "$@"
+  '';
 in
 {
   home.packages = [
@@ -49,6 +57,9 @@ in
     Unit = {
       Description = "Inkling 2 Mini Q4_K_M vision, 256k (Unsloth llama.cpp ROCm)";
       After = [ "network.target" ];
+      # Start the companion headroom watcher with the LLM. It has no [Install],
+      # so it never autostarts on its own.
+      Wants = lib.optional gpuHeadroom.enable "llama-headroom-watch.service";
       # Skip the unit instead of restart-looping when the weights are absent.
       ConditionPathExists = [ model mmproj ];
     };
@@ -102,6 +113,30 @@ in
       # `ai off` must not block for systemd's 90s default while the server is
       # still loading the 16 GB model (or a client holds a stream). There is
       # nothing to flush, so let systemd SIGKILL shortly after SIGTERM.
+      TimeoutStopSec = "5s";
+    };
+  };
+
+  # Companion to llama-inkling: raises the GPU headroom while Godot/Krita is
+  # running and returns to 0 when they exit. Started via Wants= from the LLM
+  # unit, stopped via PartOf=, and has no [Install] (no boot autostart).
+  systemd.user.services.llama-headroom-watch = lib.mkIf gpuHeadroom.enable {
+    Unit = {
+      Description = "Raise llama-inkling GPU headroom while tracked GPU apps run";
+      PartOf = [ "llama-inkling.service" ];
+      After = [ "llama-inkling.service" ];
+      ConditionPathExists = [ model mmproj ];
+    };
+
+    Service = {
+      ExecStart = "${aiHeadroomWatch}/bin/ai-headroom-watch";
+      Environment = [
+        "AI_HEADROOM_URL=http://127.0.0.1:8089"
+        "AI_HEADROOM_APPS=${builtins.concatStringsSep " " gpuHeadroom.watch}"
+        "AI_HEADROOM_PCT=${toString gpuHeadroom.apps}"
+      ];
+      Restart = "on-failure";
+      RestartSec = 2;
       TimeoutStopSec = "5s";
     };
   };

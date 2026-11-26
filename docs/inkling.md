@@ -69,8 +69,9 @@ layout change breaks the npm/UI build.
 | `patches/llama-cuda-pool-pinned-only.patch` | Pinned-only `ggml_cuda_pool_leg` cache (no byte cap). |
 | `patches/llama-cpp-gpu-headroom.patch` | `--gpu-headroom` duty-cycle throttle and `POST /props` runtime control. |
 | `scripts/fetch-inkling.sh` | Pinned root-layout GGUFs + sha256 checks. |
-| `home/local-ai.nix` | `llama-inkling` user service, fetch wrapper, `ai-toggle`, `gpuHeadroom` settings. |
+| `home/local-ai.nix` | `llama-inkling` user service, fetch wrapper, `ai-toggle`, `gpuHeadroom` settings, headroom watcher. |
 | `scripts/ai.sh` | Start/stop/status/list and `headroom` logic for local AI services. |
+| `scripts/ai-headroom-watch.sh` | Raises headroom while Godot/Krita is running. |
 | `home/embeddings.nix` | Existing EmbeddingGemma service (`llama-embed`). |
 | `assets/opencode/opencode.jsonc` | `inkling` OpenAI-compatible provider. |
 
@@ -233,6 +234,13 @@ roughly one token (10-50 ms); a long prefill can still delay other work, so use
 a smaller `-ub` if prefill stutter matters. The sleep is excluded from the
 server's `t_eval_us` / `t_p_eval_us` counters.
 
+`llama-inkling.service` also starts `llama-headroom-watch.service` (no boot
+autostart; it stops with the LLM). It raises the headroom to
+`gpuHeadroom.apps` (40%) while one of `gpuHeadroom.watch` (`godot`, `godot4`,
+`krita`) is running, and returns to `gpuHeadroom.default` (0) when they exit.
+Configure those in `home/local-ai.nix`. A manual `ai headroom` value persists
+until the next watched app starts or stops.
+
 ## opencode
 
 `opencode.jsonc` uses the legacy `provider`/`npm` entry for `inkling`: on
@@ -259,6 +267,8 @@ ai headroom 40                       # leave 40% of GPU time idle
 curl -s http://127.0.0.1:8089/props | jq .gpu_headroom
 rocm-smi --showmeminfo vram
 journalctl --user -u llama-inkling -f
+systemctl --user status llama-headroom-watch
+journalctl --user -u llama-headroom-watch -f
 ```
 
 ## Maintenance
