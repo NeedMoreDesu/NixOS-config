@@ -220,10 +220,18 @@ Measured 2026-11-26 with an `LD_PRELOAD` interposer on
 - 20% duty burn (430 ms sleep): alone ~29.6 kps; with normal llama ~31.9 kps;
   with low llama ~31.9 kps. Llama prefill was ~429 t/s under burn vs ~460 solo.
   The light competitor did not struggle in any case.
+- 80% duty burn (2 kernels + 2 ms sleep, median period 13.9 ms) with a full
+  5751-token prefill overlapping it: the burn median sped up to 9.8 ms (GPU
+  clock boost, kps 144 -> 179), but regularity collapsed: period p99
+  14.9 -> 33.3 ms, max 15.7 -> 49.8 ms; 2.9 % of batches >16.8 ms, 1.7 %
+  >25 ms, 0.7 % >40 ms, clustered mid-prefill and at prefill end. Low and
+  normal priority were identical (p99 33.2 vs 33.3 ms, prefill 245.7 vs
+  246.0 t/s). This is the lag/drop the earlier 20 % test hid.
 
 Conclusion: stream priority works for the synthetic burn, but forcing llama's
-HIP streams low/high did not change its throughput or protect the burn. Either
-the workloads co-run on spare resources, or priority does not propagate through
+HIP streams low/high did not change its throughput, did not protect a 100 %
+competitor, and did not remove the 80 % competitor's p99/max lags. Either the
+workloads co-run on spare resources, or priority does not propagate through
 llama's hipBLASLt / graph / bursty CPU-MoE submission path. Do not drop the
 ubatch/headroom work on the strength of this test.
 
