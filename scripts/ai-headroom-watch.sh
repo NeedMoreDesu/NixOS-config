@@ -6,7 +6,8 @@ set -euo pipefail
 # with it via PartOf=. The server must be started with --props.
 
 url=${AI_HEADROOM_URL:-http://127.0.0.1:8089}
-apps=${AI_HEADROOM_APPS:-godot godot4 krita}
+apps=${AI_HEADROOM_APPS:-godot:godot4:krita}
+apps=${apps//:/ }
 pct=${AI_HEADROOM_PCT:-40}
 interval=${AI_HEADROOM_INTERVAL:-2}
 

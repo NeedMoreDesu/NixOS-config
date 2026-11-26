@@ -132,7 +132,7 @@ in
       ExecStart = "${aiHeadroomWatch}/bin/ai-headroom-watch";
       Environment = [
         "AI_HEADROOM_URL=http://127.0.0.1:8089"
-        "AI_HEADROOM_APPS=${builtins.concatStringsSep " " gpuHeadroom.watch}"
+        "AI_HEADROOM_APPS=${builtins.concatStringsSep ":" gpuHeadroom.watch}"
         "AI_HEADROOM_PCT=${toString gpuHeadroom.apps}"
       ];
       Restart = "on-failure";
