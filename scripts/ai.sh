@@ -17,15 +17,15 @@ services=(
 
 usage() {
   cat <<'EOF'
-usage: ai [on|off|restart|status|list] [TARGET...]
+usage: ai [on|off|r|restart|status|list] [TARGET...]
 
   on TARGET...         start for this session (target required)
   off [TARGET...]      stop (no target = all)
-  restart TARGET...    restart (target required)
+  r|restart TARGET...  restart; alias r (target required)
   status [TARGET...]   show service state
   list                 list known services
 
-targets (on/off/restart/status):
+targets (on/off/r/status):
   -e, --embeddings     best embedding service
   -l, --llm            best LLM service
   NAME                 case-insensitive partial match on unit, label or alias
@@ -38,6 +38,7 @@ examples:
   ai off
   ai on gemma
   ai off incl
+  ai r -l
   ai status InCl
   ai status GEMMA
 EOF
@@ -162,6 +163,7 @@ do_list() {
 }
 
 action=${1:-}
+[[ $action == r ]] && action=restart
 case "$action" in
   on | off | restart | status)
     shift

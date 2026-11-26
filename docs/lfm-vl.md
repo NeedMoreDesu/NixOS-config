@@ -94,9 +94,9 @@ curl -s http://127.0.0.1:8090/v1/models | jq .
 journalctl --user -u llama-vl -f
 ```
 
-`ai on`/`ai restart` require an explicit target and print the service list
-when omitted; an ambiguous name is rejected. There is no target-everything
-flag. `ai off` with no target still stops everything.
+`ai on`/`ai restart` (alias `ai r`) require an explicit target and print the
+service list when omitted; an ambiguous name is rejected. There is no
+target-everything flag. `ai off` with no target still stops everything.
 
 Minimal vision request:
 
