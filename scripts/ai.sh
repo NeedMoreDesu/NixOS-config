@@ -25,6 +25,8 @@ usage: ai [on|off|r|restart|status|list] [TARGET...]
   status [TARGET...]   show service state
   list                 list known services
 
+  With no arguments, show this help and the status of all services.
+
 targets (on/off/r/status):
   -e, --embeddings     best embedding service
   -l, --llm            best LLM service
@@ -189,7 +191,17 @@ case "$action" in
     do_list
     exit 0
     ;;
-  "" | -h | --help)
+  "")
+    usage
+    if systemctl --user show-environment >/dev/null 2>&1; then
+      printf '\n'
+      do_status
+    else
+      printf '\nai: cannot reach the systemd user manager; status unavailable\n' >&2
+    fi
+    exit 0
+    ;;
+  -h | --help)
     usage
     exit 0
     ;;
