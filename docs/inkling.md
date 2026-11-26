@@ -245,6 +245,28 @@ autostart; it stops with the LLM). It raises the headroom to
 Configure those in `home/local-ai.nix`. A manual `ai headroom` value persists
 until the next watched app starts or stops.
 
+### Benchmark
+
+Cold-booted service, normal unit params (`-ub 512`, `--parallel 1`, q4_0 KV,
+2 GiB expert cache, share 0.45), short 136-token prompt, 128 generated tokens,
+4 requests per headroom (first request is warm-up; the table reports the
+median of runs 2-4).
+
+| headroom | prompt t/s | decode t/s | decode vs 0% |
+| ---: | ---: | ---: | ---: |
+| 0% | 184.5 | 18.25 | 1.00x |
+| 10% | 145.3 | 13.06 | 0.72x |
+| 25% | 106.2 | 9.50 | 0.52x |
+| 50% | 79.6 | 7.22 | 0.40x |
+
+The effect is monotonic and clearly visible. The measured slowdown is larger
+than the nominal percentage on this CPU-MoE setup: the sleep is based on the
+busy window at a synchronization point, which includes CPU work that is not
+GPU-busy, so 10% behaves more like ~28% decode headroom. Treat the number as a
+tuning knob, not an exact GPU-time cap; use `ai headroom off` for full speed.
+Prefill numbers are noisier because the host CPU load varies and prefill is
+CPU-heavy; decode medians were stable within each run.
+
 ## opencode
 
 `opencode.jsonc` uses the legacy `provider`/`npm` entry for `inkling`: on
