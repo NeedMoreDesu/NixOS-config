@@ -9,20 +9,36 @@
 #                      allowlist plus the project build-cache/toolchain
 #                      lists. /dev/kfd (ROCm) is bound; ~/models is
 #                      visible read-only.
+# box -x|--relaxed [cmd] relaxed system mode: binds the host root read-write
+#                      (host namespaces, /dev, journal and /run/user) and
+#                      rebuilds only $HOME from the allowlist. Use it when the
+#                      agent needs host processes, host networking, D-Bus or
+#                      devices; it is a HOME lock, not a sandbox.
 #
-# Both modes expose ~/Pictures/Screenshots read-only.
+# All modes expose ~/Pictures/Screenshots read-only.
+#
+# -d|--dir PATH may be repeated: read-write-bind an extra host directory at
+# the same path, even one the HOME mask would otherwise hide. Relative paths
+# are resolved under $HOME (`-d .ssh` -> ~/.ssh); `~/` is expanded.
 #
 # -p|--port PORT may be repeated and/or given a comma-separated list; each
 # port adds a host-loopback TCP hole into the egress-only pasta namespace
 # (and nothing else). BOX_DEFAULT_PORTS (host policy, comma-separated) is
 # forwarded first; `-p` appends to it. `-n` bypasses pasta, so ports have no
-# effect there.
+# effect there. Relaxed mode keeps the host network, so ports are irrelevant.
 #
 # The command defaults to `bash -i`. The home lists are policy: add only
 # what the agent actually needs. Secrets are absent by default, which is
 # the point - no blacklist to keep in sync as tools add new files.
 # BOX_SECRETS=1 opts known credential paths back in read-only;
 # BOX_GUI=1 binds /run/user (+ /dev/dri in project mode).
+#
+# Relaxed mode still uses bwrap's user namespace: it cannot sudo (no new
+# privileges) and can only ptrace descendants (yama ptrace_scope=1, and the
+# target's user namespace must match). It is not a stronger trust boundary
+# than "the agent can run commands as mika"; hiding $HOME only keeps casual
+# file reads out. /run/user exposes the host shell/keyring/agent sockets, so
+# the SEANCE_/ZMX_ sockets are masked there even in relaxed mode.
 
 # --- system mode: settings that are useful for investigating the box -----
 
@@ -183,6 +199,17 @@ _BOX_SECRETS=(
   .dsh
 )
 
+# Resolve a --dir argument to a host path. Relative paths are under the
+# host $HOME so `-d .ssh` works; absolute paths pass through.
+_box_dir_path() {
+  case "$1" in
+    "~") printf '%s' "$HOME" ;;
+    "~/"*) printf '%s/%s' "$HOME" "${1#"~/"}" ;;
+    /*) printf '%s' "$1" ;;
+    *) printf '%s/%s' "$HOME" "$1" ;;
+  esac
+}
+
 # Refuse a workspace that would shadow a special mount or re-expose a
 # masked path. The workspace bind is applied last, so PWD=/tmp would shadow
 # the project-mode private /tmp (and is pointless with the system-mode host
@@ -209,8 +236,8 @@ _box_guard_pwd() {
 }
 
 box() {
-  local mode=project network=0
-  local -a port_specs=()
+  local mode=project network=0 relaxed=0
+  local -a port_specs=() dir_specs=()
   [ -n "${BOX_DEFAULT_PORTS:-}" ] && port_specs+=("$BOX_DEFAULT_PORTS")
   while :; do
     case "${1:-}" in
@@ -218,8 +245,25 @@ box() {
         mode=system
         shift
         ;;
+      -x|--relaxed)
+        mode=system
+        relaxed=1
+        shift
+        ;;
       -n|--network)
         network=1
+        shift
+        ;;
+      -d|--dir)
+        if [ "$#" -lt 2 ]; then
+          printf 'box: %s needs a directory\n' "$1" >&2
+          return 2
+        fi
+        dir_specs+=("$2")
+        shift 2
+        ;;
+      --dir=*)
+        dir_specs+=("${1#*=}")
         shift
         ;;
       -p|--port)
@@ -258,6 +302,10 @@ box() {
 
   _box_guard_pwd || return 1
 
+  # Relaxed mode is about using the host, not about network isolation: keep
+  # the host netns (and make -p/--port inert).
+  [ "$relaxed" -eq 1 ] && network=1
+
   # Shared scratch/log handoff in both modes. Create it on the host so the
   # --bind-try in the HOME allowlists always has a source.
   mkdir -p "$HOME/temp" 2>/dev/null || true
@@ -269,37 +317,66 @@ box() {
 
   if [ "$mode" = system ]; then
     local p
-    flags+=(
-      # Whole system readable; devices are a FRESH minimal /dev (no
-      # /dev/input, so the input group cannot snoop keystrokes).
-      --ro-bind / /
-      --dev /dev
-      --tmpfs /dev/shm
-      --dev-bind-try /dev/dri /dev/dri
-      # AMD KFD interface for ROCm compute. /dev/dri alone only gives
-      # rendering; HIP/rocminfo need /dev/kfd.
-      --dev-bind-try /dev/kfd /dev/kfd
-      --proc /proc
-      # Host /tmp is rw: scratch/log files written here are visible outside
-      # the box. systemd-tmpfiles cleans it after 10 days. /dev/shm stays
-      # private.
-      --bind /tmp /tmp
-      # Keep the sandbox's mika identity even when `box` is wrapped by pasta
-      # (which runs its child as userns-root). PID/IPC/UTS are unshared for
-      # the same reason project mode does it: host /proc is not an oracle.
-      --unshare-user
-      --uid "$(id -u)"
-      --gid "$(id -g)"
-      --unshare-pid --unshare-ipc --unshare-uts
-      # Home is deny-by-default, then the allowlist above is layered in.
-      --tmpfs "$HOME"
-    )
-    # The host journal is otherwise readable through the ro-bind of /. Mask
-    # it: the sandbox has no legitimate use for host logs.
-    [ -d /var/log/journal ] && flags+=(--tmpfs /var/log/journal)
-    [ -d /run/log/journal ] && flags+=(--tmpfs /run/log/journal)
+    if [ "$relaxed" -eq 1 ]; then
+      # Relaxed: bind the whole host root read-write (so /dev, /proc, /sys,
+      # /run, /tmp and the network are all the host's) and then hide only
+      # $HOME. bwrap still creates a user namespace and maps mika's uid.
+      flags+=(
+        --bind / /
+        --unshare-user
+        --uid "$(id -u)"
+        --gid "$(id -g)"
+        # Home is deny-by-default, then the allowlist above is layered in.
+        --tmpfs "$HOME"
+      )
+    else
+      flags+=(
+        # Whole system readable; devices are a FRESH minimal /dev (no
+        # /dev/input, so the input group cannot snoop keystrokes).
+        --ro-bind / /
+        --dev /dev
+        --tmpfs /dev/shm
+        --dev-bind-try /dev/dri /dev/dri
+        # AMD KFD interface for ROCm compute. /dev/dri alone only gives
+        # rendering; HIP/rocminfo need /dev/kfd.
+        --dev-bind-try /dev/kfd /dev/kfd
+        --proc /proc
+        # Host /tmp is rw: scratch/log files written here are visible outside
+        # the box. systemd-tmpfiles cleans it after 10 days. /dev/shm stays
+        # private.
+        --bind /tmp /tmp
+        # Keep the sandbox's mika identity even when `box` is wrapped by pasta
+        # (which runs its child as userns-root). PID/IPC/UTS are unshared for
+        # the same reason project mode does it: host /proc is not an oracle.
+        --unshare-user
+        --uid "$(id -u)"
+        --gid "$(id -g)"
+        --unshare-pid --unshare-ipc --unshare-uts
+        # Home is deny-by-default, then the allowlist above is layered in.
+        --tmpfs "$HOME"
+      )
+      # The host journal is otherwise readable through the ro-bind of /. Mask
+      # it: the sandbox has no legitimate use for host logs.
+      [ -d /var/log/journal ] && flags+=(--tmpfs /var/log/journal)
+      [ -d /run/log/journal ] && flags+=(--tmpfs /run/log/journal)
+    fi
 
-    if [ "${BOX_GUI:-0}" -eq 1 ] && [ -d "/run/user/$(id -u)" ]; then
+    if [ "$relaxed" -eq 1 ]; then
+      if [ -d "/run/user/$(id -u)" ]; then
+        # D-Bus, Wayland, audio, polkit agent, SSH agent and keyring. The
+        # host shell multiplexers are masked: drive them and the HOME lock
+        # is meaningless (a host pane can read ~/.ssh).
+        flags+=(--bind "/run/user/$(id -u)" "/run/user/$(id -u)")
+        flags+=(
+          --tmpfs "/run/user/$(id -u)/seance"
+          --tmpfs "/run/user/$(id -u)/zmx"
+        )
+      fi
+      flags+=(
+        --unsetenv SEANCE_SOCKET_PATH
+        --unsetenv ZMX_SESSION
+      )
+    elif [ "${BOX_GUI:-0}" -eq 1 ] && [ -d "/run/user/$(id -u)" ]; then
       # Wayland/D-Bus/audio. Also exposes keyring/SSH-agent/KWin-Scripting,
       # so this is opt-in for GUI work only.
       flags+=(--bind "/run/user/$(id -u)" "/run/user/$(id -u)")
@@ -389,6 +466,18 @@ box() {
       flags+=(--ro-bind-try "$HOME/$p" "$HOME/$p")
     done
   fi
+
+  # Extra host directories requested with -d/--dir. Applied after the HOME
+  # mask/allowlists so it can override both; last one wins.
+  local q
+  for q in "${dir_specs[@]}"; do
+    q=$(_box_dir_path "$q")
+    if [ ! -d "$q" ]; then
+      printf 'box: --dir %s is not a directory\n' "$q" >&2
+      return 2
+    fi
+    flags+=(--bind "$q" "$q")
+  done
 
   # Workspace last, so a read-only allowlist parent cannot shadow it.
   flags+=(--bind "$PWD" "$PWD")

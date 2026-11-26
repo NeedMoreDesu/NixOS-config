@@ -5,13 +5,21 @@ and sources `shell/{box,nyx,agents}.sh`. The `nyx`, `nyvibe`, `oc`, `ab` and
 `box` launchers live in the repo.
 
 `box [flags] [cmd]` is **project mode**; `box -s|--system [flags] [cmd]` is
-**system mode**; `cmd` defaults to `bash -i`.
+**system mode**; `box -x|--relaxed [flags] [cmd]` is **relaxed system mode**;
+`cmd` defaults to `bash -i`.
 
 `-n|--network` keeps the host network namespace (needed for CDP); without it
 the box gets an egress-only pasta namespace. `-p|--port PORT` (repeatable, or
 comma-separated) adds that host-loopback TCP port to the box. This host sets
 `BOX_DEFAULT_PORTS=8088,8089,8090` in `hosts/nixos/bashrc.sh`, so `-p 1234`
-forwards 8088, 8089, 8090 and 1234.
+forwards 8088, 8089, 8090 and 1234. Relaxed mode always uses the host network,
+so ports are inert there.
+
+`-d|--dir PATH` (repeatable) read-write-binds an extra host directory at the
+same path, even one the HOME mask would otherwise hide. Relative paths resolve
+under `$HOME` (`-d .ssh` is `~/.ssh`) and `~/` is expanded. It applies after
+the HOME allowlists, before the `$PWD` bind, so it can override a read-only
+entry; last one wins. Missing directories are an error.
 
 `nyvibe` = `box -s opencode` with the short_summary prompt and an explicit
 `-p 8088` (deduped with the host default; 8089 and 8090 are already in the
@@ -53,6 +61,36 @@ attaching to the host's dedicated Chromium (see
   path: `$HOME`, `/tmp`, `/dev`, `/dev/shm`, `/proc`, `/sys`,
   `/var/log/journal`, `/run/log/journal`, `/run/user/$UID` — the workspace
   bind is last and would otherwise undo the mask.
+
+## Relaxed system mode (`box -x`)
+
+For debugging when the agent needs the host: the whole host root is bound
+**read-write**, so namespaces, mounts, `/dev`, `/proc`, `/sys`, `/run/user`,
+the journal and the network are all the host's. Only `$HOME` is replaced by a
+tmpfs rebuilt from the system allowlists. `-d|--dir` is the explicit escape
+hatch for a specific host directory.
+
+- Host PID namespace (no `--unshare-pid`), so host processes are visible and
+  the agent can attach to processes it starts.
+- Host network namespace (no pasta), so host loopback and the local AI
+  services are directly reachable; `-p` is inert.
+- Host `/dev`, `/dev/shm`, journal (`/var/log/journal`, `/run/log/journal`)
+  and `/run/user/$UID`: D-Bus, Wayland, audio, polkit agent, SSH agent and
+  KWallet. `SEANCE_SOCKET_PATH`/`ZMX_SESSION` are unset and the
+  `seance`/`zmx` runtime subdirectories are tmpfs-masked (otherwise a host
+  pane would trivially read `~/.ssh`).
+- `$HOME` is still a tmpfs rebuilt from the allowlists (opencode state, repo,
+  `~/temp`, models, config).
+
+This is deliberately **not** a stronger boundary than "the agent runs as
+mika". bwrap still creates a user namespace, so inside the box `sudo` fails
+(`no_new_privs`) and ptrace is limited to descendants: `/proc/<host-pid>/root`
+and other host processes are gated by `kernel.yama.ptrace_scope=1`, exactly
+the surface [the namespaces](#why-the-namespaces-escape-surface-2026-11-15)
+closed for system mode. Treat it as a HOME lock for a mostly-trusted agent,
+not as secret protection: `/run/user` exposes the keyring and SSH agent, and
+user D-Bus services can reach the host session. Use it only when the
+debugging value outweighs that.
 
 ## Project mode (`box`)
 

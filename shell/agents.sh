@@ -7,13 +7,14 @@ nyvibe() {
   ( cd "$NYX_REPO" && box -s -p 8088 opencode --prompt "read short_summary.md" "$@" )
 }
 
-# opencode in a box. Parses the box flags -s/--system, -n/--network and
-# -p/--port, plus oc's -l/--local and -h/--help, before the command;
-# everything after `--` (or the first other argument) goes to opencode.
-# `oc -s` is system mode: host root read-only with the system allowlists
-# (~/models ro, /dev/kfd) plus any -p holes. `oc -l` selects the local
-# Inkling model. Use `oc -- -s SESSION` to reach opencode's own
-# -s/--session flag.
+# opencode in a box. Parses the box flags -s/--system, -x/--relaxed,
+# -n/--network, -d/--dir and -p/--port, plus oc's -l/--local and -h/--help,
+# before the command; everything after `--` (or the first other argument)
+# goes to opencode. `oc -s` is system mode: host root read-only with the
+# system allowlists (~/models ro, /dev/kfd) plus any -p holes. `oc -x` is
+# relaxed system mode (host namespaces/devices/journal, HOME still masked).
+# `oc -l` selects the local Inkling model. Use `oc -- -s SESSION` to reach
+# opencode's own -s/--session flag.
 oc_help() {
   cat <<'EOF'
 oc: opencode in a box (project mode by default)
@@ -22,7 +23,10 @@ Usage: oc [box flags] [-l] [--] [opencode args]
 
 Box flags:
   -s, --system     system mode (host root read-only, ~/models ro, /dev/kfd)
+  -x, --relaxed    relaxed system mode (host namespaces/devices/journal,
+                   /run/user; $HOME still masked)
   -n, --network    keep the host network namespace (agent-browser CDP)
+  -d, --dir DIR    read-write-bind host DIR (repeatable; relative to ~)
   -p, --port PORT  forward host-loopback TCP PORT (repeatable)
 
 oc flags:
@@ -38,13 +42,13 @@ oc() {
   local -a box_flags=() oc_flags=()
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      -s|--system|-n|--network)
+      -s|--system|-x|--relaxed|-n|--network)
         box_flags+=("$1")
         shift
         ;;
-      -p|--port)
+      -d|--dir|-p|--port)
         if [ "$#" -lt 2 ]; then
-          printf 'oc: %s needs a port\n' "$1" >&2
+          printf 'oc: %s needs a value\n' "$1" >&2
           return 2
         fi
         box_flags+=("$1" "$2")
