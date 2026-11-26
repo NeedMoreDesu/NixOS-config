@@ -112,11 +112,13 @@ The service listens on `127.0.0.1:8089` (loopback only, no auth) with:
 -ub 512 -c 262144
 -ctk q4_0 -ctv q4_0 -fa on --parallel 1
 --temp 1.0 --top-p 1.0 --top-k 0 --min-p 0.0
---props --gpu-headroom 0
+--props --gpu-headroom 15
 ```
 
 The last line is provided by the GPU headroom patch; `--props` is what makes
-`ai headroom` (and `POST /props`) work. The default headroom is 0 (full speed).
+`ai headroom` (and `POST /props`) work. The default headroom is 15% (leaves
+the desktop compute room); `ai headroom 0` / `ai headroom off` gives the LLM
+full speed.
 
 All MoE experts stay in host RAM (~16.6 GB), with a fixed 2 GiB expert cache
 in VRAM and 45 % of cache misses computed on the CPU. The F16 projector also
@@ -219,13 +221,13 @@ graph compute the server synchronizes and sleeps `busy * N / (100 - N)`, so
 It is a cooperative time-share, not an SM/CU reservation, and it does not free
 VRAM.
 
-The service starts with `--props --gpu-headroom 0`, so full speed is the
-default. Change it at runtime:
+The service starts with `--props --gpu-headroom 15`, so the desktop always
+gets some compute room by default. Change it at runtime:
 
 ```
 ai headroom        # query the running server
 ai headroom 40     # leave 40% of GPU wall time idle
-ai headroom off    # back to 0
+ai headroom off    # back to 0 (full LLM speed)
 ```
 
 `--props` is required for the POST; the server is loopback-only, so no auth is
@@ -237,7 +239,7 @@ server's `t_eval_us` / `t_p_eval_us` counters.
 `llama-inkling.service` also starts `llama-headroom-watch.service` (no boot
 autostart; it stops with the LLM). It raises the headroom to
 `gpuHeadroom.apps` (40%) while one of `gpuHeadroom.watch` (`godot`, `godot4`,
-`krita`) is running, and returns to `gpuHeadroom.default` (0) when they exit.
+`krita`) is running, and returns to `gpuHeadroom.default` (15) when they exit.
 Configure those in `home/local-ai.nix`. A manual `ai headroom` value persists
 until the next watched app starts or stops.
 
