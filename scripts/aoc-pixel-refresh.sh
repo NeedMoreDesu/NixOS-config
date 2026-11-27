@@ -31,10 +31,6 @@ find_bus() {
   return 1
 }
 
-if [ "$(id -u)" -ne 0 ]; then
-  exec sudo -- "$self"
-fi
-
 if ! bus=$(find_bus); then
   echo "agon: no connected AOC AG326UD found." >&2
   echo "      connected connectors:" >&2
@@ -45,6 +41,11 @@ if ! bus=$(find_bus); then
     echo "        ${conn##*/}  ddc=${ddc##*/}" >&2
   done
   exit 1
+fi
+
+if [ "$(id -u)" -ne 0 ] &&
+   { [ ! -e "/dev/i2c-${bus}" ] || [ ! -w "/dev/i2c-${bus}" ]; }; then
+  exec sudo -- "$self"
 fi
 
 if [ ! -e "/dev/i2c-${bus}" ]; then

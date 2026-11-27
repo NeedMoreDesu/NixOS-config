@@ -52,19 +52,26 @@ Related commands using the same framing:
 
 ## `agon` script
 
-`scripts/aoc-pixel-refresh.sh`, aliased as **`agon`** in `shell/aliases.sh`.
-It takes no arguments and always triggers Pixel Refresh On. It is standalone:
+`scripts/aoc-pixel-refresh.sh`, aliased as **`agon`** and bound to **Cmd+F12**
+in `assets/xremap/xremap.yml`. It takes no arguments and always triggers Pixel
+Refresh On. It is standalone:
 
 - auto-detects the `AG326UD` EDID and its DDC bus;
-- loads `i2c-dev` if `/dev/i2c-N` is missing;
-- re-executes itself via the setuid `sudo` wrapper in `/run/wrappers/bin` for
-  the I2C write (`/run/current-system/sw/bin/sudo` is not setuid on NixOS);
+- runs directly when the seat user has write access to `/dev/i2c-*`;
+- `hosts/nixos/monitor.nix` loads `i2c-dev` at boot and gives `mika` ownership
+  of `/dev/i2c-*`, so the xremap shortcut needs no sudo prompt;
+- if the node is missing or not writable it falls back to the setuid `sudo`
+  wrapper in `/run/wrappers/bin` (`/run/current-system/sw/bin/sudo` is not
+  setuid on NixOS);
 - sends the fixed packet with an embedded Python `I2C_RDWR` call, so
   `i2c-tools` is not required.
 
 The alias exists in a normal login shell after `shell/aliases.sh` is sourced.
 `agon` prints the detected bus and packet; the monitor then blinks its power
 LED and runs the refresh for a few minutes.
+
+After changing `hosts/nixos/monitor.nix` or the xremap rule, run `nyx`; the
+rebuild also restarts xremap.
 
 The command is deliberately not parameterized: turning refresh off, Auto Pixel
 Refresh, and state reads are not exposed. The rest of this document is the

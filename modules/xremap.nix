@@ -2,9 +2,10 @@ let
   # xremap executes the screenshot helper directly. Resolve it at eval time so
   # no machine-specific repo path is baked into the YAML.
   screenshot = ../scripts/screenshot.sh;
+  agon = ../scripts/aoc-pixel-refresh.sh;
   yamlConfig = builtins.replaceStrings
-    [ "@SCREENSHOT@" ]
-    [ "${screenshot}" ]
+    [ "@SCREENSHOT@" "@AGON@" ]
+    [ "${screenshot}" "${agon}" ]
     (builtins.readFile ../assets/xremap/xremap.yml);
 in
 {

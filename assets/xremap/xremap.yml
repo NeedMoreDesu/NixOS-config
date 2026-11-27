@@ -72,10 +72,18 @@ keymap:
   # Application-specific blocks MUST come before the generic block:
   # xremap uses the first matching keymap entry.
 
+  # AOC AGON AG326UD Pixel Refresh (manual). Cmd is F13 here. Global, so it
+  # wins in every app (including Emacs, which otherwise maps F13-F12 to
+  # s-F12). The script detects the monitor's DDC bus itself; the host module
+  # gives mika ownership of /dev/i2c-* so no sudo is needed.
+  - name: agon (Cmd+F12)
+    remap:
+      F13-F12: { launch: ["/run/current-system/sw/bin/bash", "@AGON@"] }
+
   # macOS-style screenshots. Cmd is F13 here, so the triggers are
-  # F13-Shift-<digit>. This block is FIRST and has no app filter: xremap
-  # checks entries in order per combo, so these win in every app (including
-  # Emacs and terminals) while every other combo falls through.
+  # F13-Shift-<digit>. This block has no app filter and sits after the agon
+  # block: xremap checks entries in order per combo, so these win in every app
+  # (including Emacs and terminals) while every other combo falls through.
   #   Cmd+Shift+1 = current (active) window, save + copy image
   #   Cmd+Shift+2 = window under cursor, save + copy image
   #   Cmd+Shift+3 = full screen, save + copy image

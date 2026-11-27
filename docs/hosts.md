@@ -8,7 +8,7 @@
   - `bashrc.sh` — per-host shell shim, sourced by `~/.bashrc`; sets
     `NYX_REPO`/`NYX_HOST`, host box defaults such as `BOX_DEFAULT_PORTS`,
     and sources `shell/{box,nyx,agents,aliases}.sh`.
-  - per-host user units such as `kscreen.nix`.
+  - per-host user units such as `kscreen.nix` and `monitor.nix`.
 - Nothing auto-discovers hosts. `flake.nix` explicitly maps
   `nixosConfigurations.<name> = mkHost "<name>"`, where `mkHost` builds from
   `hosts/<name>/default.nix`; `specialArgs` adds `hostName = <name>`.
@@ -24,8 +24,8 @@
 
 ## The current host: `nixos`
 
-`hosts/nixos/default.nix` imports the hardware config, `kscreen.nix`, and
-the shared modules. It sets `networking.hostName = "nixos"` and
+`hosts/nixos/default.nix` imports the hardware config, `kscreen.nix`,
+`monitor.nix`, and the shared modules. It sets `networking.hostName = "nixos"` and
 `system.stateVersion = "26.05"` — **never** bump `stateVersion`
 (see the comment in the file). Hostname lives here, not in
 `modules/networking.nix`.

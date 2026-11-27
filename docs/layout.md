@@ -53,6 +53,7 @@ This is the map. Detailed behaviour lives in the linked subject docs.
 | `hosts/<name>/hardware-configuration.nix` | Generated at install. |
 | `hosts/<name>/bashrc.sh` | Per-host shell shim. |
 | `hosts/nixos/kscreen.nix` | Per-host 200% scaling user unit. See [plasma](plasma.md). |
+| `hosts/nixos/monitor.nix` | AG326UD DDC access: `i2c-dev` + udev owner/mode. See [AOC monitor](aoc_agon_monitor.md). |
 
 ## `home/` (shared home-manager)
 

@@ -7,7 +7,7 @@ distinct job; moving a rule to the wrong layer breaks the ones above it.
 | --- | --- |
 | XKB (`modules/desktop.nix`) | Layout symbols and options only. |
 | keyd (`modules/mac-keys.nix`, `assets/mac-keys/keyd.conf`) | The hold-layers XKB/xremap cannot express, plus the right-cmd → Menu rebind. |
-| xremap (`modules/xremap.nix`, `assets/xremap/xremap.yml`) | The whole caps/ctrl/cmd cycle, app-aware keymaps, screenshots. |
+| xremap (`modules/xremap.nix`, `assets/xremap/xremap.yml`) | The whole caps/ctrl/cmd cycle, app-aware keymaps, screenshots, Cmd+F12 monitor refresh. |
 | KWin (`home/plasma.nix`) | Window/session shortcuts (desktops, maximize, Overview, layout switching). |
 
 ## XKB layouts (`modules/desktop.nix`)
@@ -216,10 +216,20 @@ There are **no** `F13-tab`/`F13-grave` rules: keyd consumes those before
 xremap, and an extra rule would stack a second synthetic Alt on keyd's held
 Alt_L (inexact matching).
 
+### Monitor refresh
+
+Cmd+F12 runs `scripts/aoc-pixel-refresh.sh` (the `agon` alias) through xremap.
+The block has no app filter and precedes the Emacs block, so it wins in every
+app, including Emacs and terminals; Emacs' normal `F13-F12 -> s-F12` mapping
+is intentionally shadowed for this one chord. The script detects the AG326UD's
+DDC bus itself; `hosts/nixos/monitor.nix` gives `mika` ownership of `/dev/i2c-*`, so
+the shortcut does not need a sudo prompt. See
+[AOC monitor](aoc_agon_monitor.md).
+
 ### Screenshots
 
-The screenshots block comes **first** (no app filter) so it wins in every
-app, including Emacs and terminals:
+The screenshot and monitor-refresh blocks are global (no app filter) and sit
+before the Emacs block, so they win in every app:
 
 | Binding | Action |
 | --- | --- |
