@@ -5,7 +5,9 @@
 # No arguments: always triggers Pixel Refresh On on the detected AG326UD.
 set -euo pipefail
 
-PATH=/run/current-system/sw/bin:/run/current-system/sw/sbin:$PATH
+# /run/wrappers/bin must come first: /run/current-system/sw/bin/sudo is not
+# setuid on NixOS; the setuid wrapper lives in /run/wrappers/bin.
+PATH=/run/wrappers/bin:/run/current-system/sw/bin:/run/current-system/sw/sbin:$PATH
 export PATH
 
 if [ $# -ne 0 ]; then

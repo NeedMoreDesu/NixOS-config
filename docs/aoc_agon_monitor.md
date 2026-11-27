@@ -57,7 +57,8 @@ It takes no arguments and always triggers Pixel Refresh On. It is standalone:
 
 - auto-detects the `AG326UD` EDID and its DDC bus;
 - loads `i2c-dev` if `/dev/i2c-N` is missing;
-- re-executes itself via `sudo` for the I2C write;
+- re-executes itself via the setuid `sudo` wrapper in `/run/wrappers/bin` for
+  the I2C write (`/run/current-system/sw/bin/sudo` is not setuid on NixOS);
 - sends the fixed packet with an embedded Python `I2C_RDWR` call, so
   `i2c-tools` is not required.
 
