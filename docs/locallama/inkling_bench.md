@@ -63,7 +63,7 @@ Every speed is labelled **read** or **write**: read = prefill/input processing
 Fixed: context 262144, `--ubatch-size 2048`, share 0.8 except the `ncmoe`
 rows, which have no expert cache. VRAM after load.
 
-- **`--n-cpu-moe 16 --ubatch-size 512`** (current service)
+- **`--n-cpu-moe 16 --ubatch-size 512`** (old ncmoe service at the time)
   - changed: expert placement is `ncmoe16`, ubatch 512
   - write (decode): 16.46 t/s
   - VRAM: 14.47 GiB
@@ -674,8 +674,9 @@ prefill compute buffer.
   32-token decode). This is the "256 MiB is too small for bigger buffers"
   failure mode, now measured. It is a decode regression, not a prefill one.
 - VRAM: 12.0-12.5 GiB total, ~1.6-1.8 GiB above `-ub 512` at the same depth.
-- Recommendation: keep `-ub 512` for the 256k service. `-ub 2048` only makes
-  sense with a smaller expert cache.
+- Recommendation at the time (cap-era, superseded by the 2026-11-27 ubatch
+  sweep): keep `-ub 512` for the 256k service. `-ub 2048` only makes sense
+  with a smaller expert cache.
 
 ## Pinned-only pool depth sweep: 32k to 256k (2026-11-26)
 
@@ -727,7 +728,7 @@ desktop (~2.7 GiB), sampled every 0.5 s.
 
 | ubatch | batch | prefill t/s (runs) | mean | loaded VRAM | peak VRAM |
 | ---: | ---: | --- | ---: | ---: | ---: |
-| 512 (shipped) | 2048 | 456.4 / 458.8 | 457.6 | 9.82 GiB | 9.95 GiB |
+| 512 (prior shipped) | 2048 | 456.4 / 458.8 | 457.6 | 9.82 GiB | 9.95 GiB |
 | 768 | 2048 | 509.9 / 503.9 | 506.9 | 10.10-10.13 GiB | 10.23-10.25 GiB |
 | 1024 | 2048 | 534.1 / 532.5 | 533.3 | 9.94 GiB | 10.09-10.12 GiB |
 | 1536 | 2048 | 512.9 / 524.1 | 518.5 | 10.53-10.57 GiB | 10.69-10.77 GiB |
@@ -807,8 +808,8 @@ each, interleaved. VRAM is `rocm-smi` total GPU0 including the desktop; the
   `LimitMEMLOCK=infinity` on `user@.service`; after the 2026-11-26 reboot the
   lock is active (`VmLck` ~16 GB) and the stalls no longer reproduce.
 - Deployed service: 256k context, `-cmoe` with a 2048 MiB cache, share 0.45,
-  ub512 and q4_0/q4_0 KV → ~455 read t/s and ~19.4 write t/s at ~10.2 GiB
-  loaded / 10.4 GiB peak VRAM (~5.5 GiB free).
+  ub1024 and q4_0/q4_0 KV → ~533 read t/s and ~19.4 write t/s at ~10.0 GiB
+  loaded / 10.2 GiB peak VRAM (~5.8 GiB free).
 - Q3_K_XL measured ~3–4 % faster to read and ~3–5 % faster to write than
   Q4_K_M for ~0.15 GiB less VRAM, but the gain was small and quality was
   untested; the Q3 weights were deleted and Q4 stays shipped.
@@ -817,12 +818,13 @@ each, interleaved. VRAM is `rocm-smi` total GPU0 including the desktop; the
   2.17 % / 96.5 % same top-p, and 3/3 passkeys at 16.6k. Mixed q8_0/q4_0 and
   q5_0/q5_0 fall back to f16 attention, so they are slower to write and save
   less at peak. Long-context PPL could not be measured.
-- Expert-cache size dominates write speed at 256k. At the shipped share 0.45,
-  ub512 and q4_0 KV, 2048, 3072, 4096, 5120 and 6144 MiB give ~19.4, 21.6, 22.7,
-  25.2 and 26.7 write t/s for ~10.4, 11.4, 12.4, 13.4 and 14.4 GiB peak: about
-  +2 write t/s per extra GiB for ~1 GiB of VRAM. 6144 now leaves ~1.5 GiB free,
-  but with q8_0 KV it left only ~0.14 GiB. `auto` is far too conservative
-  (~1.3 GiB) and not a good deployment point.
+- Expert-cache size dominates write speed at 256k. At the shipped share 0.45
+  and q4_0 KV (measured at ub512; ub1024 adds ~0.15 GiB peak and does not
+  change write speed), 2048, 3072, 4096, 5120 and 6144 MiB give ~19.4, 21.6,
+  22.7, 25.2 and 26.7 write t/s for ~10.4, 11.4, 12.4, 13.4 and 14.4 GiB
+  peak: about +2 write t/s per extra GiB for ~1 GiB of VRAM. 6144 leaves
+  ~1.3 GiB free at ub1024, but with q8_0 KV it left only ~0.14 GiB. `auto` is
+  far too conservative (~1.3 GiB) and not a good deployment point.
 - `-cmoe` plus an explicit cache beats `--n-cpu-moe 16`: at similar VRAM it is
   30–44 % faster to write, and it lets VRAM be dialled with one number.
 - Do not combine `--n-cpu-moe` with `--moe-cache-mib`; write speed collapses.
@@ -833,7 +835,7 @@ each, interleaved. VRAM is `rocm-smi` total GPU0 including the desktop; the
   512, 506.9 at 768, 533.3 at 1024, 518.5 at 1536, 538.6 at 2048 and 476.3 at
   3072. A same-time fine sweep found 896 a local minimum (498.9 t/s, from the
   2048 logical batch splitting 896+896+256) and 1152/1280 flat at ~536-538
-  t/s. 1024 is the deployment pick (+16.5 % for ~0.15 GiB peak over 512); 2048
+  t/s. 1024 is shipped (+16.5 % for ~0.15 GiB peak over 512); 2048
   adds ~1.2 GiB for ~1 % over 1024, and 3072 regresses below 512 with a
   ~3.9 GiB compute buffer. The older cap-era 128k runs showed a smaller +8 %
   for ub2048, and its graph does not fit with 256k context plus a 4096-6144

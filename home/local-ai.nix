@@ -58,10 +58,11 @@ in
         # 256k standard with vision. All MoE experts live in host RAM;
         # a fixed 2 GiB expert cache keeps writes fast without the tight VRAM
         # of the 4-6 GiB caches, and share 0.45 is the write sweet spot.
-        # ubatch stays at the 512 default: 2048 adds ~1.3 GiB and cannot fit
-        # the 256k budget once the cache grows. q4_0 KV is the only quantized
-        # pair with a native FA kernel here and saves ~1.9 GiB over q8_0 with
-        # a small quality delta. See docs/inkling.md and
+        # ubatch 1024 is the prefill sweet spot: ~+17 % on a cold 6.3k read
+        # over 512 for ~0.15 GiB peak, and +5 % on a 32k->64k append; 2048
+        # adds ~1.2 GiB for ~1 % and 3072 regresses. q4_0 KV is the only
+        # quantized pair with a native FA kernel here and saves ~1.9 GiB over
+        # q8_0 with a small quality delta. See docs/inkling.md and
         # docs/locallama/inkling_bench.md.
         "--cpu-moe"
         "--moe-cache-mib" "2048"
@@ -71,7 +72,7 @@ in
         # faults from disk, and prefill collapses to ~10 t/s or appears hung
         # for minutes. Needs LimitMEMLOCK=infinity on user@.service.
         "--load-mode" "mmap+mlock"
-        "--ubatch-size" "512"
+        "--ubatch-size" "1024"
         "--ctx-size" "262144"
         "--cache-type-k" "q4_0"
         "--cache-type-v" "q4_0"

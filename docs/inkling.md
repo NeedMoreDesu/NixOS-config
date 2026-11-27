@@ -129,7 +129,7 @@ The service listens on `127.0.0.1:8089` (loopback only, no auth) with:
 ```
 --mmproj ~/models/inkling-2-mini/mmproj-F16.gguf --no-mmproj-offload
 --jinja -ngl 99 --load-mode mmap+mlock --cpu-moe --moe-cache-mib 2048 --moe-cache-cpu-share 0.45
--ub 512 -c 262144
+-ub 1024 -c 262144
 -ctk q4_0 -ctv q4_0 -fa on --parallel 1
 --temp 1.0 --top-p 1.0 --top-k 0 --min-p 0.0
 ```
@@ -138,7 +138,7 @@ All MoE experts stay in host RAM (~16.6 GB), with a fixed 2 GiB expert cache
 in VRAM and 45 % of cache misses computed on the CPU. The F16 projector also
 stays in host RAM (see below), so it adds no persistent VRAM. At 256k with a
 6.3k text prompt this measured **~10.2 GiB total VRAM including the desktop**
-(~5.5 GiB free at peak), **~455 t/s read** (prefill) and **~19.4 t/s write**
+(~5.8 GiB free at peak), **~533 t/s read** (prefill) and **~19.4 t/s write**
 (decode) — about 3.5 GiB less VRAM than the old `--n-cpu-moe 16` setup, and
 faster.
 Bigger caches trade the headroom for write speed at the same share and KV
@@ -146,13 +146,12 @@ type: 3072 MiB reaches ~21.6 write t/s at ~11.4 GiB peak, 4096 MiB ~22.7
 write t/s at ~12.4 GiB, 5120 MiB ~25.2 write t/s at ~13.4 GiB, and 6144 MiB
 ~26.7 write t/s at ~14.4 GiB (~1.5 GiB free). `auto` is far too
 conservative (~1.3 GiB) and slow. Keep the share in 0.3–0.6 (there is
-a cliff at 0.7). ubatch 512 is shipped; a cold 6.3k prefill at these settings
-rises ~11 % at ub768 and ~16.5 % at ub1024 for only ~0.2–0.3 GiB more peak
-VRAM, and 1152–1280 are flat within noise. Larger values add VRAM (2048 costs
-~1.2 GiB more for ~1 % over 1024) and 3072 regresses below 512, so ub1024 is
-the candidate switch. It also held +5 % on a 32k->64k prefill (130.8 vs
-124.5 t/s) with ~10.5 GiB peak either way; decode and prefill beyond 64k were
-not re-run.
+a cliff at 0.7). ubatch is 1024: a cold 6.3k prefill gains ~16.5 % over 512
+for only ~0.15 GiB more peak VRAM, and a 32k->64k extend gains ~5 % (130.8 vs
+124.5 t/s). 1152–1280 are flat within noise; 2048 costs ~1.2 GiB for ~1 %, and
+3072 regresses below 512. Values that leave a small remainder in the default
+2048 logical batch (896, 1536) dip from uneven splits. Decode was unchanged by
+ubatch; prefill beyond 64k was not re-run.
 q4_0 KV is the only quantized pair with a native FlashAttention kernel in
 this build and saved ~1.9 GiB over q8_0 with PPL +0.33 % at 4k, KL RMS
 Δp 2.17 %, and 3/3 passkeys at 16.6k; q5_0 and mixed q8_0/q4_0 fall back to
@@ -168,7 +167,8 @@ the context. The deployed source build applies
 captured graph stay resident, everything else is released at the next
 synchronized point. There is no non-pinned cache to size, trim or tune. At
 0->32k this leaves ~0.25 GB less resident than the earlier 256 MiB cap while
-prefill/decode stay within noise. A 32k->256k `-ub 512` sweep holds prefill at
+prefill/decode stay within noise. A 32k->256k `-ub 512` sweep (before the
+ub1024 switch) holds prefill at
 120.9 -> 28.5 t/s (matching the cap) and decode at ~13 t/s through 224k and
 14.6 t/s warm at 256k, with VRAM flat at 10.4-10.8 GB; the cap-era 224k/256k
 decode collapse (3-10 t/s) is gone. Deep-context stalls were a separate
