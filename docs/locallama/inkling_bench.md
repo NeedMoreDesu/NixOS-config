@@ -772,6 +772,27 @@ campaign's anchor.
   using ~0.15-0.3 GiB more peak VRAM. 1024 is the only value in this range
   that divides the default 2048 batch evenly, so it is the clean pick.
 
+### Depth test: 32k -> 64k at ub512 vs ub1024 (2026-11-27)
+
+Same deployed source build and flags, default `-b 2048`, text-only. Each fresh
+server first prefills the 32k prompt cold, then the 64k prompt whose first
+31980 tokens are identical; the second request reuses the 31980-token KV
+(`cache_n = 31980`) and evaluates the remaining 31980 tokens. Two samples
+each, interleaved. VRAM is `rocm-smi` total GPU0 including the desktop; the
+32k->64k column's peak covers both requests.
+
+| ubatch | 0->32k t/s (runs) | 32k->64k t/s (runs) | delta gain | peak VRAM |
+| ---: | --- | --- | ---: | ---: |
+| 512 | 273.8 / 273.2 | 124.6 / 124.3 | — | 10.18 / 10.61 GiB |
+| 1024 | 297.8 / 297.5 | 130.6 / 130.9 | +5.1 % | 10.55 / 10.53 GiB |
+
+- ub1024 is +8.8 % on the cold 0->32k fill and +5.1 % on the 32k->64k delta.
+- The gain shrinks with depth as prefill becomes attention-bound but does not
+  disappear by 64k. Peak VRAM is ~10.2-10.6 GiB either way; the spread is
+  desktop drift, not ubatch.
+- Both configurations did identical work (`prompt_n = cache_n = 31980`), so
+  the delta numbers are directly comparable.
+
 ## Takeaways
 
 - Why VRAM climbs during long prefill: the ggml HIP buffer-pool cache, not
@@ -817,7 +838,9 @@ campaign's anchor.
   ~3.9 GiB compute buffer. The older cap-era 128k runs showed a smaller +8 %
   for ub2048, and its graph does not fit with 256k context plus a 4096-6144
   MiB expert cache (OOM at 64k depth). Write speed was unchanged by ubatch in
-  the 256k matrix. ub1024 has not been depth-tested.
+  the 256k matrix. A 32k->64k depth test kept the ub1024 edge: 130.75 vs
+  124.45 t/s (+5.1 %) for ~10.5 GiB peak either way, and the 0->32k fill was
+  +8.8 %; ub1024 has been depth-tested only to 64k.
 - `--moe-cache-cpu-share` is irrelevant with the tiny `auto` cache, but with a
   2048 MiB cache shares 0.3–0.6 are ~36 % faster to write than 0.7–0.8
   (19.4–19.6 write t/s vs 14.2–14.4 write t/s) at identical read speed. The
