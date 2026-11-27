@@ -750,6 +750,28 @@ desktop (~2.7 GiB), sampled every 0.5 s.
   candidate: it captures the +16.5 % for ~0.15 GiB peak over 512, while 2048's
   extra ~1.2 GiB buys ~1 %. Long-depth prefill/decode was not re-run.
 
+### Fine sweep around 1024 (2026-11-27)
+
+Same harness and default `-b 2048`, with same-time anchors at 768 and 1024
+plus the 768/1024 midpoint 896 and the +128/+256 points above 1024 (1152,
+1280). Two samples each, interleaved; 1024 was run again as the second
+campaign's anchor.
+
+| ubatch | prefill t/s (runs) | mean | loaded VRAM | peak VRAM |
+| ---: | --- | ---: | ---: | ---: |
+| 768 | 511.2 / 510.3 | 510.8 | 10.10-10.13 GiB | 10.24-10.26 GiB |
+| 896 | 497.3 / 500.5 | 498.9 | 9.81-9.84 GiB | 9.96-9.98 GiB |
+| 1024 | 535.0 / 535.9 / 534.3 / 534.2 | 534.9 | 9.94-9.97 GiB | 10.09-10.12 GiB |
+| 1152 | 537.7 / 537.3 | 537.5 | 10.09 GiB | 10.25 GiB |
+| 1280 | 536.2 / 535.8 | 536.0 | 10.23 GiB | 10.39 GiB |
+
+- 896 is a local minimum, not a smooth midpoint: `-b 2048` splits each
+  logical batch into 896+896+256, and the 256-token tail is inefficient.
+  1536 (1536+512) shows the same effect; 768 (768+768+512) is mildly affected.
+- Above 1024 the curve is flat: 1152 and 1280 are within ~0.5 % of 1024 while
+  using ~0.15-0.3 GiB more peak VRAM. 1024 is the only value in this range
+  that divides the default 2048 batch evenly, so it is the clean pick.
+
 ## Takeaways
 
 - Why VRAM climbs during long prefill: the ggml HIP buffer-pool cache, not
@@ -785,11 +807,13 @@ desktop (~2.7 GiB), sampled every 0.5 s.
 - Do not combine `--n-cpu-moe` with `--moe-cache-mib`; write speed collapses.
 - 7168 MiB of cache is past the useful point on a 30 GiB host with all experts
   in RAM (measured with q8_0 KV).
-- `--ubatch-size` peaks around 1024-2048 for prefill: at the deployed 256k /
+- `--ubatch-size` peaks around 1024 for prefill: at the deployed 256k /
   2048 MiB cache / q4_0 settings a cold 6.3k prefill measured 457.6 t/s at
   512, 506.9 at 768, 533.3 at 1024, 518.5 at 1536, 538.6 at 2048 and 476.3 at
-  3072. 1024 is the deployment pick (+16.5 % for ~0.15 GiB peak over 512);
-  2048 adds ~1.2 GiB for ~1 % over 1024, and 3072 regresses below 512 with a
+  3072. A same-time fine sweep found 896 a local minimum (498.9 t/s, from the
+  2048 logical batch splitting 896+896+256) and 1152/1280 flat at ~536-538
+  t/s. 1024 is the deployment pick (+16.5 % for ~0.15 GiB peak over 512); 2048
+  adds ~1.2 GiB for ~1 % over 1024, and 3072 regresses below 512 with a
   ~3.9 GiB compute buffer. The older cap-era 128k runs showed a smaller +8 %
   for ub2048, and its graph does not fit with 256k context plus a 4096-6144
   MiB expert cache (OOM at 64k depth). Write speed was unchanged by ubatch in

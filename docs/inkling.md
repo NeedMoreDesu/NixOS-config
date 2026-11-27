@@ -148,9 +148,10 @@ write t/s at ~12.4 GiB, 5120 MiB ~25.2 write t/s at ~13.4 GiB, and 6144 MiB
 conservative (~1.3 GiB) and slow. Keep the share in 0.3–0.6 (there is
 a cliff at 0.7). ubatch 512 is shipped; a cold 6.3k prefill at these settings
 rises ~11 % at ub768 and ~16.5 % at ub1024 for only ~0.2–0.3 GiB more peak
-VRAM, is flat through 1536–2048 (2048 costs ~1.2 GiB more for ~1 % over 1024),
-and regresses at 3072 (~476 t/s, below 512). ub1024 is the candidate switch;
-decode and deep-context prefill were not re-run in that sweep.
+VRAM, and 1152–1280 are flat within noise. Larger values add VRAM (2048 costs
+~1.2 GiB more for ~1 % over 1024) and 3072 regresses below 512, so ub1024 is
+the candidate switch; decode and deep-context prefill were not re-run in that
+sweep.
 q4_0 KV is the only quantized pair with a native FlashAttention kernel in
 this build and saved ~1.9 GiB over q8_0 with PPL +0.33 % at 4k, KL RMS
 Δp 2.17 %, and 3/3 passkeys at 16.6k; q5_0 and mixed q8_0/q4_0 fall back to
