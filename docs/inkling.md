@@ -146,8 +146,11 @@ type: 3072 MiB reaches ~21.6 write t/s at ~11.4 GiB peak, 4096 MiB ~22.7
 write t/s at ~12.4 GiB, 5120 MiB ~25.2 write t/s at ~13.4 GiB, and 6144 MiB
 ~26.7 write t/s at ~14.4 GiB (~1.5 GiB free). `auto` is far too
 conservative (~1.3 GiB) and slow. Keep the share in 0.3–0.6 (there is
-a cliff at 0.7) and ubatch at 512: 2048 buys ~8 % read speed in a smaller KV
-budget but adds ~1.3 GiB and is unsafe at 256k once the cache grows.
+a cliff at 0.7). ubatch 512 is shipped; at these settings ub768 and ub1024
+raise cold 6.3k prefill by ~11 % and ~16.5 % for only ~0.2–0.3 GiB of peak
+VRAM, while 2048 buys ~8 % in a smaller KV budget but adds ~1.3 GiB and is
+unsafe at 256k once the cache grows. ub1024 is a candidate switch; decode and
+deep-context prefill were not re-run in that sweep.
 q4_0 KV is the only quantized pair with a native FlashAttention kernel in
 this build and saved ~1.9 GiB over q8_0 with PPL +0.33 % at 4k, KL RMS
 Δp 2.17 %, and 3/3 passkeys at 16.6k; q5_0 and mixed q8_0/q4_0 fall back to

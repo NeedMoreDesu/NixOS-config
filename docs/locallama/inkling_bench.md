@@ -715,6 +715,30 @@ first-decode-after-prefill samples and read as lower bounds.
 - Saved slots (32k-256k) are under `/tmp/opencode/breakpoints/`; 256k is 3.3 GB
   and restores in 1.4 s.
 
+## Prefill ubatch sweep at the deployed settings: 512 vs 768 vs 1024 (2026-11-27)
+
+Same deployed source build (pinned-only pool) and shipped flags (256k context,
+`cmoe`, cache 2048, share 0.45, q4_0/q4_0 KV, `-fa on`, text-only, no mmproj).
+Fresh server per sample so every run is a cold 6301-token prefill
+(`cache_n = 0`); two samples per ubatch, interleaved 512/768/1024. Read =
+`timings.prompt_per_second`; VRAM is total GPU0 including the desktop
+(~2.7 GiB), sampled every 0.5 s.
+
+| ubatch | prefill t/s (runs) | mean | loaded VRAM | peak VRAM |
+| ---: | --- | ---: | ---: | ---: |
+| 512 (shipped) | 456.4 / 458.8 | 457.6 | 9.82 GiB | 9.95 GiB |
+| 768 | 509.9 / 503.9 | 506.9 | 10.10-10.13 GiB | 10.23-10.25 GiB |
+| 1024 | 534.1 / 532.5 | 533.3 | 9.94 GiB | 10.09-10.12 GiB |
+
+- Prefill gain over ub512 is +10.8 % at 768 and +16.5 % at 1024.
+- The VRAM cost is small: peaks are 9.95, ~10.24 and ~10.10 GiB, all within
+  ~0.3 GiB. This is unlike `-ub 2048`, whose ~2.4 GiB prefill graph added
+  ~1.3 GiB and did not fit at 256k with a big expert cache.
+- Decode was out of scope for this sweep and was unchanged by ubatch in the
+  earlier campaigns; only prefill was measured here. ub1024 leaves ~5.8 GiB
+  free at load with the 2048 MiB cache, so it is a deployment candidate, but
+  its long-depth prefill/decode was not re-run.
+
 ## Takeaways
 
 - Why VRAM climbs during long prefill: the ggml HIP buffer-pool cache, not
@@ -750,11 +774,16 @@ first-decode-after-prefill samples and read as lower bounds.
 - Do not combine `--n-cpu-moe` with `--moe-cache-mib`; write speed collapses.
 - 7168 MiB of cache is past the useful point on a 30 GiB host with all experts
   in RAM (measured with q8_0 KV).
-- `--ubatch-size 2048` costs ~1.3–1.4 GiB and buys ~8 % read speed in a smaller
-  KV budget, ~3 % with a big expert cache, and ~13 % in `ncmoe` mode. It also
-  needs a ~2.4 GiB prefill graph, which does not fit with 256k context plus a
-  4096–6144 MiB expert cache (OOM at 64k depth), so keep 512 for the current
-  256k service. Write speed was unchanged by ubatch in the 256k matrix.
+- `--ubatch-size` raises prefill with almost no VRAM cost until 1024: at the
+  deployed 256k / 2048 MiB cache / q4_0 settings a cold 6.3k prefill measured
+  457.6 t/s at 512, 506.9 at 768 (+11 %) and 533.3 at 1024 (+16.5 %), all
+  within ~0.3 GiB peak of each other. `--ubatch-size 2048` is the outlier: it
+  costs ~1.3–1.4 GiB and buys ~8 % read speed in a smaller KV budget, ~3 %
+  with a big expert cache, and ~13 % in `ncmoe` mode. It needs a ~2.4 GiB
+  prefill graph, which does not fit with 256k context plus a 4096–6144 MiB
+  expert cache (OOM at 64k depth). Write speed was unchanged by ubatch in the
+  256k matrix. ub1024 is safe on VRAM at the shipped cache size but has not
+  been depth-tested.
 - `--moe-cache-cpu-share` is irrelevant with the tiny `auto` cache, but with a
   2048 MiB cache shares 0.3–0.6 are ~36 % faster to write than 0.7–0.8
   (19.4–19.6 write t/s vs 14.2–14.4 write t/s) at identical read speed. The
