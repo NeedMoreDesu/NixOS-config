@@ -186,8 +186,8 @@
       # verified live against ksystemstats:
       # `qdbus --literal org.kde.ksystemstats1 /org/kde/ksystemstats1 allSensors`.
       # On this host gpu0 is the discrete Navi 48 (RX 9070) and gpu1 is the
-      # Granite Ridge iGPU; the GPU row uses gpu0 so usage, VRAM and
-      # temperature all refer to the same device.
+      # Granite Ridge iGPU; the GPU row uses gpu0 and the iGPU row uses gpu1
+      # so usage and VRAM all refer to the same device.
       {
         location = "top";
         height = 30;
@@ -229,6 +229,21 @@
                   name = "gpu/gpu0/temperature";
                   label = "";
                   color = "130,120,150";
+                }
+                {
+                  name = "gpu/gpu1/usage";
+                  label = "iGPU";
+                  color = "100,150,145";
+                }
+                {
+                  name = "gpu/gpu1/usedVram";
+                  label = "";
+                  color = "100,150,145";
+                }
+                {
+                  name = "gpu/gpu1/totalVram";
+                  label = "";
+                  color = "100,150,145";
                 }
                 {
                   name = "memory/physical/used";

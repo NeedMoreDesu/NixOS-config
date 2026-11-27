@@ -81,14 +81,15 @@ A thin (30px) panel at the top (2026-11-14):
   | --- | --- | --- |
   | CPU | `cpu/all/usage` + `cpu/all/maximumTemperature` | `CPU 12% 55 °C` |
   | GPU | `gpu/gpu0/usage` + `gpu/gpu0/usedVram` + `gpu/gpu0/totalVram` + `gpu/gpu0/temperature` | `GPU 7% 3.2 / 15.9 GiB 41 °C` |
+  | iGPU | `gpu/gpu1/usage` + `gpu/gpu1/usedVram` + `gpu/gpu1/totalVram` | `iGPU 0% 53 / 512 MiB` |
   | RAM | `memory/physical/used` + `memory/physical/total` | `RAM 8.7 / 30.5 GiB` |
   | ↓/↑ | `network/all/download` + `network/all/upload` | `↓ 1.2 MiB/s ↑ 0.3 MiB/s` |
   | R/W | `disk/all/read` + `disk/all/write` | `R 4.0 MiB/s W 2.0 MiB/s` |
   | DSK | `disk/all/usedPercent` (root disk space used, **not** load) | `DSK 46%` |
 
   On this host `gpu0` is the discrete Navi 48 (RX 9070) and `gpu1` is the
-  Granite Ridge iGPU; the GPU row deliberately uses `gpu0` so usage, VRAM
-  and temperature all refer to the same device. Used/total pairs are the
+  Granite Ridge iGPU; the GPU row deliberately uses `gpu0` and the iGPU row
+  uses `gpu1` so usage and VRAM all refer to the same device. Used/total pairs are the
   preferred RAM/VRAM format; the face shows the single value if a total is
   unavailable. Verify sensor IDs live:
   `qdbus --literal org.kde.ksystemstats1 /org/kde/ksystemstats1 allSensors`.

@@ -60,10 +60,10 @@ Faces.CompactSensorFace {
         // cpu/all/maximumTemperature has the suffix inside the last segment,
         // so compare the segment, not the whole id.
         if (id.endsWith("/usage") || lastSegment.toLowerCase().endsWith("temperature")) {
-            return category
+            return category === "gpu" ? id.split("/").slice(0, 2).join("/") : category
         }
         if (id.endsWith("/usedVram") || id.endsWith("/totalVram")) {
-            return category
+            return category === "gpu" ? id.split("/").slice(0, 2).join("/") : category
         }
         if (id.endsWith("/used") || id.endsWith("/total")) {
             return category
