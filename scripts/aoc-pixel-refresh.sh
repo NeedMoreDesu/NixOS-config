@@ -2,60 +2,18 @@
 # AOC AGON AG326UD Pixel Refresh over DDC/CI.
 #
 # Reverse-engineered from AOC G-Menu 3.31.0. See docs/aoc_agon_monitor.md.
-# Standalone: detects the AG326UD's DDC bus, loads i2c-dev if needed, and
-# sends the vendor packet with an embedded Python I2C_RDWR call (no i2c-tools
-# dependency). Run as a user; it re-executes itself via sudo for the I2C write.
+# No arguments: always triggers Pixel Refresh On on the detected AG326UD.
 set -euo pipefail
 
 PATH=/run/current-system/sw/bin:/run/current-system/sw/sbin:$PATH
 export PATH
 
-self=$(readlink -f "$0")
-orig_args=("$@")
-
-usage() {
-  cat <<'EOF'
-usage: agon [options] [pixel|auto] [on|off]
-
-  agon                  Pixel Refresh On
-  agon off              Pixel Refresh Off
-  agon auto on          Auto Pixel Refresh On
-  agon auto off         Auto Pixel Refresh Off
-
-options:
-  -b, --bus N           DDC bus number (default: autodetect AG326UD)
-  -n, --dry-run         print the packet and exit without sending
-  -h, --help            this help
-EOF
-}
-
-bus=${AGON_BUS:-}
-mode=pixel
-value=1
-dry_run=0
-
-while [ $# -gt 0 ]; do
-  case $1 in
-    -b|--bus)
-      [ $# -ge 2 ] || { echo "agon: $1 needs an argument" >&2; exit 2; }
-      bus=$2
-      shift 2
-      ;;
-    -n|--dry-run) dry_run=1; shift ;;
-    -h|--help) usage; exit 0 ;;
-    pixel|self) mode=pixel; shift ;;
-    auto) mode=auto; shift ;;
-    on) value=1; shift ;;
-    off) value=0; shift ;;
-    *) echo "agon: unknown argument: $1" >&2; usage >&2; exit 2 ;;
-  esac
-done
-
-bus=${bus#i2c-}
-if [ -n "$bus" ] && ! [[ $bus =~ ^[0-9]+$ ]]; then
-  echo "agon: invalid bus: $bus" >&2
+if [ $# -ne 0 ]; then
+  echo "agon: takes no arguments" >&2
   exit 2
 fi
+
+self=$(readlink -f "$0")
 
 find_bus() {
   local edid conn ddc
@@ -71,58 +29,21 @@ find_bus() {
   return 1
 }
 
-if [ -z "$bus" ]; then
-  if ! bus=$(find_bus); then
-    echo "agon: no connected AOC AG326UD found." >&2
-    echo "      connected connectors:" >&2
-    for edid in /sys/class/drm/card*-*/edid; do
-      conn=${edid%/edid}
-      [ "$(cat "$conn/status" 2>/dev/null)" = connected ] || continue
-      ddc=$(readlink -f "$conn/ddc" 2>/dev/null) || ddc='?'
-      echo "        ${conn##*/}  ddc=${ddc##*/}" >&2
-    done
-    echo "      pass --bus N (or AGON_BUS=N) if the bus is not detected." >&2
-    exit 1
-  fi
-fi
-
-op=0x36
-[ "$mode" = auto ] && op=0x61
-
-data=(0x03 0xE2 0xA0 "$op" $(((value >> 8) & 0xFF)) $((value & 0xFF)))
-len=$((0x80 | ${#data[@]}))
-csum=$((0x6E ^ 0x51 ^ len))
-for b in "${data[@]}"; do
-  csum=$((csum ^ b))
-done
-packet=(0x51 "$len" "${data[@]}" "$csum")
-
-hex_packet() {
-  local b out=''
-  for b in "${packet[@]}"; do
-    printf -v b '0x%02X' "$b"
-    out+="${out:+ }$b"
-  done
-  printf '%s\n' "$out"
-}
-
-label='pixel refresh'
-[ "$mode" = auto ] && label='auto pixel refresh'
-state=off
-if [ "$value" -eq 1 ]; then state=on; fi
-
-if [ "$dry_run" -eq 1 ]; then
-  echo "agon: ${label} ${state} (i2c-${bus})" >&2
-  echo "agon: packet $(hex_packet)" >&2
-  exit 0
-fi
-
 if [ "$(id -u)" -ne 0 ]; then
-  exec sudo -- "$self" --bus "$bus" "${orig_args[@]}"
+  exec sudo -- "$self"
 fi
 
-echo "agon: ${label} ${state} (i2c-${bus})" >&2
-echo "agon: packet $(hex_packet)" >&2
+if ! bus=$(find_bus); then
+  echo "agon: no connected AOC AG326UD found." >&2
+  echo "      connected connectors:" >&2
+  for edid in /sys/class/drm/card*-*/edid; do
+    conn=${edid%/edid}
+    [ "$(cat "$conn/status" 2>/dev/null)" = connected ] || continue
+    ddc=$(readlink -f "$conn/ddc" 2>/dev/null) || ddc='?'
+    echo "        ${conn##*/}  ddc=${ddc##*/}" >&2
+  done
+  exit 1
+fi
 
 if [ ! -e "/dev/i2c-${bus}" ]; then
   if ! modprobe i2c-dev 2>/dev/null; then
@@ -142,7 +63,10 @@ if [ ! -e "/dev/i2c-${bus}" ]; then
   exit 1
 fi
 
-python3 - "$bus" "${packet[@]}" <<'PY'
+echo "agon: pixel refresh on (i2c-${bus})" >&2
+echo "agon: packet 51 86 03 E2 A0 36 00 01 CF" >&2
+
+python3 - "$bus" <<'PY'
 import ctypes
 import os
 import sys
@@ -150,6 +74,7 @@ import time
 
 I2C_RDWR = 0x0707
 DDC_ADDR = 0x37
+PACKET = bytes([0x51, 0x86, 0x03, 0xE2, 0xA0, 0x36, 0x00, 0x01, 0xCF])
 
 class I2CMsg(ctypes.Structure):
     _fields_ = [
@@ -166,7 +91,6 @@ class I2CRdwrData(ctypes.Structure):
     ]
 
 bus = int(sys.argv[1])
-payload = bytes(int(x, 0) for x in sys.argv[2:])
 
 libc = ctypes.CDLL(None, use_errno=True)
 libc.ioctl.argtypes = [ctypes.c_int, ctypes.c_ulong, ctypes.c_void_p]
@@ -174,8 +98,8 @@ libc.ioctl.restype = ctypes.c_int
 
 fd = os.open(f"/dev/i2c-{bus}", os.O_RDWR)
 try:
-    buf = (ctypes.c_uint8 * len(payload))(*payload)
-    msg = I2CMsg(DDC_ADDR, 0, len(payload), buf)
+    buf = (ctypes.c_uint8 * len(PACKET))(*PACKET)
+    msg = I2CMsg(DDC_ADDR, 0, len(PACKET), buf)
     rdwr = I2CRdwrData(ctypes.pointer(msg), 1)
     if libc.ioctl(fd, I2C_RDWR, ctypes.byref(rdwr)) < 0:
         err = ctypes.get_errno()

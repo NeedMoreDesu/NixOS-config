@@ -53,30 +53,21 @@ Related commands using the same framing:
 ## `agon` script
 
 `scripts/aoc-pixel-refresh.sh`, aliased as **`agon`** in `shell/aliases.sh`.
-It is standalone and does the setup itself:
+It takes no arguments and always triggers Pixel Refresh On. It is standalone:
 
-- auto-detects the `AG326UD` EDID and its DDC bus (`--bus N` or `AGON_BUS=N`
-  overrides);
+- auto-detects the `AG326UD` EDID and its DDC bus;
 - loads `i2c-dev` if `/dev/i2c-N` is missing;
 - re-executes itself via `sudo` for the I2C write;
-- sends the packet with an embedded Python `I2C_RDWR` call, so `i2c-tools` is
-  not required.
-
-Usage:
-
-```bash
-agon                 # Pixel Refresh On
-agon off             # Pixel Refresh Off
-agon auto on         # Auto Pixel Refresh On
-agon auto off        # Auto Pixel Refresh Off
-
-agon --dry-run       # print detected bus + packet, do not send
-agon --bus 9 auto on # explicit DDC bus
-```
+- sends the fixed packet with an embedded Python `I2C_RDWR` call, so
+  `i2c-tools` is not required.
 
 The alias exists in a normal login shell after `shell/aliases.sh` is sourced.
-`agon` prints the detected bus and packet before sending. The monitor will
-blink its power LED and run the refresh for a few minutes.
+`agon` prints the detected bus and packet; the monitor then blinks its power
+LED and runs the refresh for a few minutes.
+
+The command is deliberately not parameterized: turning refresh off, Auto Pixel
+Refresh, and state reads are not exposed. The rest of this document is the
+reference for revisiting them.
 
 ## Monitor and DDC bus
 
@@ -249,7 +240,7 @@ Frontend:
 ## Sending it from Linux
 
 The normal path is `agon` (above). The manual commands below are for debugging,
-or if the script's bus detection needs to be bypassed.
+or for the E2A0 commands the script intentionally does not expose.
 
 Requirements for the manual path:
 
@@ -281,6 +272,60 @@ sudo i2ctransfer -y 9 w9@0x37 \
 Use the same command with value `00 00` and the matching checksum to send Off
 (`... 0x36 00 00 ce` for Pixel Refresh). Do not write to the wrong I2C bus;
 verify the DDC symlink first.
+
+## If revisiting other actions
+
+`agon` hardcodes one packet. To try another E2A0 action, change the `PACKET`
+bytes in the script's embedded Python and keep the framing/checksum rules
+above. The bus detection and sudo/module setup can stay as-is.
+
+Set commands use the same framing as Pixel Refresh:
+
+| Action | Packet |
+| --- | --- |
+| Pixel Refresh Off | `51 86 03 E2 A0 36 00 00 CE` |
+| Auto Pixel Refresh On | `51 86 03 E2 A0 61 00 01 98` |
+| Auto Pixel Refresh Off | `51 86 03 E2 A0 61 00 00 99` |
+
+Reading state uses DDC/CI Get VCP Feature instead of Set: opcode `0x01` and
+only the 4-byte extended selector. The request for Auto Warning (`0x43`) is:
+
+```text
+51 84 01 E2 A0 43 BB
+```
+
+The reply is the normal 11-byte DDC/CI Get VCP reply:
+
+```text
+6E 88 02 <result> E2 <type> <max_hi> <max_lo> <cur_hi> <cur_lo> <checksum>
+```
+
+`<cur_hi> << 8 | <cur_lo>` is the current value. The app's native parser strips
+the first two bytes, so in its output buffer the current value is at offsets
+6/7. On/Off use `SwitchFlag_E`: On = `1`, Off = `0`.
+
+Read requests:
+
+| Value | Request |
+| --- | --- |
+| Auto Warning (`0x43`) | `51 84 01 E2 A0 43 BB` |
+| Auto Pixel Refresh (`0x61`) | `51 84 01 E2 A0 61 99` |
+| Pixel Refresh (`0x36`) | `51 84 01 E2 A0 36 CE` |
+| Pixel Orbiting (`0x34`) | `51 84 01 E2 A0 34 CC` |
+
+A read is request -> wait ~50 ms -> read reply. The app sleeps 50 ms between
+the two in `DDCHelperLib`'s get path. `i2ctransfer` sends a repeated start
+immediately; use a small Python/`I2C_RDWR` write-then-read if the monitor does
+not answer that way.
+
+The .NET get builder is
+`YyrWHHtMTriWmtBO3F.dVQnML1sepYxPclLmQ.WVYuvc74KP`: it sets `buffer[0]=0x01`,
+`buffer[1..3]=0xE2,0xA0,extCode`, and length 4.
+`DDCHelperAttrOper.GetValue(E2A0_ExternVCPOpCode_E)` is the caller.
+
+To bypass bus detection, replace `bus=$(find_bus)` with `bus=N` (or run the
+manual `i2ctransfer` command). For a dry run, print the packet and exit before
+the Python heredoc.
 
 ## Reproducing the extraction
 
