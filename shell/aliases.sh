@@ -12,3 +12,6 @@ alias caffeinate='systemd-inhibit --what=idle:sleep:handle-lid-switch --why="awa
 # Reload xremap's config (it can't live-reload): restart the session user
 # service. nyx does the same as root after a switch; this is for hand edits.
 alias xremap-reset='systemctl --user restart xremap'
+
+# AOC AGON AG326UD Pixel Refresh over DDC/CI. See docs/aoc_agon_monitor.md.
+alias agon='bash "$NYX_REPO/scripts/aoc-pixel-refresh.sh"'

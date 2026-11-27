@@ -50,6 +50,34 @@ Related commands using the same framing:
 | Auto Pixel Refresh On | `51 86 03 E2 A0 61 00 01 98` |
 | Auto Pixel Refresh Off | `51 86 03 E2 A0 61 00 00 99` |
 
+## `agon` script
+
+`scripts/aoc-pixel-refresh.sh`, aliased as **`agon`** in `shell/aliases.sh`.
+It is standalone and does the setup itself:
+
+- auto-detects the `AG326UD` EDID and its DDC bus (`--bus N` or `AGON_BUS=N`
+  overrides);
+- loads `i2c-dev` if `/dev/i2c-N` is missing;
+- re-executes itself via `sudo` for the I2C write;
+- sends the packet with an embedded Python `I2C_RDWR` call, so `i2c-tools` is
+  not required.
+
+Usage:
+
+```bash
+agon                 # Pixel Refresh On
+agon off             # Pixel Refresh Off
+agon auto on         # Auto Pixel Refresh On
+agon auto off        # Auto Pixel Refresh Off
+
+agon --dry-run       # print detected bus + packet, do not send
+agon --bus 9 auto on # explicit DDC bus
+```
+
+The alias exists in a normal login shell after `shell/aliases.sh` is sourced.
+`agon` prints the detected bus and packet before sending. The monitor will
+blink its power LED and run the refresh for a few minutes.
+
 ## Monitor and DDC bus
 
 Identified from the HDMI EDID:
@@ -220,7 +248,10 @@ Frontend:
 
 ## Sending it from Linux
 
-Requirements:
+The normal path is `agon` (above). The manual commands below are for debugging,
+or if the script's bus detection needs to be bypassed.
+
+Requirements for the manual path:
 
 - `i2c-dev` loaded (`boot.kernelModules = [ "i2c-dev" ];` if missing).
 - Read/write access to `/dev/i2c-N` (normally `i2c` group or a udev rule).

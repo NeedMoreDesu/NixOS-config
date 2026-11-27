@@ -35,6 +35,7 @@ This is the map. Detailed behaviour lives in the linked subject docs.
 | `agent-chrome.sh` | Dedicated CDP Chromium launcher. See [agent browser](agent-browser.md). |
 | `agent-browser.sh` | Lazy front door for page commands. See [agent browser](agent-browser.md). |
 | `kde_restart.sh` | Re-apply Plasma config to the live session (`kde-restart`). See [rebuild](rebuild.md). |
+| `aoc-pixel-refresh.sh` | Standalone AG326UD Pixel Refresh DDC sender (`agon`). See [AOC monitor](aoc_agon_monitor.md). |
 
 ## `pkgs/`
 
